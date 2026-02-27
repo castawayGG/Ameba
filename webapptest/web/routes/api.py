@@ -13,7 +13,7 @@ from tasks.celery_app import celery_app
 from celery.result import AsyncResult
 import json
 import datetime
-import random as _random
+import random
 import psutil
 from models.api_credential import ApiCredential
 
@@ -136,7 +136,7 @@ def daily_stats():
 @admin_required
 def server_stats():
     """AJAX-эндпоинт для получения статистики сервера (CPU/RAM/Disk)."""
-    cpu = psutil.cpu_percent(interval=0.5)
+    cpu = psutil.cpu_percent(interval=0)
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
     return jsonify({
@@ -167,7 +167,7 @@ def get_random_credential():
     creds = db.session.query(ApiCredential).filter(ApiCredential.enabled == True).all()
     if not creds:
         return jsonify({'success': False, 'error': 'No active credentials'}), 404
-    cred = _random.choice(creds)
+    cred = random.choice(creds)
     cred.last_used = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()
     return jsonify({'success': True, 'api_id': cred.api_id, 'api_hash': cred.api_hash})

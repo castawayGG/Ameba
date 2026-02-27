@@ -113,8 +113,8 @@ def login():
                         f"IP: <code>{request.remote_addr}</code>\n"
                         f"Время: {now.strftime('%Y-%m-%d %H:%M UTC')}"
                     )
-                except Exception:
-                    pass
+                except Exception as notify_err:
+                    log.warning(f"Failed to send login notification: {notify_err}")
                 user.last_login = now
                 user.login_attempts = 0
                 db.session.commit()

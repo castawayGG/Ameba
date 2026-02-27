@@ -128,7 +128,9 @@ function setBar(id, pct) {
     const bar = document.getElementById(id);
     bar.style.width = pct + '%';
     // Меняем цвет при высокой нагрузке
-    bar.className = bar.className.replace(/bg-\w+-500/, pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : bar.id.replace('-bar', '') === 'cpu-bar' ? 'bg-blue-500' : bar.id === 'ram-bar' ? 'bg-green-500' : 'bg-purple-500');
+    const baseColors = {'cpu-bar': 'bg-blue-500', 'ram-bar': 'bg-green-500', 'disk-bar': 'bg-purple-500'};
+    const color = pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : (baseColors[id] || 'bg-blue-500');
+    bar.className = bar.className.replace(/bg-\w+-500/, color);
 }
 
 async function fetchStats() {

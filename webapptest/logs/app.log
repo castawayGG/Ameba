@@ -28,3 +28,66 @@
 2026-02-27T15:43:06.621959+0000 | INFO | web.app:create_app:69 - Flask application created successfully
 2026-02-27T15:43:06.682391+0000 | INFO | web.app:create_app:69 - Flask application created successfully
 2026-02-27T15:43:06.872652+0000 | INFO | web.app:create_app:69 - Flask application created successfully
+2026-02-27T16:20:29.340413+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:29.360625+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:45.567957+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:20:45.880203+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:45.945587+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:45.996209+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.044945+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.092253+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.094241+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:20:46.183514+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.234637+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.281624+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.330280+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.399193+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:46.906870+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:20:46.963904+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:47.513356+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:48.010975+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes
+2026-02-27T16:20:59.127222+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:20:59.144993+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:21:12.906570+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:21:12.924123+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:21:28.560625+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:21:28.821776+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:22:02.912332+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:22:03.190004+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:22:03.191097+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:22:03.208032+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:22:40.991213+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:23:04.876295+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:23:05.268001+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:23:12.714817+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:23:13.009107+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.059696+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.114298+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.164344+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.212659+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.214771+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:23:13.267764+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.319060+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.371955+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.422402+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:13.475850+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:14.025804+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:23:14.086715+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:14.637539+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:23:15.134207+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes
+2026-02-27T16:24:56.429550+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:24:56.727061+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:56.774536+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:56.828440+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:56.878834+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:56.928302+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:56.930283+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:24:56.977814+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:57.026481+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:57.076314+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:57.126008+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:57.179959+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:57.687256+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:24:57.787263+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:58.337729+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:24:58.834277+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes

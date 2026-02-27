@@ -3,3 +3,9 @@
 2026-02-27T15:38:30.874960+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
 2026-02-27T15:38:38.039036+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
 2026-02-27T15:39:38.323297+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
+2026-02-27T16:20:46.094241+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:20:48.010975+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes
+2026-02-27T16:23:13.214771+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:23:15.134207+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes
+2026-02-27T16:24:56.930283+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:24:58.834277+0000 | ERROR | web.routes.admin:login:138 - Login error: can't compare offset-naive and offset-aware datetimes
