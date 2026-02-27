@@ -17,15 +17,16 @@
     --c-light-border: #E9ECEF;
 
     /* Dark Theme (Admin/Login) */
-    --c-dark-bg: #111315;
-    --c-dark-bg-alt: #1A1D1F;
-    --c-dark-border: #2A2E33;
-    --c-dark-text: #E8E9EA;
-    --c-dark-text-alt: #8A9199;
+    --c-dark-bg: #070f1a;
+    --c-dark-bg2: #0d1b2e;
+    --c-dark-bg-alt: #112240;
+    --c-dark-border: #1e3a5f;
+    --c-dark-text: #e2eaf4;
+    --c-dark-text-alt: #6b8cae;
     
     /* Brand & Accent Colors */
-    --c-primary: #0D6EFD;
-    --c-primary-hover: #0B5ED7;
+    --c-primary: #0ea5e9;
+    --c-primary-hover: #38bdf8;
     --c-success: #198754;
     --c-danger: #DC3545;
     --c-danger-hover: #BB2D3B;
