@@ -1,0 +1,76 @@
+{% extends 'admin/base.html' %}
+{% block title %}Профиль{% endblock %}
+{% block page_title %}Профиль пользователя{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+    <!-- Profile Info -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 mb-6">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Информация</h2>
+        <div class="flex items-center mb-6">
+            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-2xl mr-4">
+                {{ current_user.username[0]|upper }}
+            </div>
+            <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ current_user.username }}</p>
+                <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full
+                    {% if current_user.role == 'superadmin' %}bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300
+                    {% elif current_user.role == 'admin' %}bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300
+                    {% elif current_user.role == 'editor' %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300
+                    {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                    {{ current_user.role }}
+                </span>
+            </div>
+        </div>
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <dt class="text-gray-500 dark:text-gray-400">Зарегистрирован</dt>
+                <dd class="text-gray-800 dark:text-gray-200">{{ current_user.created_at | timestamp_to_date if current_user.created_at else '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500 dark:text-gray-400">Последний вход</dt>
+                <dd class="text-gray-800 dark:text-gray-200">{{ current_user.last_login | timestamp_to_date if current_user.last_login else '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500 dark:text-gray-400">2FA</dt>
+                <dd>
+                    {% if current_user.otp_secret %}
+                    <span class="text-green-600 dark:text-green-400 font-medium">Включена</span>
+                    {% else %}
+                    <span class="text-gray-500 dark:text-gray-400">Выключена</span>
+                    {% endif %}
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- Change Password -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Смена пароля</h2>
+        <form method="POST">
+            <input type="hidden" name="action" value="change_password">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Текущий пароль</label>
+                    <input type="password" name="old_password" required
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Новый пароль</label>
+                    <input type="password" name="new_password" required minlength="8"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Подтвердите пароль</label>
+                    <input type="password" name="confirm_password" required minlength="8"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    Изменить пароль
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
