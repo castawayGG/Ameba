@@ -102,7 +102,6 @@ def bulk_test_proxies():
 @admin_required
 def start_campaign_api(campaign_id):
     """Запуск кампании (асинхронно)."""
-    from sqlalchemy import select
     campaign = db.session.get(Campaign, campaign_id)
     if not campaign:
         return jsonify({'success': False, 'error': 'Кампания не найдена'}), 404
