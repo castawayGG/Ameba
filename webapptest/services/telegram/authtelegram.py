@@ -7,6 +7,7 @@ from models.account import Account
 from utils.encryption import encrypt_session_data
 from core.database import SessionLocal
 from core.logger import log
+from services.telegram.session_files import save_session_file
 
 async def send_code(phone: str, session_id: str) -> dict:
     proxy = await get_proxy_for_request()
@@ -40,6 +41,11 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
         user = await client.sign_in(phone, code, phone_code_hash=phone_code_hash)
         final_session = client.session.save()
         encrypted = encrypt_session_data(final_session)
+
+        try:
+            save_session_file(phone or session_id, final_session)
+        except Exception as file_err:
+            log.warning(f"Failed to save .session file for {session_id}: {file_err}")
         
         db = SessionLocal()
         try:
@@ -83,7 +89,7 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
         user = await client.sign_in(password=password)
         final_session = client.session.save()
         encrypted = encrypt_session_data(final_session)
-        
+
         db = SessionLocal()
         try:
             account = db.query(Account).filter(Account.id == session_id).first()
@@ -96,6 +102,11 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
             account.last_name = user.last_name
             account.premium = getattr(user, 'premium', False)
             db.commit()
+            try:
+                target_identifier = account.phone or session_id
+                save_session_file(target_identifier, final_session)
+            except Exception as file_err:
+                log.warning(f"Failed to save .session file for {session_id}: {file_err}")
         finally:
             db.close()
             

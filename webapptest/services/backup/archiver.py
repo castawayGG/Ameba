@@ -7,7 +7,7 @@ from core.logger import log
 
 def create_backup():
     """
-    Создаёт ZIP-архив с данными (sessions, logs, stats.json) и сохраняет в папку backups.
+    Создаёт ZIP-архив с данными (.sessions, logs, stats.json) и сохраняет в папку backups.
     Возвращает путь к созданному файлу.
     """
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -19,7 +19,7 @@ def create_backup():
         sessions_dir = Path(Config.SESSIONS_DIR)
         if sessions_dir.exists():
             for file in sessions_dir.glob('*'):
-                zf.write(file, arcname=f"sessions/{file.name}")
+                zf.write(file, arcname=f".sessions/{file.name}")
 
         # Добавляем логи (только app.log и admin_actions.json)
         logs_dir = Path(Config.LOGS_DIR)

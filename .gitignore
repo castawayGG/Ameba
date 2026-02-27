@@ -26,6 +26,8 @@ backups/
 
 # Sessions
 sessions/
+.sessions/
+*.session
 
 # Instance folder (Flask)
 instance/

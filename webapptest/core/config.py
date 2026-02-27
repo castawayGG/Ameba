@@ -60,11 +60,13 @@ class Config:
 
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')
+    SESSIONS_DIR = os.path.join(BASE_DIR, '.sessions')
+    LEGACY_SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')
     LOGS_DIR = os.path.join(BASE_DIR, 'logs')
     BACKUPS_DIR = os.path.join(BASE_DIR, 'backups')
 
     # Создаём директории, если их нет
     os.makedirs(SESSIONS_DIR, exist_ok=True)
+    os.makedirs(LEGACY_SESSIONS_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(BACKUPS_DIR, exist_ok=True)

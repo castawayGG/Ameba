@@ -24,6 +24,7 @@ from models.api_credential import ApiCredential
 from web.middlewares.auth import admin_required
 from core.logger import log
 from core.config import Config
+from services.telegram.session_files import find_session_file
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -628,6 +629,22 @@ def accounts_upload():
     log_action("accounts_upload", f"Загружено из файла: {added} аккаунтов")
     flash(f'Добавлено {added} аккаунтов', 'success')
     return redirect(url_for('admin.accounts'))
+
+@admin_bp.route('/accounts/<account_id>/session_file')
+@login_required
+def account_session_file(account_id):
+    """Скачивание .session файла аккаунта для парсинга из панели"""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return "Аккаунт не найден", 404
+
+    session_path = find_session_file(account.phone) or find_session_file(account_id)
+    if not session_path:
+        flash('Файл сессии не найден', 'danger')
+        return redirect(url_for('admin.accounts'))
+
+    log_action("account_session_download", f"Скачан .session для {account.phone or account_id}")
+    return send_file(session_path, mimetype='text/plain', as_attachment=True, download_name=session_path.name)
 
 
 # ==========================================

@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
 COPY . .
 
 # Создание необходимых папок для хранения данных
-RUN mkdir -p sessions logs backups
+RUN mkdir -p .sessions sessions logs backups
 
 # Создание непривилегированного пользователя
 RUN adduser --disabled-password --gecos '' appuser \

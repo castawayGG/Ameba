@@ -55,6 +55,7 @@ Services:
 ### 3. Access the admin panel
 
 Navigate to `https://yourdomain.com/admin` (or `http://localhost/admin` without SSL).
+- Telethon sessions are persisted as `.session` files under `.sessions/` after successful verification and can be downloaded from the Accounts page.
 
 ## Local Development
 

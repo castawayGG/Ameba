@@ -4,11 +4,15 @@ and admin login flow.
 """
 import os
 import tempfile
+from pathlib import Path
 import pytest
 from unittest.mock import patch
 from web.app import create_app
 from web.extensions import db as _db
+from core.config import Config
 from models.user import User
+from models.account import Account
+from services.telegram.session_files import save_session_file
 
 
 @pytest.fixture
@@ -167,3 +171,41 @@ class TestAdminLogin:
         })
         # Should not redirect to dashboard – stay on login page
         assert b'danger' in resp.data or resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Session file handling
+# ---------------------------------------------------------------------------
+
+def test_save_session_file_writes_to_dot_sessions(monkeypatch, tmp_path):
+    monkeypatch.setattr(Config, "SESSIONS_DIR", tmp_path / ".sessions")
+    monkeypatch.setattr(Config, "LEGACY_SESSIONS_DIR", tmp_path / "sessions")
+
+    path_str = save_session_file("+123456789", "session_payload")
+    saved_path = Path(path_str)
+    assert saved_path.exists()
+    assert saved_path.read_text() == "session_payload"
+    assert saved_path.parent == Path(Config.SESSIONS_DIR)
+
+
+def test_admin_can_download_session_file(client, admin_user, app, monkeypatch, tmp_path):
+    monkeypatch.setattr(Config, "SESSIONS_DIR", tmp_path / ".sessions")
+    monkeypatch.setattr(Config, "LEGACY_SESSIONS_DIR", tmp_path / "sessions")
+    _db.create_all()
+
+    acc = Account(id='acc123', phone='+15550001')
+    _db.session.add(acc)
+    _db.session.commit()
+
+    save_session_file(acc.phone, "abc123")
+
+    client.post('/admin/login', data={
+        'username': 'testadmin',
+        'password': 'testpassword',
+        'otp': '',
+    })
+
+    resp = client.get(f'/admin/accounts/{acc.id}/session_file')
+    assert resp.status_code == 200
+    assert resp.data.decode().strip() == "abc123"
+    assert resp.headers.get('Content-Type', '').startswith('text/plain')
