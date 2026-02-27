@@ -6,10 +6,7 @@
 
 ### 1. Copy and configure environment
 
-```bash
-cp SYKA/.env.example SYKA/.env
-# Edit SYKA/.env and set all required values
-```
+In the project directory (e.g. `/var/www/webapptest.fun`, where `docker-compose.yml` lives), create a `.env` file and fill in the variables below.
 
 **Required variables in `.env`:**
 
@@ -40,7 +37,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### 2. Build and run
 
 ```bash
-cd SYKA
+cd /var/www/webapptest.fun
 docker compose up --build
 ```
 
@@ -59,7 +56,7 @@ Navigate to `https://yourdomain.com/admin` (or `http://localhost/admin` without 
 ## Local Development
 
 ```bash
-cd SYKA
+cd webapptest
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -74,7 +71,7 @@ python run.py
 ## Running Tests
 
 ```bash
-cd SYKA
+cd webapptest
 pip install pytest
 python -m pytest tests/ -v
 ```
@@ -82,7 +79,7 @@ python -m pytest tests/ -v
 ## Database Migrations
 
 ```bash
-# Inside the SYKA directory with DATABASE_URL set:
+# Inside the project directory with DATABASE_URL set:
 alembic upgrade head
 
 # Auto-generate a new migration after model changes:
@@ -92,7 +89,7 @@ alembic revision --autogenerate -m "describe change"
 ## Architecture
 
 ```
-SYKA/
+webapptest/
 ├── web/               # Flask app
 │   ├── app.py         # Application factory (create_app)
 │   ├── extensions.py  # SQLAlchemy, LoginManager, Limiter, Migrate
