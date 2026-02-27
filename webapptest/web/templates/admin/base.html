@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ControlPanel{% endblock %} | Панель управления</title>
+    <title>{% block title %}Plashka{% endblock %} | Панель управления</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,13 +17,16 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        // Тёмно-синяя палитра панели управления
+                        // Тёмно-голубая палитра панели управления
                         panel: {
-                            bg:      '#0a1929',
-                            surface: '#1e2f4f',
-                            card:    '#172440',
-                            border:  '#2a3f5f',
-                            accent:  '#2563eb',
+                            bg:      '#070f1a',
+                            surface: '#0d1b2e',
+                            card:    '#112240',
+                            border:  '#1e3a5f',
+                            accent:  '#0ea5e9',
+                            accent2: '#38bdf8',
+                            text:    '#e2eaf4',
+                            muted:   '#6b8cae',
                         }
                     }
                 }
@@ -39,13 +42,13 @@
         })();
     </script>
     <style>
-        /* Тёмно-синие CSS-переменные для панели */
-        :root { --panel-bg: #0a1929; --panel-surface: #1e2f4f; --panel-card: #172440; --panel-border: #2a3f5f; --panel-accent: #2563eb; }
+        /* Тёмно-голубые CSS-переменные для панели */
+        :root { --panel-bg: #070f1a; --panel-surface: #0d1b2e; --panel-card: #112240; --panel-border: #1e3a5f; --panel-accent: #0ea5e9; --panel-accent2: #38bdf8; --panel-text: #e2eaf4; --panel-muted: #6b8cae; }
         body.dark-panel { background: var(--panel-bg); }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #2a3f5f; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3b5280; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--panel-accent); }
         .sidebar-transition { transition: transform 0.25s ease; }
         .modal-backdrop { animation: fadeIn 0.15s ease; }
         .modal-panel { animation: slideUp 0.2s ease; }
@@ -55,7 +58,7 @@
         .toast-leave { animation: toastOut 0.3s ease forwards; }
         @keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(16px); } }
-        /* Переопределение тёмной темы на тёмно-синюю */
+        /* Переопределение тёмной темы на тёмно-голубую */
         .dark body { background: var(--panel-bg) !important; }
         .dark aside#sidebar { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
         .dark header { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
@@ -63,6 +66,8 @@
         .dark .dark\:bg-gray-800 { background: var(--panel-card) !important; }
         .dark .dark\:bg-gray-900 { background: var(--panel-bg) !important; }
         .dark .dark\:border-gray-700 { border-color: var(--panel-border) !important; }
+        .dark .nav-accent-active { background: var(--panel-accent) !important; color: #fff !important; }
+        .dark .nav-accent-hover:hover { background: rgba(14, 165, 233, 0.15) !important; color: var(--panel-accent2) !important; }
         /* Светлая тема – стандартный серый фон */
     </style>
 </head>
@@ -76,48 +81,57 @@
         <div class="flex flex-col h-full">
             <!-- Logo -->
             <div class="h-16 flex items-center px-6 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
-                <i class="fa-solid fa-bolt text-blue-500 mr-3 text-lg"></i>
-                <span class="text-lg font-bold text-gray-900 dark:text-white tracking-tight">ControlPanel</span>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="mr-3 flex-shrink-0">
+                    <rect width="32" height="32" rx="8" fill="url(#plashka-grad)"/>
+                    <defs>
+                        <linearGradient id="plashka-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#0ea5e9"/>
+                            <stop offset="100%" stop-color="#2563eb"/>
+                        </linearGradient>
+                    </defs>
+                    <text x="8" y="23" font-family="Inter,sans-serif" font-weight="700" font-size="18" fill="white">P</text>
+                </svg>
+                <span class="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Plashka</span>
             </div>
 
             <!-- Nav -->
             <nav class="p-4 space-y-1 flex-1 overflow-y-auto">
-                <a href="{{ url_for('admin.dashboard') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.dashboard' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.dashboard') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.dashboard' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-gauge-high w-5 mr-3 text-center"></i>
                     Дашборд
                 </a>
-                <a href="{{ url_for('admin.accounts') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.accounts' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.accounts') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.accounts' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-brands fa-telegram w-5 mr-3 text-center"></i>
                     Аккаунты
                 </a>
-                <a href="{{ url_for('admin.proxies') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.proxies' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.proxies') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.proxies' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-network-wired w-5 mr-3 text-center"></i>
                     Прокси
                 </a>
-                <a href="{{ url_for('admin.campaigns') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.campaigns' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.campaigns') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.campaigns' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-bullhorn w-5 mr-3 text-center"></i>
                     Кампании
                 </a>
-                <a href="{{ url_for('admin.monitoring') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.monitoring' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.monitoring') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.monitoring' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-server w-5 mr-3 text-center"></i>
                     Мониторинг
                 </a>
                 {% if current_user.role in ('superadmin', 'admin') %}
-                <a href="{{ url_for('admin.users') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.users' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.users') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.users' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-users w-5 mr-3 text-center"></i>
                     Пользователи
                 </a>
                 {% endif %}
-                <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.logs' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.logs' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-file-lines w-5 mr-3 text-center"></i>
                     Логи
                 </a>
-                <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.settings' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.settings' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-gear w-5 mr-3 text-center"></i>
                     Настройки
                 </a>
                 {% if current_user.role in ('superadmin', 'admin') %}
-                <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.api_credentials' %}bg-blue-600 text-white{% else %}text-gray-600 dark:text-gray-300 hover:bg-blue-600/10 hover:text-blue-400{% endif %}">
+                <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.api_credentials' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-key w-5 mr-3 text-center"></i>
                     API-ключи
                 </a>
@@ -128,7 +142,7 @@
             <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center min-w-0">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                             {{ current_user.username[0]|upper if current_user else 'A' }}
                         </div>
                         <div class="ml-2 min-w-0">
