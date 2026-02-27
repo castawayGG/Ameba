@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env
+
+# SQLite databases (dev only)
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Backups
+backups/
+
+# Sessions
+sessions/
+
+# Instance folder (Flask)
+instance/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Secrets
+*.pem
+*.key
+api_settings.json

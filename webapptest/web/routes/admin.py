@@ -19,6 +19,8 @@ from models.proxy import Proxy
 from models.admin_log import AdminLog
 from models.campaign import Campaign
 from models.stat import Stat
+from models.account_log import AccountLog
+from models.api_credential import ApiCredential
 from web.middlewares.auth import admin_required
 from core.logger import log
 from core.config import Config
@@ -104,6 +106,19 @@ def login():
                 db.session.commit()
                 
                 log_action("login", "Успешный вход")
+
+                # Отправляем уведомление в Telegram о новом входе
+                try:
+                    from services.notification.telegram_bot import send_notification
+                    send_notification(
+                        f"✅ <b>Вход в панель управления</b>\n"
+                        f"👤 Пользователь: <code>{user.username}</code>\n"
+                        f"🌐 IP: <code>{request.remote_addr}</code>\n"
+                        f"🕐 Время: {now.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+                except Exception as notify_err:
+                    log.debug(f"Telegram notification skipped: {notify_err}")
+
                 return redirect(url_for('admin.dashboard'))
             else:
                 if user:
@@ -794,3 +809,217 @@ def export_logs():
         as_attachment=True,
         download_name=f'logs_{datetime.date.today()}.xlsx'
     )
+
+
+# ==========================================
+# 10. МОНИТОРИНГ СЕРВЕРА
+# ==========================================
+@admin_bp.route('/monitoring')
+@login_required
+def monitoring():
+    """Страница мониторинга ресурсов сервера (CPU/RAM/Disk + версии)."""
+    import sys
+    import flask
+    import sqlalchemy
+    import subprocess
+
+    try:
+        import telethon
+        telethon_version = telethon.__version__
+    except Exception:
+        telethon_version = 'n/a'
+
+    try:
+        git_commit = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%h %s'],
+            cwd=Config.BASE_DIR,
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).decode().strip()
+    except Exception:
+        git_commit = 'n/a'
+
+    version_info = {
+        'python': sys.version.split()[0],
+        'flask': flask.__version__,
+        'sqlalchemy': sqlalchemy.__version__,
+        'telethon': telethon_version,
+        'git_commit': git_commit,
+    }
+    return render_template('admin/monitoring.html', version_info=version_info)
+
+
+@admin_bp.route('/monitoring/stats')
+@login_required
+def monitoring_stats():
+    """AJAX endpoint: текущие метрики CPU/RAM/Disk в JSON."""
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=None)  # Non-blocking; previous call primed the counter
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        return jsonify({
+            'cpu': round(cpu, 1),
+            'ram': round(mem.percent, 1),
+            'ram_used_mb': round(mem.used / 1024 / 1024, 0),
+            'ram_total_mb': round(mem.total / 1024 / 1024, 0),
+            'disk': round(disk.percent, 1),
+            'disk_used_gb': round(disk.used / 1024 / 1024 / 1024, 2),
+            'disk_total_gb': round(disk.total / 1024 / 1024 / 1024, 2),
+            'warnings': {
+                'cpu': cpu > 80,
+                'ram': mem.percent > 90,
+                'disk': disk.percent > 90,
+            },
+        })
+    except ImportError:
+        return jsonify({'error': 'psutil not installed'}), 500
+
+
+# ==========================================
+# 11. УПРАВЛЕНИЕ API-УЧЁТНЫМИ ДАННЫМИ
+# ==========================================
+@admin_bp.route('/settings/api_credentials')
+@login_required
+@admin_required
+def api_credentials():
+    """Список пар API ID/Hash для ротации."""
+    creds = db.session.execute(select(ApiCredential).order_by(ApiCredential.id)).scalars().all()
+    return render_template('admin/api_credentials.html', creds=creds)
+
+
+@admin_bp.route('/settings/api_credentials/add', methods=['POST'])
+@login_required
+@admin_required
+def api_credentials_add():
+    """Добавление новой пары API ID/Hash."""
+    api_id = request.form.get('api_id', '').strip()
+    api_hash = request.form.get('api_hash', '').strip()
+    label = request.form.get('label', '').strip()
+
+    if not api_id or not api_hash:
+        flash('API ID и API Hash обязательны', 'danger')
+        return redirect(url_for('admin.api_credentials'))
+
+    try:
+        cred = ApiCredential(api_id=api_id, api_hash=api_hash, label=label or None)
+        db.session.add(cred)
+        db.session.commit()
+        log_action("api_credential_add", f"Добавлена пара API ID: {api_id} ({label})")
+        flash('Учётные данные API добавлены', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка: {e}', 'danger')
+    return redirect(url_for('admin.api_credentials'))
+
+
+@admin_bp.route('/settings/api_credentials/<int:cred_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def api_credentials_delete(cred_id):
+    """Удаление пары API ID/Hash."""
+    cred = db.session.get(ApiCredential, cred_id)
+    if not cred:
+        return jsonify({'success': False, 'error': 'Не найдено'}), 404
+    try:
+        db.session.delete(cred)
+        db.session.commit()
+        log_action("api_credential_delete", f"Удалена пара API ID: {cred.api_id}")
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/settings/api_credentials/<int:cred_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def api_credentials_toggle(cred_id):
+    """Включение/отключение пары учётных данных."""
+    cred = db.session.get(ApiCredential, cred_id)
+    if not cred:
+        return jsonify({'success': False, 'error': 'Не найдено'}), 404
+    cred.enabled = not cred.enabled
+    db.session.commit()
+    log_action("api_credential_toggle", f"API ID {cred.api_id}: {'enabled' if cred.enabled else 'disabled'}")
+    return jsonify({'success': True, 'enabled': cred.enabled})
+
+
+# ==========================================
+# 12. ИСТОРИЯ ДЕЙСТВИЙ ПО АККАУНТУ
+# ==========================================
+@admin_bp.route('/accounts/<account_id>/history')
+@login_required
+def account_history(account_id):
+    """AJAX: история действий конкретного аккаунта (JSON)."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'error': 'Аккаунт не найден'}), 404
+    logs = db.session.execute(
+        select(AccountLog)
+        .filter(AccountLog.account_id == account_id)
+        .order_by(desc(AccountLog.created_at))
+        .limit(100)
+    ).scalars().all()
+    return jsonify([{
+        'id': e.id,
+        'action': e.action,
+        'result': e.result,
+        'details': e.details or '',
+        'initiator': e.initiator or 'system',
+        'initiator_ip': e.initiator_ip or '—',
+        'created_at': e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '',
+    } for e in logs])
+
+
+@admin_bp.route('/accounts/<account_id>/check_session', methods=['POST'])
+@login_required
+@admin_required
+def account_check_session(account_id):
+    """Запустить проверку сессии одного аккаунта."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Аккаунт не найден'}), 404
+    try:
+        from tasks.session_checker import check_single_session_task
+        task = check_single_session_task.delay(
+            account_id,
+            initiator=current_user.username,
+            initiator_ip=request.remote_addr
+        )
+        log_action("account_check_session", f"Запущена проверка сессии: {account.phone}")
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/accounts/check_all_sessions', methods=['POST'])
+@login_required
+@admin_required
+def accounts_check_all_sessions():
+    """Запустить массовую проверку всех сессий."""
+    try:
+        from tasks.session_checker import check_all_sessions
+        task = check_all_sessions.delay()
+        log_action("accounts_check_all_sessions", "Запущена массовая проверка сессий")
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# 13. АВТОЗАГРУЗКА ПРОКСИ
+# ==========================================
+@admin_bp.route('/proxies/auto_load', methods=['POST'])
+@login_required
+@admin_required
+def proxies_auto_load():
+    """Запускает фоновую задачу автоматической загрузки прокси из публичных источников."""
+    try:
+        from tasks.proxy_autoloader import auto_load_proxies
+        task = auto_load_proxies.delay()
+        log_action("proxies_auto_load", "Запущена автозагрузка прокси")
+        flash('Автозагрузка прокси запущена в фоне', 'success')
+    except Exception as e:
+        flash(f'Ошибка запуска задачи: {e}', 'danger')
+    return redirect(url_for('admin.proxies'))

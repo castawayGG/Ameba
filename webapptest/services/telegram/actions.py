@@ -19,8 +19,18 @@ async def get_telegram_client(account_id: str) -> TelegramClient:
         
         session_str = decrypt_session_data(account.session_data)
         proxy = account.proxy.to_telethon_tuple() if account.proxy else None
+
+        # Используем ротацию учётных данных API
+        try:
+            from services.telegram.credentials import get_active_credential
+            cred = get_active_credential()
+            api_id = cred['api_id']
+            api_hash = cred['api_hash']
+        except Exception:
+            api_id = Config.TG_API_ID
+            api_hash = Config.TG_API_HASH
         
-        client = TelegramClient(StringSession(session_str), Config.TG_API_ID, Config.TG_API_HASH, proxy=proxy)
+        client = TelegramClient(StringSession(session_str), api_id, api_hash, proxy=proxy)
         await client.connect()
         return client
     finally:

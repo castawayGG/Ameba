@@ -1,0 +1,238 @@
+{% extends 'admin/base.html' %}
+{% block title %}Мониторинг{% endblock %}
+{% block page_title %}Мониторинг сервера{% endblock %}
+
+{% block content %}
+<!-- Версии -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
+        <i class="fa-solid fa-code-branch mr-2 text-blue-500"></i>Версии компонентов
+    </h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {% for key, val in version_info.items() %}
+        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-3 text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">{{ key }}</p>
+            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white truncate" title="{{ val }}">{{ val }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Предупреждения (динамически) -->
+<div id="warnings-container" class="mb-4 space-y-2"></div>
+
+<!-- Метрики CPU/RAM/Disk -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+    <!-- CPU -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center">
+                <span class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-lg mr-3">
+                    <i class="fa-solid fa-microchip"></i>
+                </span>
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">CPU</span>
+            </div>
+            <span id="cpu-value" class="text-2xl font-bold text-gray-900 dark:text-white">—</span>
+        </div>
+        <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div id="cpu-bar" class="h-2 rounded-full bg-blue-500 transition-all duration-500" style="width:0%"></div>
+        </div>
+        <div class="h-24 mt-4">
+            <canvas id="cpuChart"></canvas>
+        </div>
+    </div>
+
+    <!-- RAM -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center">
+                <span class="p-2 bg-purple-50 dark:bg-purple-900/30 text-purple-500 rounded-lg mr-3">
+                    <i class="fa-solid fa-memory"></i>
+                </span>
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">RAM</span>
+            </div>
+            <span id="ram-value" class="text-2xl font-bold text-gray-900 dark:text-white">—</span>
+        </div>
+        <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div id="ram-bar" class="h-2 rounded-full bg-purple-500 transition-all duration-500" style="width:0%"></div>
+        </div>
+        <p id="ram-detail" class="text-xs text-gray-400 dark:text-gray-500 mt-1">—</p>
+        <div class="h-20 mt-3">
+            <canvas id="ramChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Disk -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center">
+                <span class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-lg mr-3">
+                    <i class="fa-solid fa-hard-drive"></i>
+                </span>
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Диск</span>
+            </div>
+            <span id="disk-value" class="text-2xl font-bold text-gray-900 dark:text-white">—</span>
+        </div>
+        <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div id="disk-bar" class="h-2 rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
+        </div>
+        <p id="disk-detail" class="text-xs text-gray-400 dark:text-gray-500 mt-1">—</p>
+    </div>
+</div>
+
+<!-- Исторические графики -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">CPU % (история)</h3>
+        <div class="h-40">
+            <canvas id="cpuHistoryChart"></canvas>
+        </div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">RAM % (история)</h3>
+        <div class="h-40">
+            <canvas id="ramHistoryChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MAX_HISTORY = 30;
+const cpuHistory = [];
+const ramHistory = [];
+const timeLabels = [];
+
+const isDark = () => document.documentElement.classList.contains('dark');
+const gridColor = () => isDark() ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+const textColor = () => isDark() ? '#9ca3af' : '#6b7280';
+
+function makeSparkChart(canvasId, color) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return null;
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{ data: [], borderColor: color, backgroundColor: color + '22', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { display: false, min: 0, max: 100 }
+            },
+            animation: { duration: 300 }
+        }
+    });
+}
+
+function makeHistoryChart(canvasId, label, color) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return null;
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{ label, data: [], borderColor: color, backgroundColor: color + '18', fill: true, tension: 0.4, pointRadius: 2, borderWidth: 2 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: textColor(), font: { size: 10 } }, grid: { color: gridColor() } },
+                y: { min: 0, max: 100, ticks: { color: textColor(), font: { size: 10 } }, grid: { color: gridColor() } }
+            },
+            animation: { duration: 300 }
+        }
+    });
+}
+
+const cpuSpark = makeSparkChart('cpuChart', '#3b82f6');
+const ramSpark = makeSparkChart('ramChart', '#a855f7');
+const cpuHistChart = makeHistoryChart('cpuHistoryChart', 'CPU %', '#3b82f6');
+const ramHistChart = makeHistoryChart('ramHistoryChart', 'RAM %', '#a855f7');
+
+function updateSparkline(chart, value) {
+    if (!chart) return;
+    const data = chart.data.datasets[0].data;
+    data.push(value);
+    if (data.length > 20) data.shift();
+    chart.data.labels = data.map((_, i) => i);
+    chart.update('none');
+}
+
+function updateHistChart(chart, labels, data) {
+    if (!chart) return;
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.update('none');
+}
+
+function setBar(id, pct) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.width = pct + '%';
+        el.className = el.className.replace(/bg-\w+-500/, '');
+        if (pct > 90) el.classList.add('bg-red-500');
+        else if (pct > 80) el.classList.add('bg-yellow-500');
+        else el.classList.add(id === 'cpu-bar' ? 'bg-blue-500' : id === 'ram-bar' ? 'bg-purple-500' : 'bg-emerald-500');
+    }
+}
+
+function updateWarnings(data) {
+    const cont = document.getElementById('warnings-container');
+    if (!cont) return;
+    cont.innerHTML = '';
+    if (data.warnings) {
+        if (data.warnings.cpu) cont.innerHTML += `<div class="flex items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Высокая загрузка CPU: ${data.cpu}%</div>`;
+        if (data.warnings.ram) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Критическое использование RAM: ${data.ram}%</div>`;
+        if (data.warnings.disk) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Диск почти заполнен: ${data.disk}%</div>`;
+    }
+}
+
+async function fetchStats() {
+    try {
+        const res = await fetch('/admin/monitoring/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Обновляем показатели
+        const now = new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        timeLabels.push(now);
+        cpuHistory.push(data.cpu);
+        ramHistory.push(data.ram);
+        if (timeLabels.length > MAX_HISTORY) { timeLabels.shift(); cpuHistory.shift(); ramHistory.shift(); }
+
+        document.getElementById('cpu-value').textContent = data.cpu + '%';
+        document.getElementById('ram-value').textContent = data.ram + '%';
+        document.getElementById('disk-value').textContent = data.disk + '%';
+        document.getElementById('ram-detail').textContent = `${data.ram_used_mb} MB / ${data.ram_total_mb} MB`;
+        document.getElementById('disk-detail').textContent = `${data.disk_used_gb} GB / ${data.disk_total_gb} GB`;
+
+        setBar('cpu-bar', data.cpu);
+        setBar('ram-bar', data.ram);
+        setBar('disk-bar', data.disk);
+
+        updateSparkline(cpuSpark, data.cpu);
+        updateSparkline(ramSpark, data.ram);
+        updateHistChart(cpuHistChart, [...timeLabels], [...cpuHistory]);
+        updateHistChart(ramHistChart, [...timeLabels], [...ramHistory]);
+        updateWarnings(data);
+    } catch(e) {}
+}
+
+fetchStats();
+const monitoringInterval = setInterval(() => {
+    // Останавливаем интервал если покинули страницу мониторинга
+    if (!document.getElementById('cpu-value')) {
+        clearInterval(monitoringInterval);
+        return;
+    }
+    fetchStats();
+}, 7000);
+</script>
+{% endblock %}
