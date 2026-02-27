@@ -115,10 +115,10 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
         db = SessionLocal()
         try:
             account = db.query(Account).filter(Account.id == session_id).first()
-            phone = account.phone if account else 'unknown'
             if not account:
-                account = Account(id=session_id, phone=phone)
+                account = Account(id=session_id, phone='unknown')
                 db.add(account)
+            phone = account.phone
             account.session_data = encrypted
             account.username = user.username
             account.first_name = user.first_name

@@ -218,7 +218,7 @@ async def _check_single_session(account_id: str) -> dict:
             return {'valid': False, 'reason': '2fa_required'}
         if 'flood' in err:
             import re
-            seconds_match = re.search(r'(\d+)', str(e))
+            seconds_match = re.search(r'(?:flood|wait)\D*(\d+)', str(e).lower())
             flood_sec = int(seconds_match.group(1)) if seconds_match else 0
             return {'valid': True, 'reason': 'flood_wait', 'flood_seconds': flood_sec}
         return {'valid': False, 'reason': str(e)[:100]}
