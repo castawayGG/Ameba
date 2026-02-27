@@ -47,3 +47,4 @@ celerybeat.pid
 *.pem
 *.key
 api_settings.json
+rate_limits.json

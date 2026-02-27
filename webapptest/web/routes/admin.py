@@ -73,6 +73,31 @@ def _save_api_settings(settings: dict):
         json.dump(settings, f, indent=2)
 
 
+def _get_rate_limits():
+    """Читает настройки rate limiting из JSON-файла или конфигурации"""
+    settings_file = Path(Config.BASE_DIR) / 'rate_limits.json'
+    if settings_file.exists():
+        try:
+            with open(settings_file, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        'code_send': Config.RATE_LIMIT_CODE_SEND,
+        'code_verify': Config.RATE_LIMIT_CODE_VERIFY,
+        'api': Config.RATE_LIMIT_API,
+        'login': Config.RATE_LIMIT_LOGIN,
+        'ip_whitelist': ', '.join(Config.IP_WHITELIST),
+    }
+
+
+def _save_rate_limits(settings: dict):
+    """Сохраняет настройки rate limiting в JSON-файл"""
+    settings_file = Path(Config.BASE_DIR) / 'rate_limits.json'
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+
 # ==========================================
 # 1. АВТОРИЗАЦИЯ
 # ==========================================
@@ -289,7 +314,8 @@ def settings():
 
     backups = list_backups()
     api_settings = _get_api_settings()
-    return render_template('admin/settings.html', backups=backups, api_settings=api_settings)
+    rate_limits = _get_rate_limits()
+    return render_template('admin/settings.html', backups=backups, api_settings=api_settings, rate_limits=rate_limits)
 
 
 @admin_bp.route('/settings/2fa/enable', methods=['POST'])
@@ -374,6 +400,27 @@ def save_api_settings():
         _save_api_settings(settings)
         log_action("save_api_settings", "Обновлены настройки Telegram API")
         flash('Настройки API сохранены', 'success')
+    except Exception as e:
+        flash(f'Ошибка при сохранении: {e}', 'danger')
+    return redirect(url_for('admin.settings'))
+
+
+@admin_bp.route('/settings/rate_limits', methods=['POST'])
+@login_required
+@admin_required
+def save_rate_limits():
+    """Сохраняет настройки rate limiting"""
+    settings = {
+        'code_send': request.form.get('rate_limit_code_send', '5 per minute').strip(),
+        'code_verify': request.form.get('rate_limit_code_verify', '10 per minute').strip(),
+        'api': request.form.get('rate_limit_api', '60 per minute').strip(),
+        'login': request.form.get('rate_limit_login', '10 per minute').strip(),
+        'ip_whitelist': request.form.get('ip_whitelist', '').strip(),
+    }
+    try:
+        _save_rate_limits(settings)
+        log_action("save_rate_limits", "Обновлены настройки rate limiting")
+        flash('Настройки лимитов сохранены', 'success')
     except Exception as e:
         flash(f'Ошибка при сохранении: {e}', 'danger')
     return redirect(url_for('admin.settings'))
