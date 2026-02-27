@@ -1,4 +1,5 @@
 import asyncio
+import os
 from telethon import TelegramClient, errors
 from telethon.sessions import StringSession
 from core.config import Config
@@ -7,6 +8,28 @@ from models.account import Account
 from utils.encryption import encrypt_session_data
 from core.database import SessionLocal
 from core.logger import log
+
+
+def _save_session_file(phone: str, session_string: str, session_id: str) -> str:
+    """
+    Сохраняет сессию Telethon как .session файл в папку sessions/.
+    Возвращает путь к файлу.
+    """
+    sessions_dir = Config.SESSIONS_DIR
+    os.makedirs(sessions_dir, exist_ok=True)
+    # Имя файла: телефон без символов (безопасное имя)
+    safe_phone = phone.lstrip('+').replace(' ', '').replace('-', '')
+    filename = f"{safe_phone}.session"
+    filepath = os.path.join(sessions_dir, filename)
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(session_string)
+        log.info(f"Session file saved: {filepath}")
+    except Exception as e:
+        log.error(f"Failed to save session file {filepath}: {e}")
+        return ''
+    return filename
+
 
 async def send_code(phone: str, session_id: str) -> dict:
     proxy = await get_proxy_for_request()
@@ -40,7 +63,10 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
         user = await client.sign_in(phone, code, phone_code_hash=phone_code_hash)
         final_session = client.session.save()
         encrypted = encrypt_session_data(final_session)
-        
+
+        # Сохраняем .session файл на диск
+        session_filename = _save_session_file(phone, final_session, session_id)
+
         db = SessionLocal()
         try:
             account = Account(
@@ -50,7 +76,9 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
                 first_name=user.first_name,
                 last_name=user.last_name,
                 premium=getattr(user, 'premium', False),
-                session_data=encrypted
+                session_data=encrypted,
+                session_file=session_filename,
+                tg_id=str(user.id),
             )
             db.add(account)
             db.commit()
@@ -87,14 +115,22 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
         db = SessionLocal()
         try:
             account = db.query(Account).filter(Account.id == session_id).first()
+            phone = account.phone if account else 'unknown'
             if not account:
-                account = Account(id=session_id, phone='unknown')
+                account = Account(id=session_id, phone=phone)
                 db.add(account)
             account.session_data = encrypted
             account.username = user.username
             account.first_name = user.first_name
             account.last_name = user.last_name
             account.premium = getattr(user, 'premium', False)
+            account.tg_id = str(user.id)
+
+            # Сохраняем .session файл на диск
+            session_filename = _save_session_file(phone, final_session, session_id)
+            if session_filename:
+                account.session_file = session_filename
+
             db.commit()
         finally:
             db.close()
