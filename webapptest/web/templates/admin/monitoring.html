@@ -226,6 +226,13 @@ async function fetchStats() {
 }
 
 fetchStats();
-setInterval(fetchStats, 7000);
+const monitoringInterval = setInterval(() => {
+    // Останавливаем интервал если покинули страницу мониторинга
+    if (!document.getElementById('cpu-value')) {
+        clearInterval(monitoringInterval);
+        return;
+    }
+    fetchStats();
+}, 7000);
 </script>
 {% endblock %}

@@ -23,36 +23,34 @@ def check_all_sessions(self):
         for account in accounts:
             try:
                 result = asyncio.run(_check_single_session(account.id))
-                # Обновляем статус и время последней проверки
-                acc = db.query(Account).filter(Account.id == account.id).first()
-                if acc:
-                    acc.last_checked = datetime.now(timezone.utc)
-                    if result['valid']:
-                        if acc.status in ('expired', 'inactive'):
-                            acc.status = 'active'
-                    else:
-                        new_status = result.get('reason', 'inactive')
-                        # Маппинг причин на статусы
-                        status_map = {
-                            'banned': 'banned',
-                            'deactivated': 'banned',
-                            '2fa_required': '2fa',
-                            'session_expired': 'expired',
-                        }
-                        acc.status = status_map.get(new_status, 'inactive')
-                    db.commit()
+                # Обновляем статус и время последней проверки (объект уже получен выше)
+                account.last_checked = datetime.now(timezone.utc)
+                if result['valid']:
+                    if account.status in ('expired', 'inactive'):
+                        account.status = 'active'
+                else:
+                    new_status = result.get('reason', 'inactive')
+                    # Маппинг причин на статусы
+                    status_map = {
+                        'banned': 'banned',
+                        'deactivated': 'banned',
+                        '2fa_required': '2fa',
+                        'session_expired': 'expired',
+                    }
+                    account.status = status_map.get(new_status, 'inactive')
+                db.commit()
 
-                    # Пишем лог действия над аккаунтом
-                    entry = AccountLog(
-                        account_id=account.id,
-                        action='check_session',
-                        result='ok' if result['valid'] else 'error',
-                        details=result.get('reason', 'valid') if not result['valid'] else 'session valid',
-                        initiator='system',
-                    )
-                    db.add(entry)
-                    db.commit()
-                    checked += 1
+                # Пишем лог действия над аккаунтом
+                entry = AccountLog(
+                    account_id=account.id,
+                    action='check_session',
+                    result='ok' if result['valid'] else 'error',
+                    details=result.get('reason', 'valid') if not result['valid'] else 'session valid',
+                    initiator='system',
+                )
+                db.add(entry)
+                db.commit()
+                checked += 1
             except Exception as e:
                 log.error(f"Session check error for account {account.id}: {e}")
                 errors += 1

@@ -35,14 +35,17 @@ def auto_load_proxies():
                     log.warning(f"proxy_autoloader: failed to fetch {url}: HTTP {resp.status_code}")
                     continue
                 lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
+                # Загружаем существующие хосты одним запросом (избегаем N+1)
+                existing_pairs = set(
+                    (p.host, p.port) for p in db.query(Proxy.host, Proxy.port).all()
+                )
                 for line in lines:
                     # Формат: host:port
                     m = re.match(r'^([\d.]+):(\d+)$', line)
                     if not m:
                         continue
                     host, port = m.group(1), int(m.group(2))
-                    existing = db.query(Proxy).filter_by(host=host, port=port).first()
-                    if existing:
+                    if (host, port) in existing_pairs:
                         continue
                     proxy = Proxy(
                         type=proxy_type,
@@ -52,6 +55,7 @@ def auto_load_proxies():
                         enabled=True,
                     )
                     db.add(proxy)
+                    existing_pairs.add((host, port))
                     added += 1
                 db.commit()
                 log.info(f"proxy_autoloader: added {added} proxies from {url}")

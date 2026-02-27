@@ -116,8 +116,8 @@ def login():
                         f"🌐 IP: <code>{request.remote_addr}</code>\n"
                         f"🕐 Время: {now.strftime('%Y-%m-%d %H:%M:%S UTC')}"
                     )
-                except Exception:
-                    pass  # Уведомление опционально, не прерываем вход
+                except Exception as notify_err:
+                    log.debug(f"Telegram notification skipped: {notify_err}")
 
                 return redirect(url_for('admin.dashboard'))
             else:
@@ -855,7 +855,7 @@ def monitoring_stats():
     """AJAX endpoint: текущие метрики CPU/RAM/Disk в JSON."""
     try:
         import psutil
-        cpu = psutil.cpu_percent(interval=0.5)
+        cpu = psutil.cpu_percent(interval=None)  # Non-blocking; previous call primed the counter
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
         return jsonify({
