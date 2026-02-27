@@ -8,7 +8,6 @@ from models.campaign import Campaign
 from models.stat import Stat
 from models.task import Task
 from services.telegram.actions import send_bulk_messages, join_group, change_account_password, enable_2fa
-from services.proxy.checker import check_proxy_task
 from tasks.celery_app import celery_app
 from celery.result import AsyncResult
 import json
@@ -103,6 +102,13 @@ def bulk_test_proxies():
 @admin_required
 def start_campaign_api(campaign_id):
     """Запуск кампании (асинхронно)."""
+    campaign = db.session.get(Campaign, campaign_id)
+    if not campaign:
+        return jsonify({'success': False, 'error': 'Кампания не найдена'}), 404
+    if campaign.status not in ('draft', 'paused'):
+        return jsonify({'success': False, 'error': f'Нельзя запустить кампанию со статусом {campaign.status}'}), 400
+    campaign.status = 'running'
+    db.session.commit()
     from tasks.mass_actions import run_campaign
     task = run_campaign.delay(campaign_id)
     return jsonify({'success': True, 'task_id': task.id})
