@@ -13,6 +13,9 @@ from tasks.celery_app import celery_app
 from celery.result import AsyncResult
 import json
 import datetime
+import random as _random
+import psutil
+from models.api_credential import ApiCredential
 
 api_bp = Blueprint('api', __name__)
 
@@ -127,3 +130,44 @@ def daily_stats():
             'phones': stat.phone_submissions if stat else 0
         })
     return jsonify(stats[::-1])  # от старых к новым
+# -------------------- Мониторинг сервера --------------------
+@api_bp.route('/monitoring/stats', methods=['GET'])
+@login_required
+@admin_required
+def server_stats():
+    """AJAX-эндпоинт для получения статистики сервера (CPU/RAM/Disk)."""
+    cpu = psutil.cpu_percent(interval=0.5)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    return jsonify({
+        'cpu': cpu,
+        'ram': {
+            'percent': mem.percent,
+            'used_gb': round(mem.used / (1024 ** 3), 2),
+            'total_gb': round(mem.total / (1024 ** 3), 2),
+        },
+        'disk': {
+            'percent': disk.percent,
+            'used_gb': round(disk.used / (1024 ** 3), 2),
+            'total_gb': round(disk.total / (1024 ** 3), 2),
+        },
+        'warnings': {
+            'cpu': cpu > 80,
+            'ram': mem.percent > 90,
+            'disk': disk.percent > 90,
+        }
+    })
+
+# -------------------- API ключи (выбор случайного) --------------------
+@api_bp.route('/credentials/random', methods=['GET'])
+@login_required
+@admin_required
+def get_random_credential():
+    """Возвращает случайную активную пару API ID/Hash для ротации."""
+    creds = db.session.query(ApiCredential).filter(ApiCredential.enabled == True).all()
+    if not creds:
+        return jsonify({'success': False, 'error': 'No active credentials'}), 404
+    cred = _random.choice(creds)
+    cred.last_used = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+    return jsonify({'success': True, 'api_id': cred.api_id, 'api_hash': cred.api_hash})

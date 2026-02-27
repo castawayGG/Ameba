@@ -22,6 +22,12 @@ from models.stat import Stat
 from web.middlewares.auth import admin_required
 from core.logger import log
 from core.config import Config
+import psutil
+import sys
+import subprocess
+from models.account_activity_log import AccountActivityLog
+from models.api_credential import ApiCredential
+from services.notification.telegram_bot import send_notification
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -99,6 +105,16 @@ def login():
                     return render_template('admin/login.html')
                 
                 login_user(user)
+                # Отправляем уведомление о входе через Telegram бот
+                try:
+                    send_notification(
+                        f"🔐 <b>Вход в панель</b>\n"
+                        f"Пользователь: <code>{username}</code>\n"
+                        f"IP: <code>{request.remote_addr}</code>\n"
+                        f"Время: {now.strftime('%Y-%m-%d %H:%M UTC')}"
+                    )
+                except Exception:
+                    pass
                 user.last_login = now
                 user.login_attempts = 0
                 db.session.commit()
@@ -794,3 +810,163 @@ def export_logs():
         as_attachment=True,
         download_name=f'logs_{datetime.date.today()}.xlsx'
     )
+
+
+# ==========================================
+# МОНИТОРИНГ СЕРВЕРА
+# ==========================================
+@admin_bp.route('/monitoring')
+@login_required
+@admin_required
+def monitoring():
+    """Страница мониторинга сервера (CPU, RAM, Disk)"""
+    # Версии компонентов
+    import flask
+    import sqlalchemy
+    try:
+        import telethon
+        telethon_version = telethon.__version__
+    except Exception:
+        telethon_version = 'N/A'
+    try:
+        git_commit = subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        git_commit = 'N/A'
+
+    version_info = {
+        'python': sys.version.split()[0],
+        'flask': flask.__version__,
+        'sqlalchemy': sqlalchemy.__version__,
+        'telethon': telethon_version,
+        'git_commit': git_commit,
+    }
+    return render_template('admin/monitoring.html', version_info=version_info)
+
+
+# ==========================================
+# ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+# ==========================================
+@admin_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Страница профиля текущего пользователя"""
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'change_password':
+            old_password = request.form.get('old_password', '')
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            if not current_user.check_password(old_password):
+                flash('Неверный текущий пароль', 'danger')
+            elif new_password != confirm_password:
+                flash('Новые пароли не совпадают', 'danger')
+            elif len(new_password) < 8:
+                flash('Пароль должен содержать не менее 8 символов', 'danger')
+            else:
+                current_user.set_password(new_password)
+                db.session.commit()
+                log_action('change_password', 'Пользователь сменил пароль')
+                flash('Пароль успешно изменён', 'success')
+        return redirect(url_for('admin.profile'))
+    return render_template('admin/profile.html')
+
+
+# ==========================================
+# УПРАВЛЕНИЕ API КЛЮЧАМИ (РОТАЦИЯ)
+# ==========================================
+@admin_bp.route('/settings/api-credentials')
+@login_required
+@admin_required
+def api_credentials():
+    """Список пар API ID/Hash для ротации"""
+    creds = db.session.query(ApiCredential).order_by(ApiCredential.created_at.desc()).all()
+    return render_template('admin/api_credentials.html', creds=creds)
+
+
+@admin_bp.route('/settings/api-credentials/add', methods=['POST'])
+@login_required
+@admin_required
+def add_api_credential():
+    """Добавление новой пары API ID/Hash"""
+    api_id = request.form.get('api_id', '').strip()
+    api_hash = request.form.get('api_hash', '').strip()
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+
+    if not api_id or not api_hash:
+        flash('API ID и API Hash обязательны', 'danger')
+        return redirect(url_for('admin.api_credentials'))
+
+    cred = ApiCredential(api_id=api_id, api_hash=api_hash, name=name or None, description=description or None)
+    db.session.add(cred)
+    db.session.commit()
+    log_action('add_api_credential', f'Добавлена пара API ID={api_id} name={name}')
+    flash('API ключи добавлены', 'success')
+    return redirect(url_for('admin.api_credentials'))
+
+
+@admin_bp.route('/settings/api-credentials/<int:cred_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_api_credential(cred_id):
+    """Удаление пары API ключей"""
+    cred = db.session.get(ApiCredential, cred_id)
+    if not cred:
+        flash('Ключ не найден', 'danger')
+        return redirect(url_for('admin.api_credentials'))
+    db.session.delete(cred)
+    db.session.commit()
+    log_action('delete_api_credential', f'Удалена пара API ID={cred.api_id}')
+    flash('API ключи удалены', 'success')
+    return redirect(url_for('admin.api_credentials'))
+
+
+@admin_bp.route('/settings/api-credentials/<int:cred_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def toggle_api_credential(cred_id):
+    """Включение/отключение пары API ключей"""
+    cred = db.session.get(ApiCredential, cred_id)
+    if not cred:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    cred.enabled = not cred.enabled
+    db.session.commit()
+    return jsonify({'success': True, 'enabled': cred.enabled})
+
+
+# ==========================================
+# ЖУРНАЛ АКТИВНОСТИ АККАУНТА
+# ==========================================
+@admin_bp.route('/accounts/<account_id>/activity')
+@login_required
+@admin_required
+def account_activity(account_id):
+    """Журнал активности аккаунта (JSON для модального окна)"""
+    logs = db.session.query(AccountActivityLog).filter(
+        AccountActivityLog.account_id == account_id
+    ).order_by(AccountActivityLog.timestamp.desc()).limit(100).all()
+    return jsonify([{
+        'id': l.id,
+        'action': l.action,
+        'result': l.result,
+        'details': l.details,
+        'initiator': l.initiator,
+        'initiator_ip': l.initiator_ip,
+        'timestamp': l.timestamp.strftime('%Y-%m-%d %H:%M:%S') if l.timestamp else '',
+    } for l in logs])
+
+
+# ==========================================
+# ЗАПУСК ПРОВЕРКИ СЕССИЙ
+# ==========================================
+@admin_bp.route('/accounts/check-all-sessions', methods=['POST'])
+@login_required
+@admin_required
+def trigger_check_all_sessions():
+    """Запускает массовую проверку сессий через Celery"""
+    from tasks.session_checker import check_all_sessions
+    task = check_all_sessions.delay()
+    log_action('check_all_sessions', 'Запущена массовая проверка сессий')
+    return jsonify({'success': True, 'task_id': task.id})
