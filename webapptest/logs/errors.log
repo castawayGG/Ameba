@@ -1,0 +1,5 @@
+2026-02-27T15:36:05.772262+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
+2026-02-27T15:36:11.114463+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
+2026-02-27T15:38:30.874960+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
+2026-02-27T15:38:38.039036+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt
+2026-02-27T15:39:38.323297+0000 | ERROR | web.routes.admin:login:122 - Login error: Invalid salt

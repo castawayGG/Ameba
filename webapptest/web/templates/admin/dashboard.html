@@ -1,0 +1,199 @@
+{% extends 'admin/base.html' %}
+{% block title %}Дашборд{% endblock %}
+{% block page_title %}Обзор системы{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Всего аккаунтов</p>
+                <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ stats.accounts }}</p>
+            </div>
+            <span class="p-2 bg-blue-50 dark:bg-blue-900/40 text-blue-500 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </span>
+        </div>
+        <a href="{{ url_for('admin.accounts') }}" class="text-xs text-blue-500 hover:underline mt-3 inline-block">Перейти →</a>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Прокси рабочих</p>
+                <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ stats.working_proxies }}</p>
+            </div>
+            <span class="p-2 bg-green-50 dark:bg-green-900/40 text-green-600 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+            </span>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">Из {{ stats.proxies }} всего</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Кампаний</p>
+                <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ stats.campaigns }}</p>
+            </div>
+            <span class="p-2 bg-purple-50 dark:bg-purple-900/40 text-purple-600 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+            </span>
+        </div>
+        <a href="{{ url_for('admin.campaigns') }}" class="text-xs text-purple-500 hover:underline mt-3 inline-block">Перейти →</a>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Успешных входов сегодня</p>
+                <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ today_stat.successful_logins if today_stat else 0 }}</p>
+            </div>
+            <span class="p-2 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </span>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">Неудачных: {{ today_stat.failed_attempts if today_stat else 0 }}</p>
+    </div>
+</div>
+
+<!-- Chart + Funnel row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+    <!-- 7-day chart -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Активность за 7 дней</h2>
+        <div class="relative h-52">
+            <canvas id="activityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Conversion funnel -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Воронка сегодня</h2>
+        {% set visits = today_stat.visits if today_stat else 0 %}
+        {% set phones = today_stat.phone_submissions if today_stat else 0 %}
+        {% set logins = today_stat.successful_logins if today_stat else 0 %}
+        {% set failed = today_stat.failed_attempts if today_stat else 0 %}
+        <div class="space-y-3">
+            {% for label, value, color in [
+                ('Визиты', visits, 'bg-blue-500'),
+                ('Телефоны', phones, 'bg-indigo-500'),
+                ('Успешных входов', logins, 'bg-green-500'),
+                ('Неудачных попыток', failed, 'bg-red-500')
+            ] %}
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-600 dark:text-gray-400">{{ label }}</span>
+                    <span class="font-semibold text-gray-800 dark:text-gray-200">{{ value }}</span>
+                </div>
+                <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    {% set pct = ((value / visits * 100) | int) if visits > 0 else 0 %}
+                    <div class="{{ color }} h-2 rounded-full transition-all duration-700" style="width: {{ pct }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent logs -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Последние действия</h2>
+        <a href="{{ url_for('admin.logs') }}" class="text-xs text-blue-500 hover:underline">Все логи →</a>
+    </div>
+    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for entry in recent_logs %}
+        <div class="flex items-center px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {{ entry.username[0]|upper }}
+            </div>
+            <div class="ml-3 flex-1 min-w-0">
+                <p class="text-sm text-gray-800 dark:text-gray-200">
+                    <span class="font-medium">{{ entry.username }}</span>
+                    <span class="mx-1 text-gray-400">·</span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{{ entry.action }}</span>
+                </p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ entry.details or '—' }}</p>
+            </div>
+            <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-3">{{ entry.timestamp | timestamp_to_date }}</span>
+        </div>
+        {% else %}
+        <div class="px-6 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">Нет записей</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#9ca3af' : '#6b7280';
+
+    let labels = [], visits = [], logins = [];
+    try {
+        const res = await fetch('/api/stats/daily');
+        if (res.ok) {
+            const data = await res.json();
+            labels = data.map(d => d.date);
+            visits = data.map(d => d.visits || 0);
+            logins = data.map(d => d.logins || 0);
+        }
+    } catch(e) {}
+
+    if (!labels.length) {
+        const now = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now); d.setDate(d.getDate() - i);
+            const iso = d.toISOString().split('T')[0]; // YYYY-MM-DD, same format as API
+            labels.push(iso);
+            visits.push(0); logins.push(0);
+        }
+    }
+
+    const ctx = document.getElementById('activityChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Визиты',
+                    data: visits,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.08)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'Успешных входов',
+                    data: logins,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.06)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: textColor, font: { size: 12 } } } },
+            scales: {
+                x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

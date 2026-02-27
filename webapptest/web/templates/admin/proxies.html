@@ -1,0 +1,178 @@
+{% extends 'admin/base.html' %}
+{% block title %}Прокси{% endblock %}
+{% block page_title %}Прокси{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('addProxyModal')" class="flex items-center text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    Добавить прокси
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Upload drop zone -->
+<div id="proxy-drop-zone" class="mb-5 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-5 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer" onclick="document.getElementById('proxies-file').click()">
+    <svg class="w-7 h-7 text-gray-300 dark:text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+    <p class="text-sm text-gray-500 dark:text-gray-400">Перетащите файл со списком прокси или <span class="text-blue-500 hover:underline">нажмите для выбора</span></p>
+    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">TXT — один прокси на строку (user:pass@host:port или host:port)</p>
+    <form id="proxy-upload-form" method="POST" action="{{ url_for('admin.proxies_upload') }}" enctype="multipart/form-data" class="hidden">
+        <input type="file" id="proxies-file" name="file" accept=".txt" onchange="document.getElementById('proxy-upload-form').submit()">
+    </form>
+</div>
+
+<!-- Table -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Прокси ({{ proxies|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP:Порт</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Тип</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Скорость</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Описание</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Включён</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Проверен</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for p in proxies %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors" data-id="{{ p.id }}">
+                    <td class="px-5 py-3 font-mono text-sm font-medium text-gray-900 dark:text-white">{{ p.host }}:{{ p.port }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 uppercase">{{ p.type }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if p.status == 'working' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
+                            {% elif p.status == 'dead' %}bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                            {% elif p.status == 'checking' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">
+                            {{ p.status }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ p.speed ~ ' ms' if p.speed else '—' }}</td>
+                    <td class="px-5 py-3 max-w-[180px]">
+                        <span class="desc-display text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 truncate block" data-id="{{ p.id }}" onclick="editDesc(this)">{{ p.description or '+ описание' }}</span>
+                        <input class="desc-input hidden text-xs border border-blue-400 rounded px-1 py-0.5 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none" data-id="{{ p.id }}" value="{{ p.description or '' }}" onblur="saveDesc(this)" onkeydown="if(event.key==='Enter'){this.blur()} if(event.key==='Escape'){cancelDesc(this)}">
+                    </td>
+                    <td class="px-5 py-3">
+                        <button onclick="toggleProxy({{ p.id }}, this)" class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none {{ 'bg-blue-500' if p.enabled else 'bg-gray-200 dark:bg-gray-600' }}" data-enabled="{{ 'true' if p.enabled else 'false' }}">
+                            <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform {{ 'translate-x-4' if p.enabled else 'translate-x-1' }}"></span>
+                        </button>
+                    </td>
+                    <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ p.last_check | timestamp_to_date if p.last_check else '—' }}</td>
+                    <td class="px-5 py-3 text-right whitespace-nowrap">
+                        <button onclick="deleteProxy({{ p.id }}, this)" class="text-red-400 hover:text-red-600 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Удалить">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Proxy Modal -->
+<div id="addProxyModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onclick="closeModal('addProxyModal')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md modal-panel border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Добавить прокси</h3>
+                <button onclick="closeModal('addProxyModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.proxy_add') }}" class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Строка прокси</label>
+                    <input type="text" name="proxy_string" required placeholder="socks5://user:pass@host:port или host:port" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тип</label>
+                    <select name="proxy_type" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="socks5">SOCKS5</option>
+                        <option value="socks4">SOCKS4</option>
+                        <option value="http">HTTP</option>
+                        <option value="https">HTTPS</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание (необязательно)</label>
+                    <input type="text" name="description" placeholder="Например: DE сервер" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('addProxyModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
+                    <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Drag and drop for proxy upload
+const pdz = document.getElementById('proxy-drop-zone');
+pdz.addEventListener('dragover', e => { e.preventDefault(); pdz.classList.add('border-blue-400'); });
+pdz.addEventListener('dragleave', () => pdz.classList.remove('border-blue-400'));
+pdz.addEventListener('drop', e => {
+    e.preventDefault(); pdz.classList.remove('border-blue-400');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        try {
+            const dt = new DataTransfer(); dt.items.add(file);
+            document.getElementById('proxies-file').files = dt.files;
+            document.getElementById('proxy-upload-form').submit();
+        } catch(err) {
+            showToast('Файл выбран: ' + file.name, 'info');
+        }
+    }
+});
+
+async function toggleProxy(id, btn) {
+    const res = await fetch(`/admin/proxies/${id}/toggle`, {method: 'POST'});
+    if (res.ok) {
+        const data = await res.json();
+        btn.dataset.enabled = data.enabled ? 'true' : 'false';
+        btn.classList.toggle('bg-blue-500', data.enabled);
+        btn.classList.toggle('bg-gray-200', !data.enabled);
+        btn.classList.toggle('dark:bg-gray-600', !data.enabled);
+        btn.querySelector('span').classList.toggle('translate-x-4', data.enabled);
+        btn.querySelector('span').classList.toggle('translate-x-1', !data.enabled);
+        showToast(data.enabled ? 'Прокси включён' : 'Прокси отключён');
+    }
+}
+
+async function deleteProxy(id, btn) {
+    if (!confirm('Удалить прокси?')) return;
+    const row = btn.closest('tr');
+    const res = await fetch(`/admin/proxies/${id}/delete`, {method: 'POST'});
+    if (res.ok) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); showToast('Прокси удалён'); }
+    else showToast('Ошибка', 'error');
+}
+
+function editDesc(span) {
+    const input = span.nextElementSibling;
+    span.classList.add('hidden'); input.classList.remove('hidden'); input.focus(); input.select();
+}
+function cancelDesc(input) { input.classList.add('hidden'); input.previousElementSibling.classList.remove('hidden'); }
+async function saveDesc(input) {
+    const id = input.dataset.id;
+    const description = input.value.trim();
+    const span = input.previousElementSibling;
+    input.classList.add('hidden'); span.classList.remove('hidden');
+    span.textContent = description || '+ описание';
+    await fetch(`/admin/proxies/${id}/update_description`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({description})});
+}
+</script>
+{% endblock %}

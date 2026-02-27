@@ -1,0 +1,226 @@
+{% extends 'admin/base.html' %}
+{% block title %}Аккаунты{% endblock %}
+{% block page_title %}Аккаунты Telegram{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.export_accounts') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+    Excel
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<form method="GET" class="flex flex-wrap gap-3 mb-5">
+    <input type="text" name="phone" value="{{ phone_filter or '' }}" placeholder="Поиск по телефону..." class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+    <select name="status" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="">Все статусы</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Активен</option>
+        <option value="banned" {% if status_filter == 'banned' %}selected{% endif %}>Забанен</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Неактивен</option>
+    </select>
+    <button type="submit" class="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Найти</button>
+    {% if phone_filter or status_filter %}
+    <a href="{{ url_for('admin.accounts') }}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-2">Сбросить</a>
+    {% endif %}
+</form>
+
+<!-- Upload drop zone -->
+<div id="drop-zone" class="mb-5 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-6 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer" onclick="document.getElementById('accounts-file').click()">
+    <svg class="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+    <p class="text-sm text-gray-500 dark:text-gray-400">Перетащите файл с номерами или <span class="text-blue-500 hover:underline">нажмите для выбора</span></p>
+    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">TXT файл, один номер на строку</p>
+    <form id="upload-form" method="POST" action="{{ url_for('admin.accounts_upload') }}" enctype="multipart/form-data" class="hidden">
+        <input type="file" id="accounts-file" name="file" accept=".txt" onchange="document.getElementById('upload-form').submit()">
+    </form>
+</div>
+
+<!-- Bulk actions bar (hidden by default) -->
+<div id="bulk-bar" class="hidden mb-4 flex items-center gap-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3">
+    <span id="bulk-count" class="text-sm font-medium text-blue-700 dark:text-blue-300">0 выбрано</span>
+    <button onclick="bulkDelete()" class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors flex items-center">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        Удалить выбранные
+    </button>
+    <button onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Отмена</button>
+</div>
+
+<!-- Table -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Аккаунты ({{ accounts.total }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 w-8">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500" onchange="toggleSelectAll(this)">
+                    </th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">ID</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Телефон</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Username</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Premium</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Добавлен</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Примечание</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for a in accounts.items %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors" data-id="{{ a.id }}">
+                    <td class="px-4 py-3">
+                        <input type="checkbox" class="row-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500" value="{{ a.id }}" onchange="updateBulkBar()">
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ a.id }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ a.phone }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ a.username or '—' }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if a.status == 'active' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
+                            {% elif a.status == 'banned' %}bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">
+                            {{ a.status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if a.premium %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300">★ Premium</span>
+                        {% else %}
+                        <span class="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ a.created_at | timestamp_to_date }}</td>
+                    <td class="px-4 py-3 max-w-[180px]">
+                        <span class="notes-display text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 truncate block" data-id="{{ a.id }}" onclick="editNote(this)" title="Нажмите для редактирования">{{ a.notes or '+ заметка' }}</span>
+                        <input class="notes-input hidden text-xs border border-blue-400 rounded px-1 py-0.5 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none" data-id="{{ a.id }}" value="{{ a.notes or '' }}" onblur="saveNote(this)" onkeydown="if(event.key==='Enter'){this.blur()} if(event.key==='Escape'){cancelNote(this)}">
+                    </td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button onclick="deleteAccount('{{ a.id }}', this)" class="text-red-400 hover:text-red-600 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Удалить">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Аккаунты не найдены</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if accounts.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <span>Страница {{ accounts.page }} из {{ accounts.pages }} · {{ accounts.total }} записей</span>
+        <div class="flex items-center gap-1">
+            {% if accounts.has_prev %}
+            <a href="{{ url_for('admin.accounts', page=accounts.prev_num, phone=phone_filter, status=status_filter) }}" class="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">← Пред</a>
+            {% endif %}
+            {% for p in range(1, accounts.pages + 1) %}
+                {% if p == accounts.page %}
+                <span class="px-3 py-1.5 border border-blue-500 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg font-medium">{{ p }}</span>
+                {% elif p == 1 or p == accounts.pages or (p >= accounts.page - 2 and p <= accounts.page + 2) %}
+                <a href="{{ url_for('admin.accounts', page=p, phone=phone_filter, status=status_filter) }}" class="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">{{ p }}</a>
+                {% elif p == accounts.page - 3 or p == accounts.page + 3 %}
+                <span class="px-2 text-gray-400">…</span>
+                {% endif %}
+            {% endfor %}
+            {% if accounts.has_next %}
+            <a href="{{ url_for('admin.accounts', page=accounts.next_num, phone=phone_filter, status=status_filter) }}" class="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">След →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Drag and drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('border-blue-400', 'bg-blue-50'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('border-blue-400', 'bg-blue-50'));
+dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('border-blue-400', 'bg-blue-50');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('accounts-file').files = dt.files;
+        } catch(err) {
+            // Fallback: show file name and let user submit manually
+            showToast('Файл выбран: ' + file.name + '. Нажмите "Отправить"', 'info');
+            return;
+        }
+        document.getElementById('upload-form').submit();
+    }
+});
+
+// Checkboxes
+function toggleSelectAll(cb) {
+    document.querySelectorAll('.row-checkbox').forEach(c => c.checked = cb.checked);
+    updateBulkBar();
+}
+function updateBulkBar() {
+    const checked = document.querySelectorAll('.row-checkbox:checked');
+    const bar = document.getElementById('bulk-bar');
+    document.getElementById('bulk-count').textContent = checked.length + ' выбрано';
+    bar.classList.toggle('hidden', checked.length === 0);
+    bar.classList.toggle('flex', checked.length > 0);
+}
+function clearSelection() {
+    document.querySelectorAll('.row-checkbox').forEach(c => c.checked = false);
+    document.getElementById('select-all').checked = false;
+    updateBulkBar();
+}
+
+// Bulk delete
+async function bulkDelete() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    if (!ids.length || !confirm(`Удалить ${ids.length} аккаунт(ов)?`)) return;
+    const res = await fetch('{{ url_for("admin.accounts_bulk_delete") }}', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids})
+    });
+    if (res.ok) { showToast('Удалено: ' + ids.length); setTimeout(() => location.reload(), 800); }
+    else showToast('Ошибка удаления', 'error');
+}
+
+// Single delete
+async function deleteAccount(id, btn) {
+    if (!confirm('Удалить аккаунт?')) return;
+    const row = btn.closest('tr');
+    const res = await fetch(`/admin/accounts/${id}/delete`, {method: 'POST'});
+    if (res.ok) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); showToast('Аккаунт удалён'); }
+    else showToast('Ошибка', 'error');
+}
+
+// Notes
+function editNote(span) {
+    const input = span.nextElementSibling;
+    span.classList.add('hidden');
+    input.classList.remove('hidden');
+    input.focus();
+    input.select();
+}
+function cancelNote(input) {
+    input.classList.add('hidden');
+    input.previousElementSibling.classList.remove('hidden');
+}
+async function saveNote(input) {
+    const id = input.dataset.id;
+    const notes = input.value.trim();
+    const span = input.previousElementSibling;
+    input.classList.add('hidden');
+    span.classList.remove('hidden');
+    span.textContent = notes || '+ заметка';
+    await fetch(`/admin/accounts/${id}/update_notes`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notes})
+    });
+}
+</script>
+{% endblock %}

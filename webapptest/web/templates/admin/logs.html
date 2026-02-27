@@ -1,0 +1,95 @@
+{% extends 'admin/base.html' %}
+{% block title %}Логи{% endblock %}
+{% block page_title %}Журнал действий{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.export_logs', user=user_filter, action=action_filter, date_from=date_from, date_to=date_to) }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+    Excel
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<form method="GET" class="flex flex-wrap gap-3 mb-5 items-end">
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Пользователь</label>
+        <input type="text" name="user" value="{{ user_filter or '' }}" placeholder="Имя пользователя..." class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-44">
+    </div>
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Действие</label>
+        <select name="action" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Все действия</option>
+            {% for act in actions %}
+            <option value="{{ act }}" {% if action_filter == act %}selected{% endif %}>{{ act }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">От</label>
+        <input type="date" name="date_from" value="{{ date_from or '' }}" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">До</label>
+        <input type="date" name="date_to" value="{{ date_to or '' }}" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <button type="submit" class="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Применить</button>
+    {% if user_filter or action_filter or date_from or date_to %}
+    <a href="{{ url_for('admin.logs') }}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-2">Сбросить</a>
+    {% endif %}
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Журнал ({{ logs.total }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">Время</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Пользователь</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Действие</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Детали</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">User-Agent</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for entry in logs.items %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ entry.timestamp | timestamp_to_date }}</td>
+                    <td class="px-5 py-3 font-medium text-gray-900 dark:text-white">{{ entry.username }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{{ entry.action }}</span>
+                    </td>
+                    <td class="px-5 py-3 text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">{{ entry.details or '—' }}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ entry.ip or '—' }}</td>
+                    <td class="px-5 py-3 text-xs text-gray-400 dark:text-gray-500 max-w-[200px]">
+                        <span class="truncate block" title="{{ entry.user_agent or '' }}">{{ (entry.user_agent or '—')[:60] }}{% if entry.user_agent and entry.user_agent|length > 60 %}…{% endif %}</span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Записи не найдены</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if logs.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <span>Страница {{ logs.page }} из {{ logs.pages }} · {{ logs.total }} записей</span>
+        <div class="flex items-center gap-1">
+            {% if logs.has_prev %}
+            <a href="{{ url_for('admin.logs', page=logs.prev_num, user=user_filter, action=action_filter, date_from=date_from, date_to=date_to) }}" class="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">← Пред</a>
+            {% endif %}
+            {% if logs.has_next %}
+            <a href="{{ url_for('admin.logs', page=logs.next_num, user=user_filter, action=action_filter, date_from=date_from, date_to=date_to) }}" class="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">След →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

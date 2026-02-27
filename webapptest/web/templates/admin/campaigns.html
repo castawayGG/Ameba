@@ -1,0 +1,73 @@
+{% extends 'admin/base.html' %}
+{% block title %}Кампании{% endblock %}
+{% block page_title %}Кампании{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+        <h2 class="text-sm font-semibold text-primary uppercase tracking-wider">Список кампаний ({{ campaigns|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full whitespace-nowrap text-left text-sm">
+            <thead class="bg-white text-gray-500">
+                <tr>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">ID</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Название</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Статус</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Целей</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Обработано</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Успешно</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Ошибок</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200">Создана</th>
+                    <th class="px-6 py-3 font-medium border-b border-gray-200 text-right">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for campaign in campaigns %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 text-gray-500">{{ campaign.id }}</td>
+                    <td class="px-6 py-4 font-medium text-primary">{{ campaign.name }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if campaign.status == 'running' %}bg-green-100 text-green-800
+                            {% elif campaign.status == 'completed' %}bg-blue-100 text-blue-800
+                            {% elif campaign.status == 'paused' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ campaign.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">{{ campaign.total_targets }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ campaign.processed }}</td>
+                    <td class="px-6 py-4 text-green-600">{{ campaign.successful }}</td>
+                    <td class="px-6 py-4 text-red-500">{{ campaign.failed }}</td>
+                    <td class="px-6 py-4 text-gray-500 text-xs">{{ campaign.created_at | timestamp_to_date }}</td>
+                    <td class="px-6 py-4 text-right">
+                        {% if campaign.status == 'draft' or campaign.status == 'paused' %}
+                        <button onclick="startCampaign({{ campaign.id }})" class="text-accent hover:text-blue-700 text-sm font-medium mr-3">Запустить</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="px-6 py-8 text-center text-gray-400">Кампании не найдены</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function startCampaign(id) {
+    if (!confirm('Запустить кампанию?')) return;
+    fetch('/api/campaigns/' + id + '/start', {method: 'POST', headers: {'Content-Type': 'application/json'}})
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                location.reload();
+            } else {
+                alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(err => alert('Ошибка сети: ' + err));
+}
+</script>
+{% endblock %}
