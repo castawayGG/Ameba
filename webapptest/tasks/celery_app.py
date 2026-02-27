@@ -9,7 +9,9 @@ celery_app = Celery(
         'tasks.mass_actions',
         'tasks.proxy_checker',
         'tasks.backup',
-        'tasks.cleanup'
+        'tasks.cleanup',
+        'tasks.session_checker',
+        'tasks.proxy_autoloader',
     ]
 )
 
@@ -26,6 +28,23 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     result_expires=3600,
+    beat_schedule={
+        # Проверка всех сессий каждые 6 часов
+        'check-all-sessions': {
+            'task': 'tasks.session_checker.check_all_sessions',
+            'schedule': Config.PROXY_REFRESH_HOURS * 3600,
+        },
+        # Автозагрузка бесплатных прокси каждые N часов
+        'auto-load-proxies': {
+            'task': 'tasks.proxy_autoloader.auto_load_proxies',
+            'schedule': Config.PROXY_REFRESH_HOURS * 3600,
+        },
+        # Проверка всех прокси каждые 2 часа
+        'check-all-proxies': {
+            'task': 'tasks.proxy_checker.check_all_proxies',
+            'schedule': 7200,
+        },
+    },
 )
 
 if __name__ == '__main__':

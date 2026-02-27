@@ -12,8 +12,9 @@ def load_user(user_id):
 
 def admin_required(func):
     """
-    Декоратор для маршрутов, требующих прав администратора.
-    Проверяет, аутентифицирован ли пользователь и активен ли он.
+    Декоратор для маршрутов, требующих прав администратора или выше.
+    Роли с правом записи: admin, superadmin, editor.
+    Роль viewer имеет доступ только к чтению.
     """
     @wraps(func)
     def decorated_view(*args, **kwargs):
@@ -22,9 +23,19 @@ def admin_required(func):
             return redirect(url_for('admin.login'))
         if not current_user.is_active:
             abort(403, description='Аккаунт деактивирован')
-        # Дополнительно можно проверять роль, если требуется
+        # viewer имеет права только на чтение – запрещаем мутирующие действия
+        if current_user.role == 'viewer':
+            abort(403, description='Недостаточно прав: роль viewer доступна только для просмотра')
         return func(*args, **kwargs)
     return decorated_view
+
+
+def editor_required(func):
+    """
+    Декоратор для маршрутов, доступных editor/admin/superadmin, но не viewer.
+    Псевдоним admin_required – оставлен для семантической ясности.
+    """
+    return admin_required(func)
 
 def superadmin_required(func):
     """

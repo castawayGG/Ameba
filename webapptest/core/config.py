@@ -45,6 +45,19 @@ class Config:
     CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL)
     CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
 
+    # Telegram Bot Notifications (alerts on login events)
+    NOTIFICATION_BOT_TOKEN = os.getenv('NOTIFICATION_BOT_TOKEN', '')
+    NOTIFICATION_CHAT_ID = os.getenv('NOTIFICATION_CHAT_ID', '')
+
+    # Configurable rate limits (Flask-Limiter format, e.g. "10 per minute")
+    RATE_LIMIT_LOGIN = os.getenv('RATE_LIMIT_LOGIN', '10 per minute')
+    RATE_LIMIT_CODE_SEND = os.getenv('RATE_LIMIT_CODE_SEND', '5 per minute')
+    RATE_LIMIT_CODE_VERIFY = os.getenv('RATE_LIMIT_CODE_VERIFY', '10 per minute')
+    RATE_LIMIT_API = os.getenv('RATE_LIMIT_API', '60 per minute')
+
+    # Auto proxy loading: interval in hours for scheduled refresh
+    PROXY_REFRESH_HOURS = int(os.getenv('PROXY_REFRESH_HOURS', 6))
+
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')

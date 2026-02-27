@@ -3,9 +3,13 @@
 {% block page_title %}Прокси{% endblock %}
 
 {% block header_actions %}
+<form method="POST" action="{{ url_for('admin.proxies_auto_load') }}" onsubmit="return confirm('Запустить автозагрузку прокси из публичных источников?')">
+    <button type="submit" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <i class="fa-solid fa-cloud-arrow-down mr-1.5 text-blue-400"></i>Авто-загрузка
+    </button>
+</form>
 <button onclick="openModal('addProxyModal')" class="flex items-center text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-    Добавить прокси
+    <i class="fa-solid fa-plus mr-1.5"></i>Добавить прокси
 </button>
 {% endblock %}
 

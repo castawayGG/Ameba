@@ -28,3 +28,25 @@
 2026-02-27T15:43:06.621959+0000 | INFO | web.app:create_app:69 - Flask application created successfully
 2026-02-27T15:43:06.682391+0000 | INFO | web.app:create_app:69 - Flask application created successfully
 2026-02-27T15:43:06.872652+0000 | INFO | web.app:create_app:69 - Flask application created successfully
+2026-02-27T16:16:21.769661+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:16:22.428293+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:22.452088+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.032319+0000 | WARNING | web.app:create_app:34 - SECRET_KEY is not set or uses insecure default. Set SECRET_KEY env variable in production.
+2026-02-27T16:16:36.339321+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.413979+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.474214+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.532677+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.596822+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.599480+0000 | ERROR | web.routes.public:api_send_code:35 - api_send_code error for phone=380991234567: network error
+2026-02-27T16:16:36.660417+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.718805+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.775835+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.837988+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:36.968330+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:37.560913+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)
+2026-02-27T16:16:37.617348+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:38.196135+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:38.718260+0000 | ERROR | web.routes.admin:login:137 - Login error: can't compare offset-naive and offset-aware datetimes
+2026-02-27T16:16:50.650288+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:16:50.699357+0000 | INFO | web.app:create_app:71 - Flask application created successfully
+2026-02-27T16:17:13.703787+0000 | WARNING | services.notification.telegram_bot:send_notification:16 - Telegram notification is not configured (NOTIFICATION_BOT_TOKEN or NOTIFICATION_CHAT_ID missing)

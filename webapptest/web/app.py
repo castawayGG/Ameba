@@ -14,6 +14,8 @@ from models.campaign import Campaign
 from models.stat import Stat
 from models.admin_log import AdminLog
 from models.task import Task
+from models.account_log import AccountLog
+from models.api_credential import ApiCredential
 
 
 def create_app(test_config=None):
