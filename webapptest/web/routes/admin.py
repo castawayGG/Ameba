@@ -1023,3 +1023,81 @@ def proxies_auto_load():
     except Exception as e:
         flash(f'Ошибка запуска задачи: {e}', 'danger')
     return redirect(url_for('admin.proxies'))
+
+
+# ==========================================
+# 14. ДЕТАЛИ АККАУНТА И СКАЧИВАНИЕ СЕССИИ
+# ==========================================
+@admin_bp.route('/accounts/<account_id>/detail')
+@login_required
+def account_detail(account_id):
+    """AJAX: полная информация об аккаунте (JSON) для модального окна."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'error': 'Аккаунт не найден'}), 404
+
+    now = datetime.datetime.now(timezone.utc)
+    # Determine inactive >30 days
+    inactive_days = None
+    if account.last_used:
+        lu = account.last_used
+        if lu.tzinfo is None:
+            lu = lu.replace(tzinfo=timezone.utc)
+        inactive_days = (now - lu).days
+
+    # Flood-wait remaining seconds
+    flood_wait_secs = None
+    if account.flood_wait_until:
+        fw = account.flood_wait_until
+        if fw.tzinfo is None:
+            fw = fw.replace(tzinfo=timezone.utc)
+        remaining = (fw - now).total_seconds()
+        if remaining > 0:
+            flood_wait_secs = int(remaining)
+
+    return jsonify({
+        'id': account.id,
+        'phone': account.phone,
+        'username': account.username or '',
+        'first_name': account.first_name or '',
+        'last_name': account.last_name or '',
+        'premium': account.premium or False,
+        'status': account.status,
+        'dc_id': account.dc_id,
+        'two_fa_enabled': account.two_fa_enabled or False,
+        'notes': account.notes or '',
+        'session_file': account.session_file or '',
+        'created_at': account.created_at.strftime('%Y-%m-%d %H:%M:%S') if account.created_at else '',
+        'last_used': account.last_used.strftime('%Y-%m-%d %H:%M:%S') if account.last_used else '',
+        'last_checked': account.last_checked.strftime('%Y-%m-%d %H:%M:%S') if account.last_checked else '',
+        'inactive_days': inactive_days,
+        'flood_wait_secs': flood_wait_secs,
+        'proxy': f"{account.proxy.host}:{account.proxy.port}" if account.proxy else '',
+    })
+
+
+@admin_bp.route('/accounts/<account_id>/download_session')
+@login_required
+@admin_required
+def account_download_session(account_id):
+    """Скачать .session файл аккаунта."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'error': 'Аккаунт не найден'}), 404
+
+    if not account.session_file:
+        return jsonify({'error': 'Файл сессии не найден'}), 404
+
+    # Validate path stays within SESSIONS_DIR
+    sessions_dir = Path(Config.SESSIONS_DIR).resolve()
+    safe_name = Path(account.session_file).name
+    if not safe_name.endswith('.session'):
+        return jsonify({'error': 'Недопустимое имя файла'}), 400
+    filepath = (sessions_dir / safe_name).resolve()
+    if not filepath.is_relative_to(sessions_dir):
+        return jsonify({'error': 'Недопустимый путь'}), 400
+    if not filepath.exists():
+        return jsonify({'error': 'Файл не найден на диске'}), 404
+
+    log_action("account_download_session", f"Скачан .session файл: {account.phone}")
+    return send_file(str(filepath), as_attachment=True, download_name=safe_name)

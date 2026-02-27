@@ -79,5 +79,8 @@ def api_verify():
 
     if result.get('status') == 'success':
         _pending_sessions.pop(sid, None)
+    elif result.get('status') == 'need_2fa' and result.get('session_string'):
+        # Update stored session string in case it changed after the code step
+        _pending_sessions[sid]['session_string'] = result['session_string']
 
-    return jsonify(result)
+    return jsonify({k: v for k, v in result.items() if k != 'session_string'})

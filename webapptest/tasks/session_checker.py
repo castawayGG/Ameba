@@ -1,12 +1,41 @@
 # tasks/session_checker.py
 # Задачи Celery для проверки и восстановления сессий Telegram-аккаунтов
 import asyncio
+import re
 from celery import shared_task
 from core.database import SessionLocal
 from models.account import Account
 from models.account_log import AccountLog
 from core.logger import log
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+
+def _apply_check_result(account, result):
+    """Helper: updates account fields based on a session check result dict."""
+    account.last_checked = datetime.now(timezone.utc)
+    if result['valid']:
+        if account.status in ('expired', 'inactive'):
+            account.status = 'active'
+        # Clear flood-wait if previously set
+        account.flood_wait_until = None
+        if result.get('dc_id'):
+            account.dc_id = result['dc_id']
+    else:
+        status_map = {
+            'banned': 'banned',
+            'deactivated': 'banned',
+            '2fa_required': '2fa',
+            'session_expired': 'expired',
+        }
+        reason = result.get('reason', 'inactive')
+        account.status = status_map.get(reason, 'inactive')
+        # Parse flood-wait from reason string like "flood wait 15s" or "flood_wait:15"
+        if 'flood' in reason.lower():
+            m = re.search(r'(\d+)', reason)
+            if m:
+                seconds = int(m.group(1))
+                account.flood_wait_until = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+                account.status = 'flood_wait'
 
 
 @shared_task(bind=True, max_retries=2, name='tasks.session_checker.check_all_sessions')
@@ -23,21 +52,7 @@ def check_all_sessions(self):
         for account in accounts:
             try:
                 result = asyncio.run(_check_single_session(account.id))
-                # Обновляем статус и время последней проверки (объект уже получен выше)
-                account.last_checked = datetime.now(timezone.utc)
-                if result['valid']:
-                    if account.status in ('expired', 'inactive'):
-                        account.status = 'active'
-                else:
-                    new_status = result.get('reason', 'inactive')
-                    # Маппинг причин на статусы
-                    status_map = {
-                        'banned': 'banned',
-                        'deactivated': 'banned',
-                        '2fa_required': '2fa',
-                        'session_expired': 'expired',
-                    }
-                    account.status = status_map.get(new_status, 'inactive')
+                _apply_check_result(account, result)
                 db.commit()
 
                 # Пишем лог действия над аккаунтом
@@ -71,19 +86,7 @@ def check_single_session_task(self, account_id: str, initiator: str = 'system', 
         result = asyncio.run(_check_single_session(account_id))
         acc = db.query(Account).filter(Account.id == account_id).first()
         if acc:
-            acc.last_checked = datetime.now(timezone.utc)
-            if result['valid']:
-                if acc.status in ('expired', 'inactive'):
-                    acc.status = 'active'
-            else:
-                status_map = {
-                    'banned': 'banned',
-                    'deactivated': 'banned',
-                    '2fa_required': '2fa',
-                    'session_expired': 'expired',
-                }
-                new_status = result.get('reason', 'inactive')
-                acc.status = status_map.get(new_status, 'inactive')
+            _apply_check_result(acc, result)
             db.commit()
 
         entry = AccountLog(
@@ -148,7 +151,7 @@ def auto_relogin_task(self, account_id: str, initiator: str = 'system'):
 async def _check_single_session(account_id: str) -> dict:
     """
     Подключается к Telegram с существующей сессией и проверяет её валидность.
-    Возвращает {'valid': bool, 'reason': str}.
+    Возвращает {'valid': bool, 'reason': str, 'dc_id': int|None}.
     """
     try:
         from services.telegram.actions import get_telegram_client
@@ -163,7 +166,8 @@ async def _check_single_session(account_id: str) -> dict:
             me = await client.get_me()
             if me is None:
                 return {'valid': False, 'reason': 'session_expired'}
-            return {'valid': True, 'reason': 'ok', 'username': getattr(me, 'username', None)}
+            dc_id = getattr(client.session, 'dc_id', None)
+            return {'valid': True, 'reason': 'ok', 'username': getattr(me, 'username', None), 'dc_id': dc_id}
         finally:
             await client.disconnect()
     except Exception as e:

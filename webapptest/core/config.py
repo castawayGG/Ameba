@@ -60,7 +60,7 @@ class Config:
 
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')
+    SESSIONS_DIR = os.path.join(BASE_DIR, '.sessions')
     LOGS_DIR = os.path.join(BASE_DIR, 'logs')
     BACKUPS_DIR = os.path.join(BASE_DIR, 'backups')
 
