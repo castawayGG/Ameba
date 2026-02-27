@@ -17,58 +17,125 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        // Тёмно-голубая палитра панели управления
                         panel: {
                             bg:      '#070f1a',
-                            surface: '#0d1b2e',
-                            card:    '#112240',
-                            border:  '#1e3a5f',
+                            surface: '#0a1628',
+                            card:    '#0f1f38',
+                            border:  '#1a3353',
                             accent:  '#0ea5e9',
                             accent2: '#38bdf8',
-                            text:    '#e2eaf4',
-                            muted:   '#6b8cae',
+                            text:    '#ddeeff',
+                            muted:   '#5f85aa',
                         }
                     }
                 }
             }
         }
-        // Тема по умолчанию – тёмная, восстанавливаем из localStorage при наличии
-        (function() {
-            const saved = localStorage.getItem('cp-theme');
-            // Если пользователь явно выбрал светлую – переключаемся, иначе остаёмся в тёмной
-            if (saved === 'light') {
-                document.documentElement.classList.remove('dark');
-            }
-        })();
+        // Always default to dark mode for the admin panel
+        document.documentElement.classList.add('dark');
     </script>
     <style>
         /* Тёмно-голубые CSS-переменные для панели */
-        :root { --panel-bg: #070f1a; --panel-surface: #0d1b2e; --panel-card: #112240; --panel-border: #1e3a5f; --panel-accent: #0ea5e9; --panel-accent2: #38bdf8; --panel-text: #e2eaf4; --panel-muted: #6b8cae; }
-        body.dark-panel { background: var(--panel-bg); }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        :root {
+            --panel-bg:      #070f1a;
+            --panel-surface: #0a1628;
+            --panel-card:    #0f1f38;
+            --panel-border:  #1a3353;
+            --panel-accent:  #0ea5e9;
+            --panel-accent2: #38bdf8;
+            --panel-text:    #ddeeff;
+            --panel-muted:   #5f85aa;
+        }
+        /* Force dark-blue palette on the entire admin panel */
+        body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
+        aside#sidebar {
+            background: var(--panel-surface) !important;
+            border-color: var(--panel-border) !important;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.35);
+        }
+        header {
+            background: var(--panel-surface) !important;
+            border-color: var(--panel-border) !important;
+            box-shadow: 0 1px 12px rgba(0,0,0,0.3);
+        }
+        main { background: var(--panel-bg) !important; }
+
+        /* Cards & containers */
+        .dark .dark\:bg-gray-800,
+        .dark [class*="dark:bg-gray-800"] { background: #0f1f38 !important; }
+        .dark .dark\:bg-gray-900,
+        .dark [class*="dark:bg-gray-900"] { background: var(--panel-bg) !important; }
+        .dark [class*="dark:bg-gray-700"] { background: #0c1a2e !important; }
+
+        /* Borders */
+        .dark .dark\:border-gray-700,
+        .dark [class*="dark:border-gray-700"] { border-color: var(--panel-border) !important; }
+        .dark [class*="dark:border-gray-600"] { border-color: var(--panel-border) !important; }
+
+        /* Text */
+        .dark .dark\:text-gray-100,
+        .dark .dark\:text-white { color: var(--panel-text) !important; }
+        .dark .dark\:text-gray-300 { color: #a8c4de !important; }
+        .dark .dark\:text-gray-400 { color: var(--panel-muted) !important; }
+        .dark .dark\:text-gray-500 { color: #3e5f80 !important; }
+
+        /* Table head */
+        .dark [class*="dark:bg-gray-700\\/50"],
+        .dark [class*="dark:bg-gray-700\\/40"] { background: rgba(10,22,40,0.85) !important; }
+
+        /* Hover rows */
+        .dark [class*="dark:hover:bg-gray-700\\/30"]:hover { background: rgba(14,165,233,0.06) !important; }
+
+        /* Inputs inside dark panel */
+        .dark input, .dark select, .dark textarea {
+            background: #071220 !important;
+            border-color: var(--panel-border) !important;
+            color: var(--panel-text) !important;
+        }
+        .dark input::placeholder { color: var(--panel-muted) !important; }
+
+        /* Nav */
+        .dark .nav-accent-active {
+            background: linear-gradient(90deg, var(--panel-accent), #2563eb) !important;
+            color: #fff !important;
+            box-shadow: 0 2px 10px rgba(14,165,233,0.35);
+        }
+        .dark .nav-accent-hover:hover {
+            background: rgba(14,165,233,0.10) !important;
+            color: var(--panel-accent2) !important;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--panel-accent); }
+
+        /* Animations */
         .sidebar-transition { transition: transform 0.25s ease; }
         .modal-backdrop { animation: fadeIn 0.15s ease; }
         .modal-panel { animation: slideUp 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .toast-enter { animation: toastIn 0.3s ease forwards; }
         .toast-leave { animation: toastOut 0.3s ease forwards; }
-        @keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(16px); } }
-        /* Переопределение тёмной темы на тёмно-голубую */
-        .dark body { background: var(--panel-bg) !important; }
-        .dark aside#sidebar { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
-        .dark header { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
-        .dark main { background: var(--panel-bg) !important; }
-        .dark .dark\:bg-gray-800 { background: var(--panel-card) !important; }
-        .dark .dark\:bg-gray-900 { background: var(--panel-bg) !important; }
-        .dark .dark\:border-gray-700 { border-color: var(--panel-border) !important; }
-        .dark .nav-accent-active { background: var(--panel-accent) !important; color: #fff !important; }
-        .dark .nav-accent-hover:hover { background: rgba(14, 165, 233, 0.15) !important; color: var(--panel-accent2) !important; }
-        /* Светлая тема – стандартный серый фон */
+        @keyframes toastIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateY(0); }  to { opacity: 0; transform: translateY(14px); } }
+
+        /* Modal overrides */
+        .dark .dark\:bg-gray-800.modal-panel-inner,
+        .dark [id$="Modal"] > div { background: #0f1f38 !important; border-color: var(--panel-border) !important; }
+
+        /* Accent button glow */
+        .btn-accent-glow {
+            background: var(--panel-accent);
+            box-shadow: 0 0 14px rgba(14,165,233,0.30);
+            transition: box-shadow 0.2s, background 0.2s;
+        }
+        .btn-accent-glow:hover { background: var(--panel-accent2); box-shadow: 0 0 20px rgba(56,189,248,0.40); }
+
+        /* Divider */
+        .dark [class*="dark:divide-gray-700"] > * + * { border-color: var(--panel-border) !important; }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans antialiased flex h-screen overflow-hidden transition-colors duration-200">
@@ -139,30 +206,25 @@
             </nav>
 
             <!-- User + actions footer -->
-            <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+            <div class="p-4 border-t flex-shrink-0" style="border-color: var(--panel-border);">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center min-w-0">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
                             {{ current_user.username[0]|upper if current_user else 'A' }}
                         </div>
                         <div class="ml-2 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ current_user.username if current_user else 'Admin' }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                {% if current_user.role == 'superadmin' %}<span class="text-yellow-400">superadmin</span>
-                                {% elif current_user.role == 'admin' %}<span class="text-blue-400">admin</span>
-                                {% elif current_user.role == 'editor' %}<span class="text-green-400">editor</span>
-                                {% else %}<span class="text-gray-400">viewer</span>{% endif %}
+                            <p class="text-sm font-medium truncate" style="color: var(--panel-text);">{{ current_user.username if current_user else 'Admin' }}</p>
+                            <p class="text-xs" style="color: var(--panel-muted);">
+                                {% if current_user.role == 'superadmin' %}<span style="color:#fbbf24;">superadmin</span>
+                                {% elif current_user.role == 'admin' %}<span style="color:var(--panel-accent);">admin</span>
+                                {% elif current_user.role == 'editor' %}<span style="color:#34d399;">editor</span>
+                                {% else %}<span style="color:var(--panel-muted);">viewer</span>{% endif %}
                             </p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-1 flex-shrink-0">
-                        <!-- Theme toggle -->
-                        <button id="theme-toggle" onclick="toggleTheme()" title="Сменить тему" class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <i id="icon-sun" class="fa-solid fa-sun hidden dark:block text-sm"></i>
-                            <i id="icon-moon" class="fa-solid fa-moon block dark:hidden text-sm"></i>
-                        </button>
                         <!-- Logout -->
-                        <a href="{{ url_for('admin.logout') }}" class="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Выйти">
+                        <a href="{{ url_for('admin.logout') }}" class="p-1.5 rounded-lg transition-colors" style="color: var(--panel-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'" title="Выйти">
                             <i class="fa-solid fa-right-from-bracket text-sm"></i>
                         </a>
                     </div>
@@ -188,8 +250,8 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="mb-4 rounded-lg p-4 border {% if category in ('error', 'danger') %}bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800 text-red-800 dark:text-red-300{% elif category == 'success' %}bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800 text-green-800 dark:text-green-300{% else %}bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-800 dark:text-blue-300{% endif %}">
-                            <p class="text-sm font-medium">{{ message }}</p>
+                        <div class="mb-4 rounded-lg p-3.5 border text-sm font-medium {% if category in ('error', 'danger') %}border-red-700/50 text-red-300" style="background: rgba(220,38,38,0.1){% elif category == 'success' %}border-green-700/50 text-green-300" style="background: rgba(34,197,94,0.08){% else %}border-sky-700/50 text-sky-300" style="background: rgba(14,165,233,0.08){% endif %}">
+                            {{ message }}
                         </div>
                     {% endfor %}
                 {% endif %}
@@ -202,18 +264,6 @@
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        function toggleTheme() {
-            const html = document.documentElement;
-            const isDark = html.classList.contains('dark');
-            if (isDark) {
-                html.classList.remove('dark');
-                localStorage.setItem('cp-theme', 'light');
-            } else {
-                html.classList.add('dark');
-                localStorage.setItem('cp-theme', 'dark');
-            }
-        }
-
         function openSidebar() {
             document.getElementById('sidebar').classList.remove('-translate-x-full');
             document.getElementById('sidebar-overlay').classList.remove('hidden');
@@ -239,20 +289,21 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const colors = {
-                success: 'bg-gray-900 dark:bg-panel-surface text-white',
-                error: 'bg-red-600 text-white',
-                info: 'bg-blue-600 text-white',
-                warning: 'bg-yellow-500 text-white'
+            const styles = {
+                success: 'background:#0f2a1a;border:1px solid #166534;color:#86efac;',
+                error:   'background:#2a0f0f;border:1px solid #991b1b;color:#fca5a5;',
+                info:    'background:#071220;border:1px solid var(--panel-border);color:var(--panel-accent2);',
+                warning: 'background:#2a1f00;border:1px solid #92400e;color:#fcd34d;'
             };
             const icons = {
-                success: 'fa-check',
-                error: 'fa-xmark',
-                info: 'fa-circle-info',
+                success: 'fa-check-circle',
+                error:   'fa-circle-xmark',
+                info:    'fa-circle-info',
                 warning: 'fa-triangle-exclamation'
             };
-            toast.className = `pointer-events-auto ${colors[type] || colors.success} px-4 py-3 rounded-lg shadow-lg flex items-center text-sm font-medium toast-enter max-w-xs`;
-            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.success} mr-2 flex-shrink-0"></i><span>${message}</span>`;
+            toast.setAttribute('style', (styles[type] || styles.info) + 'border-radius:10px;padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.5);');
+            toast.className = 'pointer-events-auto toast-enter';
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${message}</span>`;
             container.appendChild(toast);
             setTimeout(() => {
                 toast.classList.remove('toast-enter');
