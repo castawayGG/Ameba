@@ -20,8 +20,11 @@ class Account(Base):
     last_used = Column(DateTime, nullable=True)
     last_checked = Column(DateTime, nullable=True)
     status = Column(String(20), default='active')
+    # Health status: active, 2fa, banned, expired, invalid — для цветового индикатора
+    health_status = Column(String(20), default='unknown')
     notes = Column(Text, nullable=True)
 
     proxy = relationship('Proxy', back_populates='accounts')
-    # Добавлено back_populates для исключения ошибок доступа из jinja2
     owner = relationship('User', back_populates='accounts', foreign_keys=[owner_id])
+    # Связь с журналом активности аккаунта
+    activity_logs = relationship('AccountActivityLog', back_populates='account', cascade='all, delete-orphan')

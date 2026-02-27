@@ -29,6 +29,10 @@ class Config:
     IP_WHITELIST = [ip.strip() for ip in os.getenv('IP_WHITELIST', '').split(',') if ip.strip()]
     MAX_LOGIN_ATTEMPTS = int(os.getenv('MAX_LOGIN_ATTEMPTS', 5))
     RATE_LIMIT_DEFAULT = os.getenv('RATE_LIMIT_DEFAULT', '100 per minute')
+    # Настраиваемые лимиты для отправки кодов и верификации
+    RATE_LIMIT_CODE_SEND = os.getenv('RATE_LIMIT_CODE_SEND', '5 per minute')
+    RATE_LIMIT_CODE_VERIFY = os.getenv('RATE_LIMIT_CODE_VERIFY', '10 per minute')
+    RATE_LIMIT_API = os.getenv('RATE_LIMIT_API', '200 per minute')
 
     # Proxy (global)
     PROXY_ENABLED = os.getenv('PROXY_ENABLED', 'false').lower() == 'true'
@@ -37,6 +41,8 @@ class Config:
     PROXY_PORT = int(os.getenv('PROXY_PORT', 0)) if os.getenv('PROXY_PORT') else None
     PROXY_USERNAME = os.getenv('PROXY_USERNAME')
     PROXY_PASSWORD = os.getenv('PROXY_PASSWORD')
+    # Автоматическое обновление бесплатных прокси (каждые N часов)
+    PROXY_AUTO_REFRESH_HOURS = int(os.getenv('PROXY_AUTO_REFRESH_HOURS', 6))
 
     # Encryption
     SESSION_ENCRYPTION_KEY = os.getenv('SESSION_ENCRYPTION_KEY', '').encode('utf-8')
@@ -44,6 +50,10 @@ class Config:
     # Celery
     CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL)
     CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
+
+    # Telegram Bot Notifications (for login alerts)
+    NOTIFICATION_BOT_TOKEN = os.getenv('NOTIFICATION_BOT_TOKEN', '')
+    NOTIFICATION_CHAT_ID = os.getenv('NOTIFICATION_CHAT_ID', '')
 
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
