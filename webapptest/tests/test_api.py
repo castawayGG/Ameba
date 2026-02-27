@@ -167,3 +167,141 @@ class TestAdminLogin:
         })
         # Should not redirect to dashboard – stay on login page
         assert b'danger' in resp.data or resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Account model tests (new fields)
+# ---------------------------------------------------------------------------
+
+class TestAccountModel:
+    def test_new_account_fields_exist(self, app):
+        """Verify new Account model fields are accessible."""
+        from models.account import Account
+        acc = Account(
+            id='testaccount123',
+            phone='+380991234567',
+            session_file='380991234567.session',
+            flood_wait_until=None,
+            dc_id=2,
+            tg_id='12345678',
+            last_active=None,
+            status_detail='test detail',
+        )
+        _db.session.add(acc)
+        _db.session.commit()
+
+        loaded = _db.session.query(Account).filter_by(id='testaccount123').first()
+        assert loaded is not None
+        assert loaded.session_file == '380991234567.session'
+        assert loaded.dc_id == 2
+        assert loaded.tg_id == '12345678'
+        assert loaded.status_detail == 'test detail'
+        assert loaded.flood_wait_until is None
+
+    def test_account_status_flood_wait(self, app):
+        """Verify flood_wait status can be set with timestamp."""
+        from models.account import Account
+        from datetime import datetime, timezone, timedelta
+        flood_until = datetime.now(timezone.utc) + timedelta(seconds=300)
+        acc = Account(
+            id='floodtest123',
+            phone='+380991234568',
+            status='flood_wait',
+            flood_wait_until=flood_until,
+            status_detail='Flood wait 300s',
+        )
+        _db.session.add(acc)
+        _db.session.commit()
+
+        loaded = _db.session.query(Account).filter_by(id='floodtest123').first()
+        assert loaded.status == 'flood_wait'
+        assert loaded.flood_wait_until is not None
+        assert loaded.status_detail == 'Flood wait 300s'
+
+
+# ---------------------------------------------------------------------------
+# Session file saving tests
+# ---------------------------------------------------------------------------
+
+class TestSessionFileSaving:
+    def test_save_session_file(self, app):
+        """Verify _save_session_file creates a file in sessions dir."""
+        import tempfile
+        import shutil
+        from core.config import Config
+
+        # Use a temp dir for sessions
+        tmpdir = tempfile.mkdtemp()
+        original_dir = Config.SESSIONS_DIR
+        Config.SESSIONS_DIR = tmpdir
+
+        try:
+            from services.telegram.authtelegram import _save_session_file
+            filename = _save_session_file('+380991234567', 'fake_session_string_data', 'sid123')
+            assert filename == '380991234567.session'
+
+            filepath = os.path.join(tmpdir, filename)
+            assert os.path.exists(filepath)
+
+            with open(filepath, 'r') as f:
+                content = f.read()
+            assert content == 'fake_session_string_data'
+        finally:
+            Config.SESSIONS_DIR = original_dir
+            shutil.rmtree(tmpdir)
+
+    def test_save_session_file_with_plus_prefix(self, app):
+        """Verify phone number is sanitized (+ removed)."""
+        import tempfile
+        import shutil
+        from core.config import Config
+
+        tmpdir = tempfile.mkdtemp()
+        original_dir = Config.SESSIONS_DIR
+        Config.SESSIONS_DIR = tmpdir
+
+        try:
+            from services.telegram.authtelegram import _save_session_file
+            filename = _save_session_file('+1234567890', 'data123', 'sid456')
+            assert filename == '1234567890.session'
+            assert os.path.exists(os.path.join(tmpdir, filename))
+        finally:
+            Config.SESSIONS_DIR = original_dir
+            shutil.rmtree(tmpdir)
+
+
+# ---------------------------------------------------------------------------
+# Admin account detail endpoint tests
+# ---------------------------------------------------------------------------
+
+class TestAccountDetailEndpoint:
+    def _login(self, client, admin_user):
+        """Helper to log in as admin."""
+        client.post('/admin/login', data={
+            'username': 'testadmin',
+            'password': 'testpassword',
+            'otp': '',
+        })
+
+    def test_account_detail_returns_json(self, client, admin_user, app):
+        """Test account detail endpoint returns proper JSON."""
+        from models.account import Account
+        acc = Account(id='detail_test_01', phone='+380991234500', username='testuser', status='active')
+        _db.session.add(acc)
+        _db.session.commit()
+
+        self._login(client, admin_user)
+        resp = client.get('/admin/accounts/detail_test_01/detail')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['phone'] == '+380991234500'
+        assert data['username'] == 'testuser'
+        assert data['status'] == 'active'
+        assert 'has_session' in data
+        assert 'log_count' in data
+
+    def test_account_detail_not_found(self, client, admin_user, app):
+        """Test account detail for non-existent account."""
+        self._login(client, admin_user)
+        resp = client.get('/admin/accounts/nonexistent_id/detail')
+        assert resp.status_code == 404

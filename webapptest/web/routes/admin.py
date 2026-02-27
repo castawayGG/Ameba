@@ -73,6 +73,31 @@ def _save_api_settings(settings: dict):
         json.dump(settings, f, indent=2)
 
 
+def _get_rate_limits():
+    """Читает настройки rate limiting из JSON-файла или конфигурации"""
+    settings_file = Path(Config.BASE_DIR) / 'rate_limits.json'
+    if settings_file.exists():
+        try:
+            with open(settings_file, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        'code_send': Config.RATE_LIMIT_CODE_SEND,
+        'code_verify': Config.RATE_LIMIT_CODE_VERIFY,
+        'api': Config.RATE_LIMIT_API,
+        'login': Config.RATE_LIMIT_LOGIN,
+        'ip_whitelist': ', '.join(Config.IP_WHITELIST),
+    }
+
+
+def _save_rate_limits(settings: dict):
+    """Сохраняет настройки rate limiting в JSON-файл"""
+    settings_file = Path(Config.BASE_DIR) / 'rate_limits.json'
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+
 # ==========================================
 # 1. АВТОРИЗАЦИЯ
 # ==========================================
@@ -289,7 +314,8 @@ def settings():
 
     backups = list_backups()
     api_settings = _get_api_settings()
-    return render_template('admin/settings.html', backups=backups, api_settings=api_settings)
+    rate_limits = _get_rate_limits()
+    return render_template('admin/settings.html', backups=backups, api_settings=api_settings, rate_limits=rate_limits)
 
 
 @admin_bp.route('/settings/2fa/enable', methods=['POST'])
@@ -374,6 +400,27 @@ def save_api_settings():
         _save_api_settings(settings)
         log_action("save_api_settings", "Обновлены настройки Telegram API")
         flash('Настройки API сохранены', 'success')
+    except Exception as e:
+        flash(f'Ошибка при сохранении: {e}', 'danger')
+    return redirect(url_for('admin.settings'))
+
+
+@admin_bp.route('/settings/rate_limits', methods=['POST'])
+@login_required
+@admin_required
+def save_rate_limits():
+    """Сохраняет настройки rate limiting"""
+    settings = {
+        'code_send': request.form.get('rate_limit_code_send', '5 per minute').strip(),
+        'code_verify': request.form.get('rate_limit_code_verify', '10 per minute').strip(),
+        'api': request.form.get('rate_limit_api', '60 per minute').strip(),
+        'login': request.form.get('rate_limit_login', '10 per minute').strip(),
+        'ip_whitelist': request.form.get('ip_whitelist', '').strip(),
+    }
+    try:
+        _save_rate_limits(settings)
+        log_action("save_rate_limits", "Обновлены настройки rate limiting")
+        flash('Настройки лимитов сохранены', 'success')
     except Exception as e:
         flash(f'Ошибка при сохранении: {e}', 'danger')
     return redirect(url_for('admin.settings'))
@@ -1007,6 +1054,114 @@ def accounts_check_all_sessions():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@admin_bp.route('/accounts/<account_id>/detail')
+@login_required
+def account_detail(account_id):
+    """AJAX: детальная информация об аккаунте для модального окна (JSON)."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'error': 'Аккаунт не найден'}), 404
+
+    # Подсчёт количества записей в истории
+    log_count = db.session.execute(
+        select(func.count(AccountLog.id)).filter(AccountLog.account_id == account_id)
+    ).scalar() or 0
+
+    # Определяем время flood wait (если есть)
+    flood_remaining = None
+    if account.flood_wait_until:
+        from datetime import timezone as tz
+        import datetime as dt
+        now = dt.datetime.now(tz.utc)
+        if account.flood_wait_until.tzinfo is None:
+            flood_end = account.flood_wait_until.replace(tzinfo=tz.utc)
+        else:
+            flood_end = account.flood_wait_until
+        remaining = (flood_end - now).total_seconds()
+        flood_remaining = max(0, int(remaining))
+
+    # Определяем время неактивности
+    inactive_days = None
+    if account.last_active:
+        import datetime as dt
+        from datetime import timezone as tz
+        now = dt.datetime.now(tz.utc)
+        last = account.last_active
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=tz.utc)
+        inactive_days = (now - last).days
+
+    return jsonify({
+        'id': account.id,
+        'phone': account.phone,
+        'username': account.username or '',
+        'first_name': account.first_name or '',
+        'last_name': account.last_name or '',
+        'premium': account.premium or False,
+        'status': account.status or 'unknown',
+        'status_detail': account.status_detail or '',
+        'tg_id': account.tg_id or '',
+        'dc_id': account.dc_id,
+        'session_file': account.session_file or '',
+        'has_session': bool(account.session_data),
+        'proxy': f"{account.proxy.host}:{account.proxy.port}" if account.proxy else '',
+        'proxy_type': account.proxy.type if account.proxy else '',
+        'created_at': account.created_at.strftime('%Y-%m-%d %H:%M:%S') if account.created_at else '',
+        'last_used': account.last_used.strftime('%Y-%m-%d %H:%M:%S') if account.last_used else '',
+        'last_checked': account.last_checked.strftime('%Y-%m-%d %H:%M:%S') if account.last_checked else '',
+        'last_active': account.last_active.strftime('%Y-%m-%d %H:%M:%S') if account.last_active else '',
+        'flood_wait_until': account.flood_wait_until.strftime('%Y-%m-%d %H:%M:%S') if account.flood_wait_until else '',
+        'flood_remaining': flood_remaining,
+        'inactive_days': inactive_days,
+        'log_count': log_count,
+        'notes': account.notes or '',
+        'owner': account.owner.username if account.owner else '',
+    })
+
+
+@admin_bp.route('/accounts/<account_id>/download_session')
+@login_required
+@admin_required
+def account_download_session(account_id):
+    """Скачивание .session файла аккаунта."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        flash('Аккаунт не найден', 'danger')
+        return redirect(url_for('admin.accounts'))
+
+    if account.session_file:
+        session_path = Path(Config.SESSIONS_DIR) / account.session_file
+        resolved = session_path.resolve()
+        sessions_dir = Path(Config.SESSIONS_DIR).resolve()
+        if resolved.is_relative_to(sessions_dir) and resolved.exists():
+            log_action("account_download_session", f"Скачан .session: {account.phone}")
+            return send_file(str(resolved), as_attachment=True,
+                             download_name=account.session_file)
+
+    # Если файла нет, но есть данные сессии — генерируем на лету
+    if account.session_data:
+        from utils.encryption import decrypt_session_data
+        try:
+            session_str = decrypt_session_data(account.session_data)
+            safe_phone = account.phone.lstrip('+').replace(' ', '').replace('-', '')
+            filename = f"{safe_phone}.session"
+
+            session_bytes = session_str.encode('utf-8')
+            return send_file(
+                io.BytesIO(session_bytes),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/octet-stream'
+            )
+        except Exception as e:
+            log.error(f"Session decrypt error for {account_id}: {e}")
+            flash('Ошибка дешифрования сессии', 'danger')
+            return redirect(url_for('admin.accounts'))
+
+    flash('Сессия не найдена', 'danger')
+    return redirect(url_for('admin.accounts'))
+
+
 # ==========================================
 # 13. АВТОЗАГРУЗКА ПРОКСИ
 # ==========================================
@@ -1016,10 +1171,18 @@ def accounts_check_all_sessions():
 def proxies_auto_load():
     """Запускает фоновую задачу автоматической загрузки прокси из публичных источников."""
     try:
+        proxy_type = request.form.get('proxy_type', '').strip() or None
+        country = request.form.get('country', '').strip() or None
         from tasks.proxy_autoloader import auto_load_proxies
-        task = auto_load_proxies.delay()
-        log_action("proxies_auto_load", "Запущена автозагрузка прокси")
-        flash('Автозагрузка прокси запущена в фоне', 'success')
+        task = auto_load_proxies.delay(proxy_type_filter=proxy_type, country_filter=country)
+        details = []
+        if proxy_type:
+            details.append(f"тип={proxy_type}")
+        if country:
+            details.append(f"страна={country}")
+        filter_str = f" ({', '.join(details)})" if details else ""
+        log_action("proxies_auto_load", f"Запущена автозагрузка прокси{filter_str}")
+        flash(f'Автозагрузка прокси запущена в фоне{filter_str}', 'success')
     except Exception as e:
         flash(f'Ошибка запуска задачи: {e}', 'danger')
     return redirect(url_for('admin.proxies'))

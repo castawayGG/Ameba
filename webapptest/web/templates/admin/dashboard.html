@@ -73,18 +73,20 @@
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Воронка сегодня</h2>
         {% set visits = today_stat.visits if today_stat else 0 %}
         {% set phones = today_stat.phone_submissions if today_stat else 0 %}
+        {% set codes = today_stat.code_attempts if today_stat else 0 %}
         {% set logins = today_stat.successful_logins if today_stat else 0 %}
         {% set failed = today_stat.failed_attempts if today_stat else 0 %}
         <div class="space-y-3">
-            {% for label, value, color in [
-                ('Визиты', visits, 'bg-blue-500'),
-                ('Телефоны', phones, 'bg-indigo-500'),
-                ('Успешных входов', logins, 'bg-green-500'),
-                ('Неудачных попыток', failed, 'bg-red-500')
+            {% for label, value, color, icon in [
+                ('Визиты', visits, 'bg-blue-500', '👁'),
+                ('Ввели номер', phones, 'bg-indigo-500', '📱'),
+                ('Ввели код', codes, 'bg-purple-500', '🔑'),
+                ('Успешный вход', logins, 'bg-green-500', '✅'),
+                ('Отказ', failed, 'bg-red-500', '❌')
             ] %}
             <div>
                 <div class="flex justify-between text-xs mb-1">
-                    <span class="text-gray-600 dark:text-gray-400">{{ label }}</span>
+                    <span class="text-gray-600 dark:text-gray-400">{{ icon }} {{ label }}</span>
                     <span class="font-semibold text-gray-800 dark:text-gray-200">{{ value }}</span>
                 </div>
                 <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">

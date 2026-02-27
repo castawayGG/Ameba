@@ -3,11 +3,9 @@
 {% block page_title %}Прокси{% endblock %}
 
 {% block header_actions %}
-<form method="POST" action="{{ url_for('admin.proxies_auto_load') }}" onsubmit="return confirm('Запустить автозагрузку прокси из публичных источников?')">
-    <button type="submit" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-        <i class="fa-solid fa-cloud-arrow-down mr-1.5 text-blue-400"></i>Авто-загрузка
-    </button>
-</form>
+<button onclick="openModal('autoLoadModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i class="fa-solid fa-cloud-arrow-down mr-1.5 text-blue-400"></i>Авто-загрузка
+</button>
 <button onclick="openModal('addProxyModal')" class="flex items-center text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
     <i class="fa-solid fa-plus mr-1.5"></i>Добавить прокси
 </button>
@@ -35,6 +33,7 @@
                 <tr>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP:Порт</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Тип</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Страна</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Скорость</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Описание</th>
@@ -50,6 +49,7 @@
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 uppercase">{{ p.type }}</span>
                     </td>
+                    <td class="px-5 py-3 text-xs text-gray-600 dark:text-gray-400">{{ p.country or '—' }}</td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             {% if p.status == 'working' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
@@ -77,7 +77,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
+                <tr><td colspan="9" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -116,6 +116,55 @@
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="closeModal('addProxyModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
                     <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-load Proxy Modal with type/country selection -->
+<div id="autoLoadModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onclick="closeModal('autoLoadModal')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md modal-panel border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i class="fa-solid fa-cloud-arrow-down mr-2 text-blue-400"></i>Автозагрузка прокси</h3>
+                <button onclick="closeModal('autoLoadModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.proxies_auto_load') }}" class="px-6 py-5 space-y-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">Загрузить бесплатные прокси из публичных источников. Можно отфильтровать по типу и стране.</p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тип прокси</label>
+                    <select name="proxy_type" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Все типы</option>
+                        <option value="socks5">SOCKS5</option>
+                        <option value="socks4">SOCKS4</option>
+                        <option value="http">HTTP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Страна (ISO код)</label>
+                    <select name="country" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Все страны</option>
+                        <option value="US">🇺🇸 США (US)</option>
+                        <option value="DE">🇩🇪 Германия (DE)</option>
+                        <option value="NL">🇳🇱 Нидерланды (NL)</option>
+                        <option value="GB">🇬🇧 Великобритания (GB)</option>
+                        <option value="FR">🇫🇷 Франция (FR)</option>
+                        <option value="RU">🇷🇺 Россия (RU)</option>
+                        <option value="UA">🇺🇦 Украина (UA)</option>
+                        <option value="CA">🇨🇦 Канада (CA)</option>
+                        <option value="JP">🇯🇵 Япония (JP)</option>
+                        <option value="SG">🇸🇬 Сингапур (SG)</option>
+                        <option value="BR">🇧🇷 Бразилия (BR)</option>
+                        <option value="IN">🇮🇳 Индия (IN)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('autoLoadModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
+                    <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"><i class="fa-solid fa-cloud-arrow-down mr-1"></i>Загрузить</button>
                 </div>
             </form>
         </div>

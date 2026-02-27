@@ -6,7 +6,7 @@ from core.database import SessionLocal
 from models.account import Account
 from models.account_log import AccountLog
 from core.logger import log
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 @shared_task(bind=True, max_retries=2, name='tasks.session_checker.check_all_sessions')
@@ -26,8 +26,24 @@ def check_all_sessions(self):
                 # Обновляем статус и время последней проверки (объект уже получен выше)
                 account.last_checked = datetime.now(timezone.utc)
                 if result['valid']:
-                    if account.status in ('expired', 'inactive'):
-                        account.status = 'active'
+                    if result.get('reason') == 'flood_wait':
+                        account.status = 'flood_wait'
+                        flood_sec = result.get('flood_seconds', 0)
+                        account.flood_wait_until = datetime.now(timezone.utc) + timedelta(seconds=flood_sec)
+                        account.status_detail = f'Flood wait {flood_sec}s'
+                    else:
+                        if account.status in ('expired', 'inactive', 'flood_wait'):
+                            account.status = 'active'
+                        account.flood_wait_until = None
+                        account.status_detail = None
+                    # Обновляем расширенные поля
+                    if result.get('premium') is not None:
+                        account.premium = result['premium']
+                    if result.get('dc_id'):
+                        account.dc_id = result['dc_id']
+                    if result.get('tg_id'):
+                        account.tg_id = result['tg_id']
+                    account.last_active = datetime.now(timezone.utc)
                 else:
                     new_status = result.get('reason', 'inactive')
                     # Маппинг причин на статусы
@@ -38,6 +54,7 @@ def check_all_sessions(self):
                         'session_expired': 'expired',
                     }
                     account.status = status_map.get(new_status, 'inactive')
+                    account.status_detail = result.get('reason', '')
                 db.commit()
 
                 # Пишем лог действия над аккаунтом
@@ -73,8 +90,24 @@ def check_single_session_task(self, account_id: str, initiator: str = 'system', 
         if acc:
             acc.last_checked = datetime.now(timezone.utc)
             if result['valid']:
-                if acc.status in ('expired', 'inactive'):
-                    acc.status = 'active'
+                if result.get('reason') == 'flood_wait':
+                    acc.status = 'flood_wait'
+                    flood_sec = result.get('flood_seconds', 0)
+                    acc.flood_wait_until = datetime.now(timezone.utc) + timedelta(seconds=flood_sec)
+                    acc.status_detail = f'Flood wait {flood_sec}s'
+                else:
+                    if acc.status in ('expired', 'inactive', 'flood_wait'):
+                        acc.status = 'active'
+                    acc.flood_wait_until = None
+                    acc.status_detail = None
+                # Обновляем расширенные поля
+                if result.get('premium') is not None:
+                    acc.premium = result['premium']
+                if result.get('dc_id'):
+                    acc.dc_id = result['dc_id']
+                if result.get('tg_id'):
+                    acc.tg_id = result['tg_id']
+                acc.last_active = datetime.now(timezone.utc)
             else:
                 status_map = {
                     'banned': 'banned',
@@ -84,6 +117,7 @@ def check_single_session_task(self, account_id: str, initiator: str = 'system', 
                 }
                 new_status = result.get('reason', 'inactive')
                 acc.status = status_map.get(new_status, 'inactive')
+                acc.status_detail = result.get('reason', '')
             db.commit()
 
         entry = AccountLog(
@@ -148,8 +182,9 @@ def auto_relogin_task(self, account_id: str, initiator: str = 'system'):
 async def _check_single_session(account_id: str) -> dict:
     """
     Подключается к Telegram с существующей сессией и проверяет её валидность.
-    Возвращает {'valid': bool, 'reason': str}.
+    Возвращает {'valid': bool, 'reason': str, ...доп. данные}.
     """
+    from telethon import errors as tg_errors
     try:
         from services.telegram.actions import get_telegram_client
         client = await get_telegram_client(account_id)
@@ -163,7 +198,16 @@ async def _check_single_session(account_id: str) -> dict:
             me = await client.get_me()
             if me is None:
                 return {'valid': False, 'reason': 'session_expired'}
-            return {'valid': True, 'reason': 'ok', 'username': getattr(me, 'username', None)}
+            return {
+                'valid': True,
+                'reason': 'ok',
+                'username': getattr(me, 'username', None),
+                'premium': getattr(me, 'premium', False),
+                'dc_id': getattr(me, 'dc_id', None) if hasattr(me, 'dc_id') else None,
+                'tg_id': str(me.id) if me.id else None,
+            }
+        except tg_errors.FloodWaitError as e:
+            return {'valid': True, 'reason': 'flood_wait', 'flood_seconds': e.seconds}
         finally:
             await client.disconnect()
     except Exception as e:
@@ -172,6 +216,11 @@ async def _check_single_session(account_id: str) -> dict:
             return {'valid': False, 'reason': 'banned'}
         if '2fa' in err or 'two' in err:
             return {'valid': False, 'reason': '2fa_required'}
+        if 'flood' in err:
+            import re
+            seconds_match = re.search(r'(?:flood|wait)\D*(\d+)', str(e).lower())
+            flood_sec = int(seconds_match.group(1)) if seconds_match else 0
+            return {'valid': True, 'reason': 'flood_wait', 'flood_seconds': flood_sec}
         return {'valid': False, 'reason': str(e)[:100]}
 
 
