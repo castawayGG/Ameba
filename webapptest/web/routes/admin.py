@@ -2865,10 +2865,12 @@ def api_health():
     try:
         from sqlalchemy import text
         db.session.execute(text('SELECT 1'))
+        _allowed_tables = frozenset(['accounts', 'proxies', 'campaigns', 'landing_pages', 'victims', 'tracked_links', 'automations'])
         tables = []
-        for table_name in ['accounts', 'proxies', 'campaigns', 'landing_pages', 'victims', 'tracked_links', 'automations']:
+        for table_name in _allowed_tables:
             try:
                 from sqlalchemy import text as sa_text
+                # table_name is validated against the explicit allowlist above
                 db.session.execute(sa_text(f'SELECT 1 FROM {table_name} LIMIT 1'))
                 tables.append({'table': table_name, 'exists': True})
             except Exception:
@@ -3293,6 +3295,8 @@ def api_live_stream():
     import json as json_mod
     import time
 
+    SSE_CONNECTION_TIMEOUT = 30
+
     def generate():
         try:
             from core.config import Config
@@ -3302,7 +3306,7 @@ def api_live_stream():
             pubsub.subscribe('live_events')
             yield f"data: {json_mod.dumps({'type': 'connected'})}\n\n"
             start = time.time()
-            while time.time() - start < 30:
+            while time.time() - start < SSE_CONNECTION_TIMEOUT:
                 msg = pubsub.get_message(timeout=1.0)
                 if msg and msg['type'] == 'message':
                     yield f"data: {msg['data'].decode('utf-8')}\n\n"
@@ -3324,8 +3328,8 @@ def api_live_stats():
         from core.config import Config
         import redis
         r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
-        keys = r.keys('live:visitor:*')
-        active_visitors = len(keys)
+        keys = r.scan_iter('live:visitor:*')
+        active_visitors = sum(1 for _ in keys)
         return jsonify({'success': True, 'active_visitors': active_visitors})
     except Exception as e:
         return jsonify({'success': True, 'active_visitors': 0, 'error': str(e)})
