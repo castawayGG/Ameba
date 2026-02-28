@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+{% block title %}API Ключи{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">🔑 API Ключи</h1>
+        <button onclick="createKey()" class="px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">+ Создать ключ</button>
+    </div>
+
+    <div id="newKeyBanner" class="hidden bg-green-900/30 border border-green-700 rounded-xl p-4">
+        <p class="text-xs text-green-400 mb-1">✅ Новый API ключ (скопируйте — отображается один раз):</p>
+        <code id="newKeyValue" class="text-green-300 font-mono text-sm break-all"></code>
+    </div>
+
+    <div class="bg-panel-card rounded-xl border border-panel-border overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-panel-surface text-panel-muted text-xs">
+                <tr>
+                    <th class="px-4 py-3 text-left">Название</th>
+                    <th class="px-4 py-3 text-left">Ключ</th>
+                    <th class="px-4 py-3 text-left">Статус</th>
+                    <th class="px-4 py-3 text-left">Последнее использование</th>
+                    <th class="px-4 py-3 text-left">Создан</th>
+                    <th class="px-4 py-3 text-left">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-panel-border">
+                {% for key in keys %}
+                <tr class="hover:bg-panel-surface/30">
+                    <td class="px-4 py-3 text-white font-medium">{{ key.name }}</td>
+                    <td class="px-4 py-3 text-panel-muted font-mono text-xs">{{ key.key[:8] }}...{{ key.key[-4:] }}</td>
+                    <td class="px-4 py-3">
+                        <span class="text-xs px-2 py-0.5 rounded-full {% if key.is_active %}bg-green-900 text-green-300{% else %}bg-gray-800 text-gray-400{% endif %}">
+                            {{ 'активен' if key.is_active else 'отключён' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-panel-muted">{{ key.last_used | timestamp_to_date if key.last_used else '—' }}</td>
+                    <td class="px-4 py-3 text-panel-muted">{{ key.created_at | timestamp_to_date }}</td>
+                    <td class="px-4 py-3">
+                        <button onclick="toggleKey({{ key.id }}, {{ 'false' if key.is_active else 'true' }})" class="text-xs text-yellow-400 hover:text-yellow-300 mr-2">
+                            {{ 'Отключить' if key.is_active else 'Включить' }}
+                        </button>
+                        <button onclick="deleteKey({{ key.id }})" class="text-xs text-red-400 hover:text-red-300">Удалить</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-panel-muted">API ключи не созданы</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function createKey() {
+    const name = prompt('Название ключа:');
+    if (!name) return;
+    const res = await fetch('/admin/api/api_keys', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name})
+    });
+    const d = await res.json();
+    if (d.success) {
+        document.getElementById('newKeyValue').textContent = d.key;
+        document.getElementById('newKeyBanner').classList.remove('hidden');
+        setTimeout(() => location.reload(), 5000);
+    } else alert(d.error);
+}
+async function toggleKey(id, active) {
+    const res = await fetch(`/admin/api/api_keys/${id}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({is_active: active})
+    });
+    const d = await res.json();
+    if (d.success) location.reload();
+}
+async function deleteKey(id) {
+    if (!confirm('Удалить API ключ?')) return;
+    const res = await fetch(`/admin/api/api_keys/${id}`, {method:'DELETE'});
+    const d = await res.json();
+    if (d.success) location.reload();
+}
+</script>
+{% endblock %}

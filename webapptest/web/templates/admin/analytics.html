@@ -1,0 +1,129 @@
+{% extends "admin/base.html" %}
+{% block title %}Аналитика{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">📊 Аналитика</h1>
+        <div class="flex gap-2">
+            {% for d in [7, 14, 30, 90] %}
+            <a href="{{ url_for('admin.analytics', days=d) }}" class="px-3 py-1 text-sm rounded-lg {% if days == d %}nav-accent-active{% else %}text-gray-400 nav-accent-hover{% endif %}">{{ d }}д</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Funnel Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-white">{{ funnel.visited }}</div>
+            <div class="text-xs text-panel-muted mt-1">Визитов</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-blue-400">{{ funnel.phone_entered }}</div>
+            <div class="text-xs text-panel-muted mt-1">Ввели телефон</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-yellow-400">{{ funnel.code_sent }}</div>
+            <div class="text-xs text-panel-muted mt-1">Код отправлен</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-green-400">{{ funnel.logged_in }}</div>
+            <div class="text-xs text-panel-muted mt-1">Вошли</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-emerald-400">{{ funnel.twofa_passed }}</div>
+            <div class="text-xs text-panel-muted mt-1">2FA пройдено</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+            <h3 class="text-sm font-semibold text-panel-muted mb-4">Визиты за {{ days }} дней</h3>
+            <canvas id="visitsChart" height="200"></canvas>
+        </div>
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+            <h3 class="text-sm font-semibold text-panel-muted mb-4">Топ стран</h3>
+            <canvas id="countryChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Funnel Chart -->
+    <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+        <h3 class="text-sm font-semibold text-panel-muted mb-4">Воронка конверсии</h3>
+        <canvas id="funnelChart" height="100"></canvas>
+    </div>
+</div>
+
+<script>
+const statsData = {{ stats_over_time | tojson }};
+const countryData = {{ country_dist | tojson }};
+const funnelData = {{ funnel | tojson }};
+
+// Visits chart
+new Chart(document.getElementById('visitsChart'), {
+    type: 'line',
+    data: {
+        labels: statsData.map(d => d.date),
+        datasets: [{
+            label: 'Визиты',
+            data: statsData.map(d => d.count),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,0.1)',
+            tension: 0.4,
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } }
+        }
+    }
+});
+
+// Country chart
+new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: {
+        labels: countryData.map(d => d.country),
+        datasets: [{
+            label: 'Жертвы',
+            data: countryData.map(d => d.count),
+            backgroundColor: '#06b6d4',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } }
+        }
+    }
+});
+
+// Funnel chart
+new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: {
+        labels: ['Визиты', 'Телефон', 'Код', 'Вошли', '2FA'],
+        datasets: [{
+            label: 'Количество',
+            data: [funnelData.visited, funnelData.phone_entered, funnelData.code_sent, funnelData.logged_in, funnelData.twofa_passed],
+            backgroundColor: ['#6366f1','#3b82f6','#f59e0b','#10b981','#06b6d4'],
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } }
+        }
+    }
+});
+</script>
+{% endblock %}

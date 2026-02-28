@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <h1 class="text-2xl font-bold text-white">👤 Мой профиль</h1>
+
+    <!-- Profile card -->
+    <div class="bg-panel-card rounded-xl p-6 border border-panel-border flex items-center gap-6">
+        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-panel-accent to-panel-accent2 flex items-center justify-center text-2xl font-bold text-white">
+            {{ current_user.username[0].upper() }}
+        </div>
+        <div>
+            <div class="text-xl font-bold text-white">{{ current_user.username }}</div>
+            <div class="text-sm text-panel-muted mt-1">
+                <span class="px-2 py-0.5 rounded-full bg-blue-900 text-blue-300 text-xs">{{ current_user.role }}</span>
+                <span class="ml-3">2FA: {% if current_user.otp_secret %}<span class="text-green-400">✓ Включена</span>{% else %}<span class="text-yellow-400">✗ Отключена</span>{% endif %}</span>
+            </div>
+            <div class="text-xs text-panel-muted mt-2">Последний вход: {{ current_user.last_login | timestamp_to_date if current_user.last_login else '—' }}</div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-white">{{ total_actions }}</div>
+            <div class="text-xs text-panel-muted mt-1">Всего действий</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border text-center">
+            <div class="text-3xl font-bold text-white">{{ sessions | length }}</div>
+            <div class="text-xs text-panel-muted mt-1">Активных сессий</div>
+        </div>
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border text-center">
+            <a href="{{ url_for('admin.settings') }}" class="text-sm text-panel-accent hover:underline">Изменить пароль →</a>
+        </div>
+    </div>
+
+    <!-- Recent activity -->
+    <div class="bg-panel-card rounded-xl border border-panel-border overflow-hidden">
+        <div class="p-4 border-b border-panel-border">
+            <h3 class="font-semibold text-white">Последние действия</h3>
+        </div>
+        <div class="divide-y divide-panel-border">
+            {% for action in recent_actions %}
+            <div class="px-4 py-3 flex items-center justify-between">
+                <div>
+                    <span class="text-sm text-white">{{ action.action }}</span>
+                    {% if action.details %}<span class="text-xs text-panel-muted ml-2">{{ action.details[:80] }}</span>{% endif %}
+                </div>
+                <span class="text-xs text-panel-muted">{{ action.timestamp | timestamp_to_date }}</span>
+            </div>
+            {% else %}
+            <div class="px-4 py-8 text-center text-panel-muted">Нет действий</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
