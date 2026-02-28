@@ -56,7 +56,8 @@ def _execute_step(action: str, params: dict, ctx: dict, db) -> None:
     account_id = ctx.get('account_id')
 
     if action == 'wait':
-        seconds = params.get('seconds', 0)
+        # Support both 'seconds' (params key) and 'delay_seconds' (step-level key)
+        seconds = params.get('seconds', params.get('delay_seconds', 0))
         if seconds > 0:
             time.sleep(seconds)
 

@@ -33,6 +33,9 @@ from core.config import Config
 
 admin_bp = Blueprint('admin', __name__)
 
+# SSE timeout for live analytics stream (seconds)
+_SSE_CONNECTION_TIMEOUT = 30
+
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ЛОГОВ ---
 def log_action(action, details=""):
     """Записывает действие администратора в базу данных"""
@@ -2895,18 +2898,14 @@ def api_listener_restart():
 def api_health():
     """Health check endpoint: checks DB connectivity and table existence."""
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect as sa_inspect
         db.session.execute(text('SELECT 1'))
         _allowed_tables = frozenset(['accounts', 'proxies', 'campaigns', 'landing_pages', 'victims', 'tracked_links', 'automations'])
         tables = []
-        for table_name in _allowed_tables:
-            try:
-                from sqlalchemy import text as sa_text
-                # table_name is validated against the explicit allowlist above
-                db.session.execute(sa_text(f'SELECT 1 FROM {table_name} LIMIT 1'))
-                tables.append({'table': table_name, 'exists': True})
-            except Exception:
-                tables.append({'table': table_name, 'exists': False})
+        inspector = sa_inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        for table_name in sorted(_allowed_tables):
+            tables.append({'table': table_name, 'exists': table_name in existing_tables})
         return jsonify({'success': True, 'status': 'ok', 'tables': tables})
     except Exception as e:
         return jsonify({'success': False, 'status': 'error', 'error': str(e)}), 500
@@ -3327,8 +3326,6 @@ def api_live_stream():
     import json as json_mod
     import time
 
-    SSE_CONNECTION_TIMEOUT = 30
-
     def generate():
         try:
             from core.config import Config
@@ -3338,7 +3335,7 @@ def api_live_stream():
             pubsub.subscribe('live_events')
             yield f"data: {json_mod.dumps({'type': 'connected'})}\n\n"
             start = time.time()
-            while time.time() - start < SSE_CONNECTION_TIMEOUT:
+            while time.time() - start < _SSE_CONNECTION_TIMEOUT:
                 msg = pubsub.get_message(timeout=1.0)
                 if msg and msg['type'] == 'message':
                     yield f"data: {msg['data'].decode('utf-8')}\n\n"

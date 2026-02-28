@@ -54,8 +54,8 @@ def sqlite_session_to_string(session_path: str) -> str:
 def detect_session_format(data: bytes) -> str:
     """
     Detect if data is 'string' (base64 StringSession text) or 'sqlite' (SQLite db).
-    SQLite files start with b'SQLite format 3'.
+    SQLite files start with b'SQLite format 3\x00'.
     """
-    if data[:16] == b'SQLite format 3\x00':
+    if len(data) >= 16 and data[:16] == b'SQLite format 3\x00':
         return 'sqlite'
     return 'string'

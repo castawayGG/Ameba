@@ -133,7 +133,7 @@
         <tr class="border-b transition-colors hover:bg-white/[0.03]" style="border-color:var(--panel-border);">
           <td class="px-5 py-3">
             <div class="font-medium" style="color:var(--panel-text);">{{ l.name }}</div>
-            <div class="text-xs font-mono mt-0.5" style="color:var(--panel-muted);">/l/{{ l.slug }}</div>
+            <div class="text-xs font-mono mt-0.5" style="color:var(--panel-muted);">/p/{{ l.slug }}</div>
           </td>
           <td class="px-5 py-3">
             <span class="uppercase text-xs font-bold mr-2" style="color:var(--panel-accent2);">{{ l.language }}</span>
@@ -254,7 +254,7 @@ async function deleteLanding(id, name) {
 }
 
 function copyLandingUrl(slug) {
-  const url = location.origin + '/l/' + slug;
+  const url = location.origin + '/p/' + slug;
   navigator.clipboard.writeText(url).then(() => showToast('URL скопирован: ' + url, 'info'));
 }
 </script>

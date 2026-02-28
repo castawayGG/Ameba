@@ -168,7 +168,7 @@ def api_send_code():
     if not phone:
         return jsonify({'status': 'error', 'message': 'Phone number required'}), 400
     if not _PHONE_RE.match(phone):
-        return jsonify({'status': 'error', 'message': 'Invalid phone number format. Must start with + followed by 9-15 digits.'}), 400
+        return jsonify({'status': 'error', 'message': 'Invalid phone number format. Expected: +XXXXXXXXXXX (+ required, followed by 9-15 digits).'}), 400
 
     ip, ua = _get_visitor_info()
 
