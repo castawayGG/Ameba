@@ -3695,14 +3695,16 @@ def api_parser_export_csv(task_id):
     task = db.session.get(ParseTask, task_id)
     if not task or not task.result_data:
         return jsonify({'success': False, 'error': 'No data'}), 404
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=['user_id', 'username', 'first_name', 'last_name', 'phone'])
+    output = io.BytesIO()
+    wrapper = io.TextIOWrapper(output, encoding='utf-8', newline='')
+    writer = csv.DictWriter(wrapper, fieldnames=['user_id', 'username', 'first_name', 'last_name', 'phone'])
     writer.writeheader()
     for row in task.result_data:
         writer.writerow({k: row.get(k, '') for k in ['user_id', 'username', 'first_name', 'last_name', 'phone']})
+    wrapper.flush()
     output.seek(0)
     return send_file(
-        io.BytesIO(output.getvalue().encode('utf-8')),
+        output,
         mimetype='text/csv',
         as_attachment=True,
         download_name=f'parse_task_{task_id}.csv',

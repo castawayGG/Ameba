@@ -44,7 +44,7 @@ async def parse_group_members(task_id, account_id, group_link, filters=None):
             while True:
                 participants = await client(GetParticipantsRequest(
                     channel=entity,
-                    filter=ChannelParticipantsSearch(''),
+                    filter=ChannelParticipantsSearch(''),  # empty string returns all participants
                     offset=offset,
                     limit=limit,
                     hash=0,
