@@ -1,0 +1,93 @@
+{% extends "admin/base.html" %}
+{% block title %}Пулы аккаунтов{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">🏊 Пулы аккаунтов</h1>
+        <button onclick="document.getElementById('createPoolModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">+ Создать пул</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for item in pool_data %}
+        <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="font-semibold text-white">{{ item.pool.name }}</h3>
+                    <p class="text-xs text-panel-muted mt-1">{{ item.pool.description or 'Без описания' }}</p>
+                </div>
+                <button onclick="deletePool({{ item.pool.id }})" class="text-red-400 hover:text-red-300 text-xs">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-panel-surface rounded p-2">
+                    <span class="text-panel-muted">Аккаунтов</span>
+                    <div class="text-white font-bold mt-0.5">{{ item.member_count }}</div>
+                </div>
+                <div class="bg-panel-surface rounded p-2">
+                    <span class="text-panel-muted">Стратегия</span>
+                    <div class="text-white font-bold mt-0.5">{{ item.pool.selection_strategy }}</div>
+                </div>
+                <div class="bg-panel-surface rounded p-2">
+                    <span class="text-panel-muted">Макс. действий</span>
+                    <div class="text-white font-bold mt-0.5">{{ item.pool.max_actions_per_account }}</div>
+                </div>
+                <div class="bg-panel-surface rounded p-2">
+                    <span class="text-panel-muted">Кулдаун</span>
+                    <div class="text-white font-bold mt-0.5">{{ item.pool.cooldown_minutes }}м</div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-span-3 text-center py-12 text-panel-muted">Пулы не созданы. Нажмите "+ Создать пул"</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Create Pool Modal -->
+<div id="createPoolModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-panel-card rounded-xl p-6 w-full max-w-md border border-panel-border">
+        <h3 class="text-lg font-bold text-white mb-4">Создать пул</h3>
+        <div class="space-y-3">
+            <input id="poolName" type="text" placeholder="Название пула" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <textarea id="poolDesc" placeholder="Описание (опционально)" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white" rows="2"></textarea>
+            <select id="poolStrategy" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+                <option value="round_robin">Round Robin</option>
+                <option value="random">Случайный</option>
+                <option value="least_used">Наименее используемый</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+                <input id="poolMaxActions" type="number" value="50" placeholder="Макс. действий" class="px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+                <input id="poolCooldown" type="number" value="60" placeholder="Кулдаун (мин)" class="px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="createPool()" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">Создать</button>
+            <button onclick="document.getElementById('createPoolModal').classList.add('hidden')" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-panel-muted bg-panel-surface border border-panel-border">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+async function createPool() {
+    const res = await fetch('/admin/api/account_pools', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+            name: document.getElementById('poolName').value,
+            description: document.getElementById('poolDesc').value,
+            selection_strategy: document.getElementById('poolStrategy').value,
+            max_actions_per_account: parseInt(document.getElementById('poolMaxActions').value),
+            cooldown_minutes: parseInt(document.getElementById('poolCooldown').value),
+        })
+    });
+    const d = await res.json();
+    if (d.success) location.reload();
+    else alert(d.error);
+}
+async function deletePool(id) {
+    if (!confirm('Удалить пул?')) return;
+    const res = await fetch(`/admin/api/account_pools/${id}`, {method:'DELETE'});
+    const d = await res.json();
+    if (d.success) location.reload();
+}
+</script>
+{% endblock %}

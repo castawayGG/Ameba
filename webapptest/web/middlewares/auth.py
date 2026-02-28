@@ -6,9 +6,13 @@ from models.user import User
 def load_user(user_id):
     """
     Функция загрузки пользователя для Flask-Login.
+    Wrapped in try/except to return None on DB errors instead of crashing.
     """
     from web.extensions import db
-    return db.session.get(User, int(user_id))
+    try:
+        return db.session.get(User, int(user_id))
+    except Exception:
+        return None
 
 def admin_required(func):
     """

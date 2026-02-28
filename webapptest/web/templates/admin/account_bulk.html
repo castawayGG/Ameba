@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+{% block title %}Массовые операции{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6">
+    <h1 class="text-2xl font-bold text-white">⚡ Массовые операции с аккаунтами</h1>
+
+    <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+        <h3 class="font-semibold text-white mb-4">Выберите аккаунты</h3>
+        <div class="flex gap-2 mb-3">
+            <button onclick="selectAll()" class="px-3 py-1.5 text-xs rounded bg-panel-surface border border-panel-border text-panel-muted hover:text-white">Выбрать все</button>
+            <button onclick="deselectAll()" class="px-3 py-1.5 text-xs rounded bg-panel-surface border border-panel-border text-panel-muted hover:text-white">Снять выбор</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+            {% for acc in accounts %}
+            <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-panel-surface cursor-pointer">
+                <input type="checkbox" class="account-checkbox" value="{{ acc.id }}" class="rounded">
+                <span class="text-sm text-white">{{ acc.phone }}</span>
+                <span class="text-xs text-panel-muted ml-auto">{{ acc.status }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bulk Edit Profiles -->
+    <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+        <h3 class="font-semibold text-white mb-4">Редактировать профиль</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input id="bulkFirstName" type="text" placeholder="Имя (пустое = не менять)" class="px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <input id="bulkLastName" type="text" placeholder="Фамилия" class="px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+            <input id="bulkUsername" type="text" placeholder="Username" class="px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+        </div>
+        <button onclick="bulkEdit()" class="mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">Применить к выбранным</button>
+        <div id="bulkEditResult" class="mt-2 text-sm text-green-400 hidden"></div>
+    </div>
+
+    <!-- Bulk Status Change -->
+    <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
+        <h3 class="font-semibold text-white mb-4">Изменить статус</h3>
+        <div class="flex gap-3 flex-wrap">
+            {% for status in ['active', 'inactive', 'banned', 'dead'] %}
+            <button onclick="bulkStatus('{{ status }}')" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-panel-surface border border-panel-border hover:border-panel-accent">{{ status }}</button>
+            {% endfor %}
+        </div>
+        <div id="bulkStatusResult" class="mt-2 text-sm text-green-400 hidden"></div>
+    </div>
+</div>
+
+<script>
+function getSelected() {
+    return [...document.querySelectorAll('.account-checkbox:checked')].map(c => c.value);
+}
+function selectAll() { document.querySelectorAll('.account-checkbox').forEach(c => c.checked = true); }
+function deselectAll() { document.querySelectorAll('.account-checkbox').forEach(c => c.checked = false); }
+
+async function bulkEdit() {
+    const ids = getSelected();
+    if (!ids.length) { alert('Выберите аккаунты'); return; }
+    const fields = {};
+    const fn = document.getElementById('bulkFirstName').value;
+    const ln = document.getElementById('bulkLastName').value;
+    const un = document.getElementById('bulkUsername').value;
+    if (fn) fields.first_name = fn;
+    if (ln) fields.last_name = ln;
+    if (un) fields.username = un;
+    const res = await fetch('/admin/api/accounts/bulk_edit', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({account_ids: ids, fields})
+    });
+    const d = await res.json();
+    const el = document.getElementById('bulkEditResult');
+    el.textContent = d.success ? `✅ Обновлено ${d.updated} аккаунтов` : `❌ ${d.error}`;
+    el.classList.remove('hidden');
+}
+
+async function bulkStatus(status) {
+    const ids = getSelected();
+    if (!ids.length) { alert('Выберите аккаунты'); return; }
+    const res = await fetch('/admin/api/accounts/bulk_status', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({account_ids: ids, status})
+    });
+    const d = await res.json();
+    const el = document.getElementById('bulkStatusResult');
+    el.textContent = d.success ? `✅ Статус "${status}" установлен для ${d.updated} аккаунтов` : `❌ ${d.error}`;
+    el.classList.remove('hidden');
+}
+</script>
+{% endblock %}

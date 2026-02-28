@@ -30,6 +30,12 @@ from models.cooldown import CooldownRule, CooldownLog
 from models.spintax_template import SpintaxTemplate
 from models.parse_task import ParseTask
 from models.ab_test import ABTest, ABTestVisit
+from models.account_pool import AccountPool, AccountPoolMember
+from models.account_fingerprint import AccountFingerprint
+from models.webhook import Webhook, WebhookDelivery
+from models.note import Note
+from models.api_key import ApiKey
+from models.panel_settings import PanelSettings
 
 
 def create_app(test_config=None):

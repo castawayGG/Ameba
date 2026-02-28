@@ -19,6 +19,12 @@ from models.landing_page import LandingPage
 from models.victim import Victim
 from models.tracked_link import TrackedLink, LinkClick
 from models.automation import Automation
+from models.account_pool import AccountPool, AccountPoolMember
+from models.account_fingerprint import AccountFingerprint
+from models.webhook import Webhook, WebhookDelivery
+from models.note import Note
+from models.api_key import ApiKey
+from models.panel_settings import PanelSettings
 
 # Список всех моделей для удобного импорта
 __all__ = [
@@ -48,4 +54,12 @@ __all__ = [
     'TrackedLink',
     'LinkClick',
     'Automation',
+    'AccountPool',
+    'AccountPoolMember',
+    'AccountFingerprint',
+    'Webhook',
+    'WebhookDelivery',
+    'Note',
+    'ApiKey',
+    'PanelSettings',
 ]
