@@ -12,12 +12,11 @@ from core.logger import log
 
 def _save_session_file(phone: str, session_string: str, session_id: str) -> str:
     """
-    Сохраняет сессию Telethon как .session файл в папку sessions/.
-    Возвращает путь к файлу.
+    Saves the StringSession string to a file in sessions/ directory.
+    Returns the filename.
     """
     sessions_dir = Config.SESSIONS_DIR
     os.makedirs(sessions_dir, exist_ok=True)
-    # Имя файла: телефон без символов (безопасное имя)
     safe_phone = phone.lstrip('+').replace(' ', '').replace('-', '')
     filename = f"{safe_phone}.session"
     filepath = os.path.join(sessions_dir, filename)
@@ -31,40 +30,75 @@ def _save_session_file(phone: str, session_string: str, session_id: str) -> str:
     return filename
 
 
-async def send_code(phone: str, session_id: str) -> dict:
-    proxy = await get_proxy_for_request()
-    client = TelegramClient(StringSession(), Config.TG_API_ID, Config.TG_API_HASH, proxy=proxy)
+async def _make_client(session_string: str = '', proxy=None):
+    """Create and connect a TelegramClient, falling back to no-proxy on failure."""
+    client = TelegramClient(
+        StringSession(session_string),
+        Config.TG_API_ID,
+        Config.TG_API_HASH,
+        proxy=proxy,
+    )
     try:
         await client.connect()
+        return client
+    except Exception as e:
+        log.warning(f"Connection with proxy failed ({e}), retrying without proxy")
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        client = TelegramClient(
+            StringSession(session_string),
+            Config.TG_API_ID,
+            Config.TG_API_HASH,
+        )
+        await client.connect()
+        return client
+
+
+async def send_code(phone: str, session_id: str) -> dict:
+    proxy = await get_proxy_for_request()
+    client = None
+    try:
+        client = await _make_client(proxy=proxy)
         if await client.is_user_authorized():
             return {'status': 'already_authorized'}
         result = await client.send_code_request(phone)
+        # Save session string AFTER send_code_request so it includes the code request state
         session_string = client.session.save()
         return {
             'status': 'success',
             'phone_code_hash': result.phone_code_hash,
             'timeout': getattr(result, 'timeout', 120),
-            'session_string': session_string
+            'session_string': session_string,
         }
     except errors.FloodWaitError as e:
         log.warning(f"Flood wait for {phone}: {e.seconds}s")
         return {'status': 'error', 'message': f'Flood wait {e.seconds}s'}
+    except errors.PhoneNumberInvalidError as e:
+        log.warning(f"Invalid phone number {phone}: {e}")
+        return {'status': 'error', 'message': 'Invalid phone number'}
     except Exception as e:
-        log.error(f"send_code error for {phone}: {e}")
+        log.error(f"send_code error for {phone}: {type(e).__name__}: {e}")
         return {'status': 'error', 'message': str(e)}
     finally:
-        await client.disconnect()
+        if client:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+
 
 async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, session_string: str) -> dict:
     proxy = await get_proxy_for_request()
-    client = TelegramClient(StringSession(session_string), Config.TG_API_ID, Config.TG_API_HASH, proxy=proxy)
+    client = None
     try:
-        await client.connect()
+        client = await _make_client(session_string=session_string, proxy=proxy)
         user = await client.sign_in(phone, code, phone_code_hash=phone_code_hash)
         final_session = client.session.save()
         encrypted = encrypt_session_data(final_session)
 
-        # Сохраняем .session файл на диск
+        # Save .session file to disk
         session_filename = _save_session_file(phone, final_session, session_id)
 
         db = SessionLocal()
@@ -84,34 +118,39 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
             db.commit()
         finally:
             db.close()
-            
+
         return {
             'status': 'success',
             'user_id': user.id,
             'username': user.username,
-            'first_name': user.first_name
+            'first_name': user.first_name,
         }
     except errors.SessionPasswordNeededError:
-        return {'status': 'need_2fa'}
+        return {'status': 'need_2fa', 'session_string': client.session.save() if client else ''}
     except errors.PhoneCodeInvalidError:
         return {'status': 'error', 'message': 'Invalid code'}
     except errors.PhoneCodeExpiredError:
         return {'status': 'error', 'message': 'Code expired'}
     except Exception as e:
-        log.error(f"sign_in error for session {session_id}: {e}")
+        log.error(f"sign_in error for session {session_id}: {type(e).__name__}: {e}")
         return {'status': 'error', 'message': str(e)}
     finally:
-        await client.disconnect()
+        if client:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+
 
 async def sign_in_2fa(password: str, session_id: str, session_string: str) -> dict:
     proxy = await get_proxy_for_request()
-    client = TelegramClient(StringSession(session_string), Config.TG_API_ID, Config.TG_API_HASH, proxy=proxy)
+    client = None
     try:
-        await client.connect()
+        client = await _make_client(session_string=session_string, proxy=proxy)
         user = await client.sign_in(password=password)
         final_session = client.session.save()
         encrypted = encrypt_session_data(final_session)
-        
+
         db = SessionLocal()
         try:
             account = db.query(Account).filter(Account.id == session_id).first()
@@ -126,7 +165,7 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
             account.premium = getattr(user, 'premium', False)
             account.tg_id = str(user.id)
 
-            # Сохраняем .session файл на диск
+            # Save .session file to disk
             session_filename = _save_session_file(phone, final_session, session_id)
             if session_filename:
                 account.session_file = session_filename
@@ -134,12 +173,16 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
             db.commit()
         finally:
             db.close()
-            
+
         return {'status': 'success', 'user_id': user.id}
     except errors.PasswordHashInvalidError:
         return {'status': 'error', 'message': 'Invalid password'}
     except Exception as e:
-        log.error(f"sign_in_2fa error for session {session_id}: {e}")
+        log.error(f"sign_in_2fa error for session {session_id}: {type(e).__name__}: {e}")
         return {'status': 'error', 'message': str(e)}
     finally:
-        await client.disconnect()
+        if client:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
