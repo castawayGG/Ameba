@@ -2929,51 +2929,6 @@ def proxies_bulk_check():
 
 
 # ==========================================
-# SESSION DOWNLOAD
-# ==========================================
-@admin_bp.route('/accounts/<account_id>/download_session')
-@login_required
-def account_download_session(account_id):
-    """Download account session as SQLite .session file."""
-    account = db.session.get(Account, account_id)
-    if not account or not account.session_data:
-        flash('Аккаунт не найден или сессия отсутствует', 'danger')
-        return redirect(url_for('admin.accounts'))
-    try:
-        from utils.encryption import decrypt_session_data
-        from utils.session_converter import string_session_to_sqlite
-        import tempfile
-        session_str = decrypt_session_data(account.session_data)
-        safe_phone = (account.phone or 'unknown').lstrip('+').replace(' ', '').replace('-', '')
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out_path = os.path.join(tmpdir, f'{safe_phone}.session')
-            ok = string_session_to_sqlite(session_str, out_path)
-            if ok and os.path.exists(out_path):
-                with open(out_path, 'rb') as f:
-                    data = f.read()
-                log_action('download_session', f'account={account_id}')
-                return send_file(
-                    io.BytesIO(data),
-                    as_attachment=True,
-                    download_name=f'{safe_phone}.session',
-                    mimetype='application/octet-stream',
-                )
-            else:
-                # Fallback: send StringSession as text
-                log_action('download_session', f'account={account_id} (string format)')
-                return send_file(
-                    io.BytesIO(session_str.encode('utf-8')),
-                    as_attachment=True,
-                    download_name=f'{safe_phone}.session',
-                    mimetype='text/plain',
-                )
-    except Exception as e:
-        log.error(f"account_download_session error: {e}")
-        flash(f'Ошибка: {e}', 'danger')
-        return redirect(url_for('admin.accounts'))
-
-
-# ==========================================
 # LANDING PAGES
 # ==========================================
 @admin_bp.route('/landings')

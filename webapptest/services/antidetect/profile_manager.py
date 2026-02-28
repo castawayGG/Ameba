@@ -5,7 +5,7 @@ from core.database import SessionLocal
 from models.antidetect_profile import AntidetectProfile
 from core.logger import log
 
-DEVICE_POOL = [
+_DEVICE_POOL = [
     {"device_model": "Samsung Galaxy S23", "system_version": "Android 13", "app_version": "10.6.2", "sdk_version": 33},
     {"device_model": "Samsung Galaxy S22", "system_version": "Android 12", "app_version": "10.5.4", "sdk_version": 32},
     {"device_model": "Samsung Galaxy S21", "system_version": "Android 12", "app_version": "10.4.1", "sdk_version": 32},
@@ -63,7 +63,7 @@ LANG_CODES = ['uk', 'ru', 'en', 'de', 'fr', 'pl', 'es', 'it', 'tr', 'ar']
 
 def generate_random_profile(name=None, is_template=False):
     """Generate a random realistic antidetect profile from device pool."""
-    device = random.choice(DEVICE_POOL)
+    device = random.choice(_DEVICE_POOL)
     lang = random.choice(LANG_CODES)
     device_hash = hashlib.sha256(
         f"{device['device_model']}{device['system_version']}{uuid.uuid4()}".encode()

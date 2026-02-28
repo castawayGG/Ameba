@@ -1,6 +1,5 @@
 import re
 import random
-import math
 
 
 def spin(text: str) -> str:
@@ -36,9 +35,20 @@ def generate_previews(text: str, count: int = 5) -> list:
 
 
 def calculate_uniqueness(text: str) -> int:
-    """Count the total number of possible unique variants."""
+    """Count the total number of possible unique variants.
+
+    Processes the text iteratively (innermost groups first) to correctly
+    handle nested spintax like {A|{B|C}}.
+    """
+    # Repeatedly resolve innermost non-nested groups until none remain
+    work = text
     total = 1
-    for match in re.finditer(r'\{([^{}]*)\}', text):
+    while '{' in work:
+        match = re.search(r'\{([^{}]+)\}', work)
+        if not match:
+            break
         options = match.group(1).split('|')
         total *= len(options)
+        # Replace the matched group with a placeholder so we keep processing
+        work = work[:match.start()] + '__PLACEHOLDER__' + work[match.end():]
     return total

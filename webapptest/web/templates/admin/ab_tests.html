@@ -71,7 +71,7 @@
       </div>
     </div>
     <div class="flex items-center gap-2 pt-1 border-t" style="border-color:var(--panel-border);">
-      <button onclick="deleteABTest({{ test.id }}, '{{ test.name }}')" class="flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'">
+      <button onclick="deleteABTest({{ test.id }}, {{ test.name|tojson }})" class="flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'">
         <i class="fa-solid fa-trash mr-1"></i>Видалити
       </button>
     </div>
