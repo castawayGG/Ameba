@@ -30,6 +30,9 @@ class Account(Base):
     last_active = Column(DateTime, nullable=True)           # последняя активность аккаунта
     status_detail = Column(Text, nullable=True)             # подробности статуса (причина бана и т.д.)
 
+    warming_status = Column(String(20), default='not_warmed')  # not_warmed, warming, warmed
+
     proxy = relationship('Proxy', back_populates='accounts')
     # Добавлено back_populates для исключения ошибок доступа из jinja2
     owner = relationship('User', back_populates='accounts', foreign_keys=[owner_id])
+    tags = relationship('Tag', secondary='account_tags', backref='accounts')

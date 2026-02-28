@@ -23,6 +23,7 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
     login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+    theme = Column(String(20), default='dark-blue')
 
     # Связь с аккаунтами Telegram, которыми владеет этот пользователь
     accounts = relationship('Account', back_populates='owner')
