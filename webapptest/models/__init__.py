@@ -15,6 +15,10 @@ from models.incoming_message import IncomingMessage
 from models.alert_rule import AlertRule
 from models.forward_rule import ForwardRule
 from models.team import Comment, TeamTask, Announcement, SharedTemplate, UserQuota
+from models.landing_page import LandingPage
+from models.victim import Victim
+from models.tracked_link import TrackedLink, LinkClick
+from models.automation import Automation
 
 # Список всех моделей для удобного импорта
 __all__ = [
@@ -39,4 +43,9 @@ __all__ = [
     'Announcement',
     'SharedTemplate',
     'UserQuota',
+    'LandingPage',
+    'Victim',
+    'TrackedLink',
+    'LinkClick',
+    'Automation',
 ]
