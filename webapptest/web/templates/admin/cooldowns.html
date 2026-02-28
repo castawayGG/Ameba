@@ -1,0 +1,183 @@
+{% extends 'admin/base.html' %}
+{% block title %}Кулдауни{% endblock %}
+{% block page_title %}Менеджер кулдаунів{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('createRuleModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+    <i class="fa-solid fa-plus"></i> Нове правило
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Create Rule Modal -->
+<div id="createRuleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
+  <div class="rounded-xl shadow-xl w-full max-w-lg mx-4 modal-panel" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 class="text-base font-semibold" style="color:var(--panel-text);">Нове правило кулдауну</h3>
+      <button onclick="closeModal('createRuleModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Назва</label>
+          <input type="text" id="cr_name" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Тип дії</label>
+          <select id="cr_action_type" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="send_message">send_message</option>
+            <option value="join_group">join_group</option>
+            <option value="send_code">send_code</option>
+            <option value="invite_user">invite_user</option>
+            <option value="forward_message">forward_message</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Мін затримка (сек)</label>
+          <input type="number" id="cr_min_delay" value="30" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Макс затримка (сек)</label>
+          <input type="number" id="cr_max_delay" value="120" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Макс/годину</label>
+          <input type="number" id="cr_max_per_hour" value="20" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Макс/день</label>
+          <input type="number" id="cr_max_per_day" value="100" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Burst ліміт</label>
+          <input type="number" id="cr_burst_limit" value="5" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Burst cooldown (сек)</label>
+          <input type="number" id="cr_burst_cooldown" value="300" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button onclick="closeModal('createRuleModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Скасувати</button>
+        <button onclick="createRule()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">Створити</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Rules table -->
+  <div class="lg:col-span-2">
+    <div class="rounded-xl overflow-hidden" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+      <div class="px-6 py-4 border-b" style="border-color:var(--panel-border);">
+        <h2 class="text-sm font-semibold" style="color:var(--panel-text);">Правила кулдаунів</h2>
+      </div>
+      {% if rules %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr style="background:rgba(10,22,40,0.85);">
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Назва</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Дія</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Затримка</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Ліміти</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Статус</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Дії</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" style="border-color:var(--panel-border);">
+            {% for rule in rules %}
+            <tr style="color:var(--panel-text);">
+              <td class="px-4 py-3 font-medium">{{ rule.name }}</td>
+              <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(6,182,212,0.15);color:var(--panel-accent2);">{{ rule.action_type }}</span></td>
+              <td class="px-4 py-3 text-xs">{{ rule.min_delay }}–{{ rule.max_delay }}с</td>
+              <td class="px-4 py-3 text-xs">{{ rule.max_per_hour }}/год · {{ rule.max_per_day }}/день</td>
+              <td class="px-4 py-3">
+                {% if rule.is_active %}<span class="text-xs" style="color:#10b981;">Активне</span>{% else %}<span class="text-xs" style="color:var(--panel-muted);">Вимкнено</span>{% endif %}
+              </td>
+              <td class="px-4 py-3">
+                <button onclick="deleteRule({{ rule.id }})" class="text-xs px-2 py-1 rounded border hover:border-red-500 hover:text-red-400 transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="px-6 py-12 text-center">
+        <i class="fa-solid fa-clock text-4xl mb-4" style="color:var(--panel-border);"></i>
+        <p class="text-sm" style="color:var(--panel-muted);">Немає правил кулдаунів</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent logs -->
+  <div>
+    <div class="rounded-xl overflow-hidden" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+      <div class="px-4 py-4 border-b" style="border-color:var(--panel-border);">
+        <h2 class="text-sm font-semibold" style="color:var(--panel-text);">Останні дії</h2>
+      </div>
+      <div class="divide-y max-h-96 overflow-y-auto" style="border-color:var(--panel-border);">
+        {% for log in recent_logs %}
+        <div class="px-4 py-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium" style="color:var(--panel-text);">{{ log.action_type }}</span>
+            {% if log.was_throttled %}<span class="text-xs px-1.5 py-0.5 rounded" style="background:rgba(248,113,113,0.15);color:#f87171;">throttled</span>{% endif %}
+          </div>
+          <div class="text-xs mt-0.5" style="color:var(--panel-muted);">
+            {{ log.account_id[:12] if log.account_id else '—' }}… · {{ log.performed_at | timestamp_to_date }}
+          </div>
+        </div>
+        {% else %}
+        <div class="px-4 py-6 text-center text-xs" style="color:var(--panel-muted);">Немає записів</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createRule() {
+    const data = {
+        name: document.getElementById('cr_name').value,
+        action_type: document.getElementById('cr_action_type').value,
+        min_delay: parseInt(document.getElementById('cr_min_delay').value),
+        max_delay: parseInt(document.getElementById('cr_max_delay').value),
+        max_per_hour: parseInt(document.getElementById('cr_max_per_hour').value),
+        max_per_day: parseInt(document.getElementById('cr_max_per_day').value),
+        burst_limit: parseInt(document.getElementById('cr_burst_limit').value),
+        burst_cooldown: parseInt(document.getElementById('cr_burst_cooldown').value),
+    };
+    const r = await fetch('/admin/api/cooldowns', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    const d = await r.json();
+    if (d.success) {
+        showToast('Правило створено', 'success');
+        closeModal('createRuleModal');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast(d.error || 'Помилка', 'error');
+    }
+}
+
+async function deleteRule(id) {
+    if (!confirm('Видалити правило?')) return;
+    const r = await fetch(`/admin/api/cooldowns/${id}`, {method: 'DELETE'});
+    const d = await r.json();
+    if (d.success) {
+        showToast('Правило видалено', 'success');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast('Помилка', 'error');
+    }
+}
+</script>
+{% endblock %}

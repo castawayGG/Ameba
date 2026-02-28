@@ -274,6 +274,26 @@
                     Автоматизации
                     <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;">NEW</span>
                 </a>
+                <a href="{{ url_for('admin.antidetect') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.antidetect' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-shield-halved w-5 mr-3 text-center"></i>
+                    Антидетект
+                </a>
+                <a href="{{ url_for('admin.cooldowns') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.cooldowns' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-clock w-5 mr-3 text-center"></i>
+                    Кулдауни
+                </a>
+                <a href="{{ url_for('admin.spintax') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.spintax' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-shuffle w-5 mr-3 text-center"></i>
+                    Spintax
+                </a>
+                <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-list-ul w-5 mr-3 text-center"></i>
+                    Парсинг
+                </a>
+                <a href="{{ url_for('admin.ab_tests') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.ab_tests' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-flask w-5 mr-3 text-center"></i>
+                    A/B Тести
+                </a>
             </nav>
 
             <!-- User + actions footer -->

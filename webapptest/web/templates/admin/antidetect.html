@@ -1,0 +1,208 @@
+{% extends 'admin/base.html' %}
+{% block title %}Антидетект{% endblock %}
+{% block page_title %}Антидетект-профілі{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('generateModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+    <i class="fa-solid fa-plus"></i> Згенерувати профілі
+</button>
+<button onclick="autoAssign()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border ml-2" style="border-color:var(--panel-border);color:var(--panel-muted);">
+    <i class="fa-solid fa-wand-magic-sparkles"></i> Авто-призначення
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Generate Modal -->
+<div id="generateModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
+  <div class="rounded-xl shadow-xl w-full max-w-md mx-4 modal-panel" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 class="text-base font-semibold" style="color:var(--panel-text);">Згенерувати профілі</h3>
+      <button onclick="closeModal('generateModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:var(--panel-muted);">Кількість профілів</label>
+        <input type="number" id="gen_count" value="10" min="1" max="100" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="gen_is_template" class="w-4 h-4">
+        <label class="text-sm" style="color:var(--panel-muted);">Зберегти як шаблони</label>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeModal('generateModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Скасувати</button>
+        <button onclick="generateProfiles()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">Генерувати</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div id="assignModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
+  <div class="rounded-xl shadow-xl w-full max-w-md mx-4 modal-panel" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 class="text-base font-semibold" style="color:var(--panel-text);">Призначити профіль</h3>
+      <button onclick="closeModal('assignModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <input type="hidden" id="assign_profile_id">
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color:var(--panel-muted);">Аккаунт</label>
+        <select id="assign_account_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          {% for acc in accounts %}
+          <option value="{{ acc.id }}">{{ acc.phone }} {% if acc.username %}(@{{ acc.username }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeModal('assignModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Скасувати</button>
+        <button onclick="assignProfile()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">Призначити</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="text-2xl font-bold mb-1" style="color:var(--panel-text);">{{ profiles|length }}</div>
+    <div class="text-xs" style="color:var(--panel-muted);">Всього профілів</div>
+  </div>
+  <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="text-2xl font-bold mb-1" style="color:#10b981;">{{ profiles|selectattr('account_id')|list|length }}</div>
+    <div class="text-xs" style="color:var(--panel-muted);">Призначено</div>
+  </div>
+  <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="text-2xl font-bold mb-1" style="color:var(--panel-accent2);">{{ profiles|selectattr('is_template')|list|length }}</div>
+    <div class="text-xs" style="color:var(--panel-muted);">Шаблони</div>
+  </div>
+  <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="text-2xl font-bold mb-1" style="color:#fbbf24;">{{ accounts|length }}</div>
+    <div class="text-xs" style="color:var(--panel-muted);">Активних акаунтів</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="rounded-xl overflow-hidden" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+  <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color:var(--panel-border);">
+    <h2 class="text-sm font-semibold" style="color:var(--panel-text);">Профілі</h2>
+  </div>
+  {% if profiles %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr style="background:rgba(10,22,40,0.85);">
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">ID</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Назва</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Пристрій</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">ОС</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Версія App</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Мова</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Аккаунт</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color:var(--panel-muted);">Дії</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y" style="border-color:var(--panel-border);">
+        {% for p in profiles %}
+        <tr class="hover:bg-opacity-50 transition-colors" style="color:var(--panel-text);">
+          <td class="px-4 py-3 text-xs" style="color:var(--panel-muted);">{{ p.id }}</td>
+          <td class="px-4 py-3 font-medium">
+            {{ p.name }}
+            {% if p.is_template %}<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded" style="background:rgba(6,182,212,0.15);color:var(--panel-accent2);">шаблон</span>{% endif %}
+          </td>
+          <td class="px-4 py-3">{{ p.device_model or '—' }}</td>
+          <td class="px-4 py-3 text-xs">{{ p.system_version or '—' }}</td>
+          <td class="px-4 py-3 text-xs">{{ p.app_version or '—' }}</td>
+          <td class="px-4 py-3 text-xs">{{ p.lang_code or '—' }}</td>
+          <td class="px-4 py-3 text-xs">
+            {% if p.account_id %}<span style="color:var(--panel-accent);">{{ p.account_id[:12] }}…</span>{% else %}<span style="color:var(--panel-muted);">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <button onclick="openAssignModal({{ p.id }})" class="text-xs px-2 py-1 rounded" style="background:rgba(16,185,129,0.15);color:var(--panel-accent);">Призначити</button>
+              <button onclick="deleteProfile({{ p.id }})" class="text-xs px-2 py-1 rounded border hover:border-red-500 hover:text-red-400 transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="px-6 py-12 text-center">
+    <i class="fa-solid fa-shield-halved text-4xl mb-4" style="color:var(--panel-border);"></i>
+    <p class="text-sm" style="color:var(--panel-muted);">Немає профілів. Згенеруйте перші!</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openAssignModal(profileId) {
+    document.getElementById('assign_profile_id').value = profileId;
+    openModal('assignModal');
+}
+
+async function generateProfiles() {
+    const count = parseInt(document.getElementById('gen_count').value) || 1;
+    const is_template = document.getElementById('gen_is_template').checked;
+    const r = await fetch('/admin/api/antidetect/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({count, is_template})
+    });
+    const d = await r.json();
+    if (d.success) {
+        showToast(`Згенеровано ${d.generated} профілів`, 'success');
+        closeModal('generateModal');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast('Помилка генерації', 'error');
+    }
+}
+
+async function assignProfile() {
+    const profile_id = parseInt(document.getElementById('assign_profile_id').value);
+    const account_id = document.getElementById('assign_account_id').value;
+    const r = await fetch('/admin/api/antidetect/assign', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({profile_id, account_id})
+    });
+    const d = await r.json();
+    if (d.success) {
+        showToast('Профіль призначено', 'success');
+        closeModal('assignModal');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast(d.error || 'Помилка', 'error');
+    }
+}
+
+async function autoAssign() {
+    if (!confirm('Авто-призначити профілі всім аккаунтам без профілю?')) return;
+    const r = await fetch('/admin/api/antidetect/auto_assign', {method: 'POST'});
+    const d = await r.json();
+    if (d.success) {
+        showToast(`Призначено ${d.assigned} профілів`, 'success');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast('Помилка', 'error');
+    }
+}
+
+async function deleteProfile(id) {
+    if (!confirm('Видалити профіль?')) return;
+    const r = await fetch(`/admin/api/antidetect/${id}`, {method: 'DELETE'});
+    const d = await r.json();
+    if (d.success) {
+        showToast('Профіль видалено', 'success');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast(d.error || 'Помилка', 'error');
+    }
+}
+</script>
+{% endblock %}

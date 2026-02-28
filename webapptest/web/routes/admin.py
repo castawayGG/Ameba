@@ -2929,51 +2929,6 @@ def proxies_bulk_check():
 
 
 # ==========================================
-# SESSION DOWNLOAD
-# ==========================================
-@admin_bp.route('/accounts/<account_id>/download_session')
-@login_required
-def account_download_session(account_id):
-    """Download account session as SQLite .session file."""
-    account = db.session.get(Account, account_id)
-    if not account or not account.session_data:
-        flash('Аккаунт не найден или сессия отсутствует', 'danger')
-        return redirect(url_for('admin.accounts'))
-    try:
-        from utils.encryption import decrypt_session_data
-        from utils.session_converter import string_session_to_sqlite
-        import tempfile
-        session_str = decrypt_session_data(account.session_data)
-        safe_phone = (account.phone or 'unknown').lstrip('+').replace(' ', '').replace('-', '')
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out_path = os.path.join(tmpdir, f'{safe_phone}.session')
-            ok = string_session_to_sqlite(session_str, out_path)
-            if ok and os.path.exists(out_path):
-                with open(out_path, 'rb') as f:
-                    data = f.read()
-                log_action('download_session', f'account={account_id}')
-                return send_file(
-                    io.BytesIO(data),
-                    as_attachment=True,
-                    download_name=f'{safe_phone}.session',
-                    mimetype='application/octet-stream',
-                )
-            else:
-                # Fallback: send StringSession as text
-                log_action('download_session', f'account={account_id} (string format)')
-                return send_file(
-                    io.BytesIO(session_str.encode('utf-8')),
-                    as_attachment=True,
-                    download_name=f'{safe_phone}.session',
-                    mimetype='text/plain',
-                )
-    except Exception as e:
-        log.error(f"account_download_session error: {e}")
-        flash(f'Ошибка: {e}', 'danger')
-        return redirect(url_for('admin.accounts'))
-
-
-# ==========================================
 # LANDING PAGES
 # ==========================================
 @admin_bp.route('/landings')
@@ -3434,3 +3389,340 @@ def import_sessions_v2():
             errors.append(f'{f.filename}: {e}')
     log_action('import_sessions_v2', f'imported={imported}')
     return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
+
+# ==========================================
+# ANTIDETECT PROFILES
+# ==========================================
+@admin_bp.route('/antidetect')
+@login_required
+def antidetect():
+    from models.antidetect_profile import AntidetectProfile
+    from models.account import Account
+    profiles = db.session.query(AntidetectProfile).order_by(AntidetectProfile.created_at.desc()).all()
+    accounts = db.session.query(Account).filter_by(status='active').order_by(Account.phone).all()
+    return render_template('admin/antidetect.html', profiles=profiles, accounts=accounts)
+
+
+@admin_bp.route('/api/antidetect/generate', methods=['POST'])
+@login_required
+def api_antidetect_generate():
+    from services.antidetect.profile_manager import bulk_generate_profiles
+    data = request.get_json() or {}
+    count = min(int(data.get('count', 1)), 100)
+    generated = bulk_generate_profiles(count, is_template=data.get('is_template', False))
+    log_action('antidetect_generate', f'Generated {generated} profiles')
+    return jsonify({'success': True, 'generated': generated})
+
+
+@admin_bp.route('/api/antidetect/assign', methods=['POST'])
+@login_required
+def api_antidetect_assign():
+    from services.antidetect.profile_manager import assign_profile_to_account
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    profile_id = data.get('profile_id')
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'})
+    result = assign_profile_to_account(account_id, profile_id)
+    if result is None:
+        return jsonify({'success': False, 'error': 'Profile not found'})
+    log_action('antidetect_assign', f'Assigned profile {result} to account {account_id}')
+    return jsonify({'success': True, 'profile_id': result})
+
+
+@admin_bp.route('/api/antidetect/auto_assign', methods=['POST'])
+@login_required
+def api_antidetect_auto_assign():
+    from services.antidetect.profile_manager import auto_assign_profiles
+    assigned = auto_assign_profiles()
+    log_action('antidetect_auto_assign', f'Auto-assigned {assigned} profiles')
+    return jsonify({'success': True, 'assigned': assigned})
+
+
+@admin_bp.route('/api/antidetect/<int:profile_id>', methods=['DELETE'])
+@login_required
+def api_antidetect_delete(profile_id):
+    from models.antidetect_profile import AntidetectProfile
+    profile = db.session.get(AntidetectProfile, profile_id)
+    if not profile:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(profile)
+    db.session.commit()
+    log_action('antidetect_delete', f'Deleted profile {profile_id}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# COOLDOWN MANAGER
+# ==========================================
+@admin_bp.route('/cooldowns')
+@login_required
+def cooldowns():
+    from models.cooldown import CooldownRule, CooldownLog
+    rules = db.session.query(CooldownRule).order_by(CooldownRule.created_at.desc()).all()
+    recent_logs = db.session.query(CooldownLog).order_by(CooldownLog.performed_at.desc()).limit(50).all()
+    return render_template('admin/cooldowns.html', rules=rules, recent_logs=recent_logs)
+
+
+@admin_bp.route('/api/cooldowns', methods=['POST'])
+@login_required
+def api_cooldown_create():
+    from models.cooldown import CooldownRule
+    data = request.get_json() or {}
+    rule = CooldownRule(
+        name=data.get('name', 'New Rule'),
+        action_type=data.get('action_type', 'send_message'),
+        min_delay=int(data.get('min_delay', 30)),
+        max_delay=int(data.get('max_delay', 120)),
+        max_per_hour=int(data.get('max_per_hour', 20)),
+        max_per_day=int(data.get('max_per_day', 100)),
+        burst_limit=int(data.get('burst_limit', 5)),
+        burst_cooldown=int(data.get('burst_cooldown', 300)),
+    )
+    db.session.add(rule)
+    db.session.commit()
+    log_action('cooldown_create', f'Created rule {rule.name}')
+    return jsonify({'success': True, 'id': rule.id})
+
+
+@admin_bp.route('/api/cooldowns/<int:rule_id>', methods=['PUT'])
+@login_required
+def api_cooldown_update(rule_id):
+    from models.cooldown import CooldownRule
+    rule = db.session.get(CooldownRule, rule_id)
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'action_type', 'min_delay', 'max_delay', 'max_per_hour', 'max_per_day', 'burst_limit', 'burst_cooldown', 'is_active']:
+        if field in data:
+            setattr(rule, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/cooldowns/<int:rule_id>', methods=['DELETE'])
+@login_required
+def api_cooldown_delete(rule_id):
+    from models.cooldown import CooldownRule
+    rule = db.session.get(CooldownRule, rule_id)
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(rule)
+    db.session.commit()
+    log_action('cooldown_delete', f'Deleted rule {rule_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/cooldowns/reset/<account_id>', methods=['POST'])
+@login_required
+def api_cooldown_reset(account_id):
+    from services.cooldown.manager import reset_account_limits
+    ok = reset_account_limits(account_id)
+    return jsonify({'success': ok})
+
+
+# ==========================================
+# SPINTAX TEMPLATES
+# ==========================================
+@admin_bp.route('/spintax')
+@login_required
+def spintax():
+    from models.spintax_template import SpintaxTemplate
+    templates = db.session.query(SpintaxTemplate).order_by(SpintaxTemplate.created_at.desc()).all()
+    return render_template('admin/spintax.html', templates=templates)
+
+
+@admin_bp.route('/api/spintax', methods=['POST'])
+@login_required
+def api_spintax_create():
+    from models.spintax_template import SpintaxTemplate
+    data = request.get_json() or {}
+    tmpl = SpintaxTemplate(
+        name=data.get('name', 'New Template'),
+        content=data.get('content', ''),
+        category=data.get('category', 'general'),
+        language=data.get('language', 'uk'),
+        created_by=current_user.id,
+    )
+    db.session.add(tmpl)
+    db.session.commit()
+    log_action('spintax_create', f'Created template {tmpl.name}')
+    return jsonify({'success': True, 'id': tmpl.id})
+
+
+@admin_bp.route('/api/spintax/<int:tmpl_id>', methods=['PUT'])
+@login_required
+def api_spintax_update(tmpl_id):
+    from models.spintax_template import SpintaxTemplate
+    tmpl = db.session.get(SpintaxTemplate, tmpl_id)
+    if not tmpl:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'content', 'category', 'language']:
+        if field in data:
+            setattr(tmpl, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/spintax/<int:tmpl_id>', methods=['DELETE'])
+@login_required
+def api_spintax_delete(tmpl_id):
+    from models.spintax_template import SpintaxTemplate
+    tmpl = db.session.get(SpintaxTemplate, tmpl_id)
+    if not tmpl:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(tmpl)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/spintax/preview', methods=['POST'])
+@login_required
+def api_spintax_preview():
+    from services.spintax.engine import generate_previews, calculate_uniqueness
+    data = request.get_json() or {}
+    text = data.get('text', '')
+    count = min(int(data.get('count', 5)), 20)
+    previews = generate_previews(text, count)
+    uniqueness = calculate_uniqueness(text)
+    return jsonify({'success': True, 'previews': previews, 'uniqueness': uniqueness})
+
+
+# ==========================================
+# MEMBER PARSER
+# ==========================================
+@admin_bp.route('/parser')
+@login_required
+def parser():
+    from models.parse_task import ParseTask
+    from models.account import Account
+    tasks = db.session.query(ParseTask).order_by(ParseTask.created_at.desc()).all()
+    accounts = db.session.query(Account).filter_by(status='active').order_by(Account.phone).all()
+    return render_template('admin/parser.html', tasks=tasks, accounts=accounts)
+
+
+@admin_bp.route('/api/parser', methods=['POST'])
+@login_required
+def api_parser_create():
+    from models.parse_task import ParseTask
+    data = request.get_json() or {}
+    task = ParseTask(
+        name=data.get('name', 'New Parse Task'),
+        source_type=data.get('source_type', 'group'),
+        source_link=data.get('source_link', ''),
+        account_id=data.get('account_id'),
+        filters=data.get('filters', {}),
+        created_by=current_user.id,
+        status='pending',
+    )
+    db.session.add(task)
+    db.session.commit()
+    log_action('parser_create', f'Created parse task {task.name}')
+    # Launch background task if celery is available
+    try:
+        from tasks.parser import run_parse_task
+        run_parse_task.delay(task.id, task.account_id, task.source_link, task.filters or {})
+    except Exception as e:
+        log.warning(f"Could not launch celery parse task: {e}")
+    return jsonify({'success': True, 'id': task.id})
+
+
+@admin_bp.route('/api/parser/<int:task_id>', methods=['DELETE'])
+@login_required
+def api_parser_delete(task_id):
+    from models.parse_task import ParseTask
+    task = db.session.get(ParseTask, task_id)
+    if not task:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(task)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/parser/<int:task_id>/export_csv')
+@login_required
+def api_parser_export_csv(task_id):
+    import csv
+    import io
+    from models.parse_task import ParseTask
+    task = db.session.get(ParseTask, task_id)
+    if not task or not task.result_data:
+        return jsonify({'success': False, 'error': 'No data'}), 404
+    output = io.BytesIO()
+    wrapper = io.TextIOWrapper(output, encoding='utf-8', newline='')
+    writer = csv.DictWriter(wrapper, fieldnames=['user_id', 'username', 'first_name', 'last_name', 'phone'])
+    writer.writeheader()
+    for row in task.result_data:
+        writer.writerow({k: row.get(k, '') for k in ['user_id', 'username', 'first_name', 'last_name', 'phone']})
+    wrapper.flush()
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'parse_task_{task_id}.csv',
+    )
+
+
+# ==========================================
+# A/B TESTS
+# ==========================================
+@admin_bp.route('/ab_tests')
+@login_required
+def ab_tests():
+    from models.ab_test import ABTest
+    tests = db.session.query(ABTest).order_by(ABTest.created_at.desc()).all()
+    return render_template('admin/ab_tests.html', tests=tests)
+
+
+@admin_bp.route('/api/ab_tests', methods=['POST'])
+@login_required
+def api_ab_test_create():
+    from models.ab_test import ABTest
+    import re
+    data = request.get_json() or {}
+    slug = data.get('slug', '').strip()
+    if not slug:
+        return jsonify({'success': False, 'error': 'slug required'})
+    if not re.match(r'^[a-z0-9_-]+$', slug):
+        return jsonify({'success': False, 'error': 'slug must be lowercase alphanumeric with - or _'})
+    test = ABTest(
+        name=data.get('name', 'New A/B Test'),
+        slug=slug,
+        description=data.get('description', ''),
+        variants=data.get('variants', []),
+        created_by=current_user.id,
+    )
+    db.session.add(test)
+    db.session.commit()
+    log_action('ab_test_create', f'Created A/B test {test.name}')
+    return jsonify({'success': True, 'id': test.id})
+
+
+@admin_bp.route('/api/ab_tests/<int:test_id>', methods=['PUT'])
+@login_required
+def api_ab_test_update(test_id):
+    from models.ab_test import ABTest
+    test = db.session.get(ABTest, test_id)
+    if not test:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    for field in ['name', 'description', 'status', 'variants', 'winner_variant']:
+        if field in data:
+            setattr(test, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/ab_tests/<int:test_id>', methods=['DELETE'])
+@login_required
+def api_ab_test_delete(test_id):
+    from models.ab_test import ABTest
+    test = db.session.get(ABTest, test_id)
+    if not test:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(test)
+    db.session.commit()
+    return jsonify({'success': True})
