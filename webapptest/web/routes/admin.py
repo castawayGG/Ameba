@@ -3081,6 +3081,23 @@ def api_landings_preview(landing_id):
     return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
+@admin_bp.route('/api/landings/templates/<theme>')
+@login_required
+def api_landing_template(theme):
+    """Return a pre-built landing page template by theme key."""
+    from services.landing_templates import LANDING_TEMPLATES
+    tpl = LANDING_TEMPLATES.get(theme)
+    if not tpl:
+        return jsonify({'success': False, 'error': 'Template not found'}), 404
+    return jsonify({'success': True, 'template': {
+        'name': tpl['name'],
+        'slug': tpl['slug'],
+        'language': tpl['language'],
+        'theme': tpl['theme'],
+        'html_content': tpl['html_content'],
+    }})
+
+
 # ==========================================
 # VICTIMS
 # ==========================================

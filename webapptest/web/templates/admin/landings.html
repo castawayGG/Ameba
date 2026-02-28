@@ -18,6 +18,20 @@
       <button onclick="closeModal('createLandingModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
     </div>
     <form id="createLandingForm" class="px-6 py-4 space-y-4">
+      <!-- Template Selector -->
+      <div>
+        <label class="block text-sm font-medium mb-2" style="color:var(--panel-muted);">Обрати готовий шаблон</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="loadTemplate('roblox')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#e74c3c';this.style.color='#e74c3c'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🎮 Roblox Robux</button>
+          <button type="button" onclick="loadTemplate('standoff')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#FFD700';this.style.color='#FFD700'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">💰 Standoff Gold</button>
+          <button type="button" onclick="loadTemplate('telegram-stars')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#2AABEE';this.style.color='#2AABEE'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">⭐ TG Stars</button>
+          <button type="button" onclick="loadTemplate('telegram-premium')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#FFD700';this.style.color='#FFD700'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">👑 TG Premium</button>
+          <button type="button" onclick="loadTemplate('nft')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#a855f7';this.style.color='#a855f7'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🎨 NFT Drop</button>
+          <button type="button" onclick="loadTemplate('diya')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#0057B8';this.style.color='#64a8ff'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🇺🇦 Дія Виплата</button>
+        </div>
+        <div id="tplLoadStatus" class="text-xs mt-1" style="color:var(--panel-muted);display:none;"></div>
+      </div>
+      <div class="border-t" style="border-color:var(--panel-border);"></div>
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1" style="color:var(--panel-muted);">Название</label>
@@ -256,6 +270,34 @@ async function deleteLanding(id, name) {
 function copyLandingUrl(slug) {
   const url = location.origin + '/p/' + slug;
   navigator.clipboard.writeText(url).then(() => showToast('URL скопирован: ' + url, 'info'));
+}
+
+async function loadTemplate(theme) {
+  const status = document.getElementById('tplLoadStatus');
+  status.style.display = 'block';
+  status.textContent = 'Завантаження шаблону...';
+  try {
+    const r = await fetch('/admin/api/landings/templates/' + theme, {headers: {'X-CSRFToken': CSRF}});
+    const d = await r.json();
+    if (d.success && d.template) {
+      const t = d.template;
+      document.getElementById('cl_name').value = t.name || '';
+      document.getElementById('cl_slug').value = t.slug || '';
+      document.getElementById('cl_html_content').value = t.html_content || '';
+      const lang = document.getElementById('cl_language');
+      if (lang) { for (var o of lang.options) { if (o.value === t.language) { o.selected = true; break; } } }
+      const themeEl = document.getElementById('cl_theme');
+      if (themeEl) { for (var o of themeEl.options) { if (o.value === t.theme) { o.selected = true; break; } } }
+      status.style.color = '#10b981';
+      status.textContent = '✅ Шаблон завантажено: ' + t.name;
+    } else {
+      status.style.color = '#f87171';
+      status.textContent = '❌ ' + (d.error || 'Помилка завантаження');
+    }
+  } catch(err) {
+    status.style.color = '#f87171';
+    status.textContent = '❌ Помилка мережі';
+  }
 }
 </script>
 {% endblock %}
