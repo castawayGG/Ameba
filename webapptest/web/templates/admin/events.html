@@ -1,0 +1,208 @@
+{% extends 'admin/base.html' %}
+{% block title %}Лента событий{% endblock %}
+{% block page_title %}Лента событий{% endblock %}
+
+{% block content %}
+<!-- Listener status bar -->
+<div class="mb-4 flex items-center justify-between p-3 rounded-lg" style="background: var(--panel-surface); border: 1px solid var(--panel-border);">
+    <div class="flex items-center gap-3">
+        <span class="text-sm" style="color: var(--panel-muted);">Слушаем:</span>
+        <span id="listener-status" class="text-sm font-semibold" style="color: var(--panel-text);">Загрузка...</span>
+        <span id="listener-indicator" class="w-2 h-2 rounded-full bg-gray-500 inline-block"></span>
+    </div>
+    <div class="flex gap-2">
+        <button onclick="listenerAction('start')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-600/30 transition-colors">
+            <i class="fa-solid fa-play mr-1"></i>Start
+        </button>
+        <button onclick="listenerAction('stop')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors">
+            <i class="fa-solid fa-stop mr-1"></i>Stop
+        </button>
+        <button onclick="listenerAction('restart')" class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors" style="background: rgba(14,165,233,0.1); color: var(--panel-accent); border-color: var(--panel-accent)/30">
+            <i class="fa-solid fa-rotate mr-1"></i>Restart
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="mb-4 flex flex-wrap gap-3 p-4 rounded-xl" style="background: var(--panel-surface); border: 1px solid var(--panel-border);">
+    <select id="filter-account" onchange="loadEvents()" class="text-sm rounded-lg px-3 py-2 border" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);">
+        <option value="">Все аккаунты</option>
+        {% for acc in accounts %}
+        <option value="{{ acc.id }}">{{ acc.phone }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-type" onchange="loadEvents()" class="text-sm rounded-lg px-3 py-2 border" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);">
+        <option value="">Все типы</option>
+        <option value="new_message">Сообщение</option>
+        <option value="message_read">Прочитано</option>
+        <option value="user_online">Онлайн</option>
+        <option value="chat_action">Действие</option>
+        <option value="account_banned">Бан</option>
+        <option value="flood_wait">Flood wait</option>
+        <option value="new_contact">Контакт</option>
+    </select>
+    <button id="btn-unread" onclick="toggleUnread()" class="px-3 py-2 text-sm rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">
+        <i class="fa-regular fa-envelope mr-1"></i>Непрочитанные
+    </button>
+    <button onclick="toggleSound()" id="btn-sound" class="px-3 py-2 text-sm rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);" title="Звук уведомлений">
+        <i class="fa-solid fa-volume-xmark" id="sound-icon"></i>
+    </button>
+    <button onclick="loadEvents()" class="px-3 py-2 text-sm rounded-lg border transition-colors ml-auto" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
+        <i class="fa-solid fa-rotate-right mr-1"></i>Обновить
+    </button>
+</div>
+
+<!-- Event feed -->
+<div id="events-feed" class="space-y-2 mb-4">
+    <div class="text-center py-8" style="color: var(--panel-muted);">Загрузка событий...</div>
+</div>
+
+<div class="text-center">
+    <button id="btn-load-more" onclick="loadMore()" class="px-6 py-2 text-sm rounded-lg border hidden" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-muted);">
+        Загрузить ещё
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const EVENT_ICONS = {
+    new_message: {icon: 'fa-envelope', color: '#38bdf8'},
+    message_read: {icon: 'fa-envelope-open', color: '#34d399'},
+    user_online: {icon: 'fa-circle', color: '#34d399'},
+    chat_action: {icon: 'fa-comment-dots', color: '#a78bfa'},
+    account_banned: {icon: 'fa-ban', color: '#f87171'},
+    flood_wait: {icon: 'fa-clock', color: '#fbbf24'},
+    new_contact: {icon: 'fa-user-plus', color: '#a78bfa'},
+};
+
+let currentPage = 1;
+let unreadOnly = false;
+let soundEnabled = false;
+let sseSource = null;
+
+function relativeTime(isoStr) {
+    if (!isoStr) return '';
+    const diff = Math.floor((Date.now() - new Date(isoStr + 'Z').getTime()) / 1000);
+    if (diff < 60) return `${diff} с назад`;
+    if (diff < 3600) return `${Math.floor(diff/60)} мин назад`;
+    if (diff < 86400) return `${Math.floor(diff/3600)} ч назад`;
+    return `${Math.floor(diff/86400)} д назад`;
+}
+
+function renderEvent(e, prepend=false) {
+    const cfg = EVENT_ICONS[e.event_type] || {icon: 'fa-bolt', color: '#0ea5e9'};
+    const feed = document.getElementById('events-feed');
+    const loading = feed.querySelector('.text-center');
+    if (loading) loading.remove();
+
+    const div = document.createElement('div');
+    div.id = `event-${e.id}`;
+    div.className = 'flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer event-card' + (e.is_read ? ' opacity-60' : '');
+    div.style.cssText = `background: var(--panel-card); border-color: var(--panel-border);`;
+    div.innerHTML = `
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style="background: ${cfg.color}22;">
+            <i class="fa-solid ${cfg.icon} text-sm" style="color: ${cfg.color};"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background: ${cfg.color}22; color: ${cfg.color};">${e.event_type}</span>
+                <span class="text-xs font-medium" style="color: var(--panel-accent);">${e.account_id || ''}</span>
+                ${e.sender_username ? `<span class="text-xs" style="color: var(--panel-muted);">@${e.sender_username}</span>` : ''}
+                ${e.sender_name ? `<span class="text-xs" style="color: var(--panel-text);">${e.sender_name}</span>` : ''}
+                <span class="text-xs ml-auto flex-shrink-0" style="color: var(--panel-muted);">${relativeTime(e.created_at)}</span>
+            </div>
+            ${e.chat_title ? `<p class="text-xs mt-0.5" style="color: var(--panel-muted);">${e.chat_title}</p>` : ''}
+            ${e.text_preview ? `<p class="text-sm mt-1 truncate" style="color: var(--panel-text);">${e.text_preview}</p>` : ''}
+        </div>
+        ${!e.is_read ? `<button onclick="markRead(${e.id}, event)" class="flex-shrink-0 text-xs px-2 py-1 rounded" style="background: rgba(14,165,233,0.1); color: var(--panel-accent);">✓</button>` : ''}
+    `;
+    if (prepend) {
+        div.style.animation = 'toastIn 0.3s ease forwards';
+        feed.prepend(div);
+    } else {
+        feed.appendChild(div);
+    }
+}
+
+async function loadEvents(reset=true) {
+    if (reset) { currentPage = 1; document.getElementById('events-feed').innerHTML = '<div class="text-center py-8" style="color: var(--panel-muted);">Загрузка...</div>'; }
+    const account = document.getElementById('filter-account').value;
+    const type = document.getElementById('filter-type').value;
+    const params = new URLSearchParams({page: currentPage, limit: 30});
+    if (account) params.set('account_id', account);
+    if (type) params.set('event_type', type);
+    if (unreadOnly) params.set('unread_only', '1');
+    const r = await fetch('/admin/api/events?' + params);
+    const d = await r.json();
+    if (!d.success) return;
+    if (reset) document.getElementById('events-feed').innerHTML = '';
+    d.events.forEach(e => renderEvent(e));
+    if (d.events.length === 0 && reset) {
+        document.getElementById('events-feed').innerHTML = '<div class="text-center py-8" style="color: var(--panel-muted);">Нет событий</div>';
+    }
+    document.getElementById('btn-load-more').classList.toggle('hidden', d.events.length < 30);
+}
+
+function loadMore() { currentPage++; loadEvents(false); }
+
+function toggleUnread() {
+    unreadOnly = !unreadOnly;
+    const btn = document.getElementById('btn-unread');
+    btn.style.color = unreadOnly ? 'var(--panel-accent)' : 'var(--panel-muted)';
+    loadEvents();
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const icon = document.getElementById('sound-icon');
+    icon.className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+}
+
+async function markRead(id, e) {
+    e.stopPropagation();
+    await fetch(`/admin/api/events/${id}/mark_read`, {method: 'POST'});
+    const card = document.getElementById(`event-${id}`);
+    if (card) card.classList.add('opacity-60');
+}
+
+async function listenerAction(action) {
+    const r = await fetch(`/admin/api/listener/${action}`, {method: 'POST'});
+    const d = await r.json();
+    showToast(d.success ? `Listener ${action} успешно` : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+    loadListenerStatus();
+}
+
+async function loadListenerStatus() {
+    try {
+        const r = await fetch('/admin/api/listener/status');
+        const d = await r.json();
+        const el = document.getElementById('listener-status');
+        const ind = document.getElementById('listener-indicator');
+        el.textContent = `${d.connected}/${d.total_active} аккаунтов`;
+        ind.className = `w-2 h-2 rounded-full inline-block ${d.running ? 'bg-green-400' : 'bg-gray-500'}`;
+    } catch(e) {}
+}
+
+function startSSE() {
+    if (sseSource) sseSource.close();
+    let lastId = 0;
+    sseSource = new EventSource(`/admin/api/events/stream?last_id=${lastId}`);
+    sseSource.onmessage = (e) => {
+        try {
+            const ev = JSON.parse(e.data);
+            renderEvent(ev, true);
+            if (soundEnabled) {
+                try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA...').play(); } catch(ex) {}
+            }
+        } catch(ex) {}
+    };
+    sseSource.onerror = () => { setTimeout(startSSE, 5000); };
+}
+
+loadEvents();
+loadListenerStatus();
+startSSE();
+setInterval(loadListenerStatus, 15000);
+</script>
+{% endblock %}

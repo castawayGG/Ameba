@@ -104,6 +104,15 @@
         <button onclick="switchTab('actions')" id="tab-actions" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
             <i class="fa-solid fa-bolt mr-1.5"></i>Действия
         </button>
+        <button onclick="switchTab('dialogs')" id="tab-dialogs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+            <i class="fa-solid fa-comments mr-1.5"></i>Чаты
+        </button>
+        <button onclick="switchTab('groups')" id="tab-groups" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+            <i class="fa-solid fa-users mr-1.5"></i>Группы
+        </button>
+        <button onclick="switchTab('search')" id="tab-search" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+            <i class="fa-solid fa-magnifying-glass mr-1.5"></i>Поиск
+        </button>
     </div>
 
     <!-- Logs tab -->
@@ -191,6 +200,87 @@
             <button onclick="openModal('startWarmingModal')" class="text-sm bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
                 <i class="fa-solid fa-play mr-1.5"></i>Выбрать сценарий
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Dialogs Tab Panel -->
+<div id="panel-dialogs" class="tab-panel hidden" style="background: var(--panel-surface);">
+    <div class="p-4 flex items-center gap-3 border-b" style="border-color: var(--panel-border);">
+        <button onclick="loadDialogs()" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
+            <i class="fa-solid fa-rotate-right mr-1"></i>Обновить
+        </button>
+    </div>
+    <div class="flex" style="height: 480px;">
+        <div id="dialogs-list-account" class="w-64 flex-shrink-0 overflow-y-auto border-r" style="border-color: var(--panel-border);">
+            <div class="p-4 text-sm" style="color: var(--panel-muted);">Нажмите «Обновить»</div>
+        </div>
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div id="dialog-messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+                <div class="text-center text-sm my-auto" style="color: var(--panel-muted);">Выберите диалог</div>
+            </div>
+            <div id="dialog-input" class="p-3 border-t hidden flex-shrink-0" style="border-color: var(--panel-border);">
+                <div class="flex gap-2">
+                    <input id="dialog-msg-input" type="text" placeholder="Сообщение..." class="flex-1 text-sm rounded-lg px-3 py-2 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);" onkeydown="if(event.key==='Enter') sendDialogMsg()">
+                    <button onclick="sendDialogMsg()" class="px-3 py-2 rounded-lg btn-accent-glow text-white text-sm"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Groups Tab Panel -->
+<div id="panel-groups" class="tab-panel hidden" style="background: var(--panel-surface);">
+    <div class="p-4 flex items-center gap-3 border-b" style="border-color: var(--panel-border);">
+        <button onclick="loadGroups()" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
+            <i class="fa-solid fa-rotate-right mr-1"></i>Обновить
+        </button>
+        <button onclick="openModal('joinGroupFromTabModal')" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(52,211,153,0.1); border-color: #34d399; color: #34d399;">
+            <i class="fa-solid fa-plus mr-1"></i>Вступить
+        </button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr style="background: rgba(10,22,40,0.85); border-bottom: 1px solid var(--panel-border);">
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--panel-muted);">Название</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--panel-muted);">Тип</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--panel-muted);">Участников</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--panel-muted);">Непрочитано</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--panel-muted);">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="groups-tbody">
+                <tr><td colspan="5" class="px-4 py-8 text-center text-sm" style="color: var(--panel-muted);">Нажмите «Обновить»</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Search Tab Panel -->
+<div id="panel-search" class="tab-panel hidden px-6 py-6" style="background: var(--panel-surface);">
+    <div class="flex gap-3 mb-4">
+        <input id="search-query" type="text" placeholder="Поиск по сообщениям..." class="flex-1 text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);" onkeydown="if(event.key==='Enter') searchMessages()">
+        <button onclick="searchMessages()" class="px-4 py-2 text-sm rounded-lg btn-accent-glow text-white font-medium">
+            <i class="fa-solid fa-magnifying-glass mr-1"></i>Поиск
+        </button>
+    </div>
+    <div id="search-results" class="space-y-2">
+        <p class="text-sm" style="color: var(--panel-muted);">Введите запрос и нажмите Поиск</p>
+    </div>
+</div>
+
+<!-- Modal: Join group from tab -->
+<div id="joinGroupFromTabModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.7);">
+    <div class="w-full max-w-md rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold" style="color: var(--panel-text);">Вступить в группу/канал</h3>
+            <button onclick="closeModal('joinGroupFromTabModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <input id="join-invite-tab" type="text" placeholder="t.me/... или invite link" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+        <div class="flex gap-3 mt-4 justify-end">
+            <button onclick="closeModal('joinGroupFromTabModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color: var(--panel-border); color: var(--panel-muted);">Отмена</button>
+            <button onclick="joinGroupFromTab()" class="px-4 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white">Вступить</button>
         </div>
     </div>
 </div>
@@ -385,6 +475,131 @@ function startWarming(id) {
     accountAction(id, 'start_warming', {scenario_id})
         .then(d => { closeModal('startWarmingModal'); showToast(d.success ? 'Прогрев запущен' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
         .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+
+// ── Dialogs / Chat tab ──
+const ACCOUNT_ID = '{{ account.id }}';
+let currentDialogChatId = null;
+
+async function loadDialogs() {
+    const list = document.getElementById('dialogs-list-account');
+    list.innerHTML = '<div class="p-3 text-sm" style="color:var(--panel-muted);">Загрузка...</div>';
+    try {
+        const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/dialogs`);
+        const d = await r.json();
+        if (!d.success) { list.innerHTML = `<div class="p-3 text-sm text-red-400">${d.error || 'Ошибка'}</div>`; return; }
+        if (!d.dialogs.length) { list.innerHTML = '<div class="p-3 text-sm" style="color:var(--panel-muted);">Нет диалогов</div>'; return; }
+        list.innerHTML = d.dialogs.map(dl => `
+            <div onclick="openAccountDialog(${dl.id}, '${(dl.name||'').replace(/'/g,"\\'")}', ${dl.unread_count})"
+                 class="p-3 border-b cursor-pointer hover:bg-sky-500/5 transition-colors ${dl.unread_count > 0 ? 'border-l-2' : ''}"
+                 style="border-color: var(--panel-border); ${dl.unread_count > 0 ? 'border-left-color: var(--panel-accent);' : ''}">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium truncate" style="color: var(--panel-text);">${dl.name || dl.id}</span>
+                    ${dl.unread_count > 0 ? `<span class="text-xs px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-400 ml-1 flex-shrink-0">${dl.unread_count}</span>` : ''}
+                </div>
+                <p class="text-xs truncate mt-0.5" style="color: var(--panel-muted);">${dl.last_message || ''}</p>
+            </div>
+        `).join('');
+    } catch(e) { list.innerHTML = `<div class="p-3 text-sm text-red-400">${e}</div>`; }
+}
+
+async function openAccountDialog(chatId, name, unread) {
+    currentDialogChatId = chatId;
+    const msgs = document.getElementById('dialog-messages');
+    msgs.innerHTML = '<div class="text-center text-sm my-auto" style="color:var(--panel-muted);">Загрузка...</div>';
+    document.getElementById('dialog-input').classList.remove('hidden');
+    try {
+        const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/chat/${chatId}/messages?limit=50`);
+        const d = await r.json();
+        if (!d.success) { msgs.innerHTML = `<div class="text-red-400 text-sm">${d.error}</div>`; return; }
+        if (!d.messages.length) { msgs.innerHTML = '<div class="text-center text-sm" style="color:var(--panel-muted);">Нет сообщений</div>'; return; }
+        msgs.innerHTML = d.messages.reverse().map(m => `
+            <div class="flex ${m.out ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-xs px-3 py-2 rounded-xl text-sm" style="background: ${m.out ? 'var(--panel-accent)' : 'var(--panel-card)'}; color: ${m.out ? '#fff' : 'var(--panel-text)'};">
+                    ${m.text || `[${m.media_type || 'медиа'}]`}
+                </div>
+            </div>
+        `).join('');
+        msgs.scrollTop = msgs.scrollHeight;
+        // Mark as read
+        fetch(`/admin/accounts/${ACCOUNT_ID}/chat/${chatId}/read`, {method: 'POST'});
+    } catch(e) { msgs.innerHTML = `<div class="text-red-400 text-sm">${e}</div>`; }
+}
+
+async function sendDialogMsg() {
+    if (!currentDialogChatId) return;
+    const input = document.getElementById('dialog-msg-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/chat/${currentDialogChatId}/send`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text})
+    });
+    const d = await r.json();
+    if (d.success) { showToast('Отправлено', 'success'); openAccountDialog(currentDialogChatId, '', 0); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+// ── Groups tab ──
+async function loadGroups() {
+    const tbody = document.getElementById('groups-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-sm" style="color:var(--panel-muted);">Загрузка...</td></tr>';
+    try {
+        const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/groups`);
+        const d = await r.json();
+        if (!d.success || !d.groups.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sm" style="color:var(--panel-muted);">Нет групп</td></tr>';
+            return;
+        }
+        tbody.innerHTML = d.groups.map(g => `
+            <tr class="border-b" style="border-color: var(--panel-border);">
+                <td class="px-4 py-3 font-medium" style="color: var(--panel-text);">${g.name}</td>
+                <td class="px-4 py-3 text-sm" style="color: var(--panel-muted);">${g.type}</td>
+                <td class="px-4 py-3 text-sm" style="color: var(--panel-muted);">${g.participants_count || '—'}</td>
+                <td class="px-4 py-3 text-sm">${g.unread_count > 0 ? `<span class="text-sky-400">${g.unread_count}</span>` : '—'}</td>
+                <td class="px-4 py-3 text-right">
+                    <button onclick="leaveGroup(${g.id})" class="text-xs px-2 py-1 rounded" style="color: #f87171; background: rgba(248,113,113,0.1);">Покинуть</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-4 text-center text-sm text-red-400">${e}</td></tr>`; }
+}
+
+async function leaveGroup(groupId) {
+    if (!confirm('Покинуть группу?')) return;
+    const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/groups/${groupId}/leave`, {method: 'POST'});
+    const d = await r.json();
+    if (d.success) { showToast('Вышли из группы', 'success'); loadGroups(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+async function joinGroupFromTab() {
+    const link = document.getElementById('join-invite-tab').value.trim();
+    if (!link) { showToast('Введите ссылку', 'warning'); return; }
+    accountAction('{{ account.id }}', 'join_group', {invite_link: link})
+        .then(d => { closeModal('joinGroupFromTabModal'); showToast(d.success ? 'Вступление выполнено' : (d.error || 'Ошибка'), d.success ? 'success' : 'error'); loadGroups(); })
+        .catch(err => showToast('Ошибка: ' + err, 'error'));
+}
+
+// ── Search tab ──
+async function searchMessages() {
+    const q = document.getElementById('search-query').value.trim();
+    if (!q) return;
+    const results = document.getElementById('search-results');
+    results.innerHTML = '<p class="text-sm" style="color:var(--panel-muted);">Поиск...</p>';
+    try {
+        const r = await fetch(`/admin/accounts/${ACCOUNT_ID}/search_messages?q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (!d.success || !d.messages.length) { results.innerHTML = '<p class="text-sm" style="color:var(--panel-muted);">Ничего не найдено</p>'; return; }
+        results.innerHTML = d.messages.map(m => `
+            <div class="p-3 rounded-lg border" style="background: var(--panel-card); border-color: var(--panel-border);">
+                <p class="text-sm" style="color: var(--panel-text);">${m.text}</p>
+                <p class="text-xs mt-1" style="color: var(--panel-muted);">Chat: ${m.chat_id} • ${m.date || ''}</p>
+            </div>
+        `).join('');
+    } catch(e) { results.innerHTML = `<p class="text-sm text-red-400">${e}</p>`; }
 }
 </script>
 {% endblock %}

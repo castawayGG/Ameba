@@ -219,6 +219,35 @@
                     API-ключи
                 </a>
                 {% endif %}
+
+                <div class="mt-2 mb-1 px-3">
+                    <span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--panel-muted);">Live</span>
+                </div>
+                <a href="{{ url_for('admin.events') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.events' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-bolt w-5 mr-3 text-center"></i>
+                    Лента событий
+                </a>
+                <a href="{{ url_for('admin.inbox') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.inbox' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-envelope w-5 mr-3 text-center"></i>
+                    Входящие
+                    <span id="nav-inbox-badge" class="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white hidden"></span>
+                </a>
+                <a href="{{ url_for('admin.alerts') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.alerts' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-triangle-exclamation w-5 mr-3 text-center"></i>
+                    Алерты
+                </a>
+
+                <div class="mt-2 mb-1 px-3">
+                    <span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--panel-muted);">Команда</span>
+                </div>
+                <a href="{{ url_for('admin.team') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.team' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-people-group w-5 mr-3 text-center"></i>
+                    Команда
+                </a>
+                <a href="{{ url_for('admin.team_tasks') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.team_tasks' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-clipboard-list w-5 mr-3 text-center"></i>
+                    Задачи команды
+                </a>
             </nav>
 
             <!-- User + actions footer -->
@@ -411,6 +440,21 @@ document.addEventListener('click', function(e) {
 // Poll for notifications every 30s
 loadNotifications();
 setInterval(loadNotifications, 30000);
+
+// Poll inbox unread count every 15s
+async function loadInboxUnreadCount() {
+    try {
+        const r = await fetch('/admin/api/inbox/unread_count');
+        const d = await r.json();
+        const badge = document.getElementById('nav-inbox-badge');
+        if (badge) {
+            if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
+    } catch(e) {}
+}
+loadInboxUnreadCount();
+setInterval(loadInboxUnreadCount, 15000);
 </script>
 </body>
 </html>

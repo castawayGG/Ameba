@@ -1,0 +1,121 @@
+{% extends 'admin/base.html' %}
+{% block title %}Настройки уведомлений{% endblock %}
+{% block page_title %}Настройки уведомлений{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-6">
+    <!-- Messages -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-envelope" style="color: var(--panel-accent);"></i> Сообщения
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('msg_panel', 'В панели'), ('msg_telegram', 'В Telegram-бот'), ('msg_sound', 'Звук')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bans -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-ban" style="color: #f87171;"></i> Баны аккаунтов
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('ban_panel', 'В панели'), ('ban_telegram', 'В Telegram-бот')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Flood wait -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-clock" style="color: #fbbf24;"></i> Flood wait
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('flood_panel', 'В панели'), ('flood_telegram', 'В Telegram-бот')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Campaigns -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-bullhorn" style="color: var(--panel-accent);"></i> Кампании
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('campaign_panel', 'Завершение кампании'), ('campaign_telegram', 'В Telegram-бот')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quiet hours -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-moon" style="color: #a78bfa;"></i> Тихие часы
+        </h3>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Начало</label>
+                <input type="time" name="quiet_start" value="{{ prefs.get('quiet_start', '') }}" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);">
+            </div>
+            <div>
+                <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Конец</label>
+                <input type="time" name="quiet_end" value="{{ prefs.get('quiet_end', '') }}" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);">
+            </div>
+        </div>
+    </div>
+
+    <!-- Muted accounts -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i class="fa-solid fa-volume-xmark" style="color: var(--panel-muted);"></i> Мьют аккаунтов
+        </h3>
+        <select name="muted_accounts" multiple class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text); min-height: 100px;">
+            {% for acc in accounts %}
+            <option value="{{ acc.id }}" {% if acc.id in (prefs.get('muted_accounts') or []) %}selected{% endif %}>{{ acc.phone }}</option>
+            {% endfor %}
+        </select>
+        <p class="text-xs mt-1" style="color: var(--panel-muted);">Зажмите Ctrl/Cmd для выбора нескольких</p>
+    </div>
+
+    <button onclick="saveSettings()" class="w-full py-3 text-sm font-semibold rounded-xl btn-accent-glow text-white">
+        <i class="fa-solid fa-save mr-2"></i>Сохранить настройки
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveSettings() {
+    const prefs = {};
+    document.querySelectorAll('input[type=checkbox]').forEach(cb => { prefs[cb.name] = cb.checked; });
+    document.querySelectorAll('input[type=time]').forEach(inp => { if (inp.value) prefs[inp.name] = inp.value; });
+    const muted = Array.from(document.querySelector('select[name=muted_accounts]').selectedOptions).map(o => o.value);
+    prefs.muted_accounts = muted;
+
+    const r = await fetch('/admin/settings/notifications', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(prefs)
+    });
+    const d = await r.json();
+    showToast(d.success ? 'Настройки сохранены' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+}
+</script>
+{% endblock %}

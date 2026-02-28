@@ -3,6 +3,9 @@
 {% block page_title %}Обзор системы{% endblock %}
 
 {% block content %}
+<!-- Pinned Announcements Banner -->
+<div id="announcements-banner" class="hidden mb-6"></div>
+
 <!-- Stat Cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
@@ -242,5 +245,28 @@ async function loadChart(period) {
 }
 
 loadChart('week');
+
+// Load pinned announcements
+(async function() {
+    try {
+        const r = await fetch('/admin/api/announcements');
+        const d = await r.json();
+        if (!d.success || !d.announcements) return;
+        const pinned = d.announcements.filter(a => a.is_pinned);
+        if (!pinned.length) return;
+        const banner = document.getElementById('announcements-banner');
+        const priorityColors = {critical: 'border-red-500 bg-red-500/10 text-red-300', important: 'border-yellow-500 bg-yellow-500/10 text-yellow-300', normal: 'border-sky-500 bg-sky-500/10 text-sky-300'};
+        banner.innerHTML = pinned.map(a => `
+            <div class="mb-2 p-4 rounded-lg border-l-4 ${priorityColors[a.priority] || priorityColors.normal}">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-thumbtack text-xs"></i>
+                    <strong class="text-sm">${a.title}</strong>
+                </div>
+                <p class="text-sm mt-1 opacity-80">${a.text}</p>
+            </div>
+        `).join('');
+        banner.classList.remove('hidden');
+    } catch(e) {}
+})();
 </script>
 {% endblock %}

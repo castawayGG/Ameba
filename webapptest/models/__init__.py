@@ -10,6 +10,11 @@ from models.notification import Notification
 from models.tag import Tag, account_tags
 from models.warming import WarmingScenario, WarmingSession
 from models.user_session import UserSession
+from models.telegram_event import TelegramEvent
+from models.incoming_message import IncomingMessage
+from models.alert_rule import AlertRule
+from models.forward_rule import ForwardRule
+from models.team import Comment, TeamTask, Announcement, SharedTemplate, UserQuota
 
 # Список всех моделей для удобного импорта
 __all__ = [
@@ -25,4 +30,13 @@ __all__ = [
     'WarmingScenario',
     'WarmingSession',
     'UserSession',
+    'TelegramEvent',
+    'IncomingMessage',
+    'AlertRule',
+    'ForwardRule',
+    'Comment',
+    'TeamTask',
+    'Announcement',
+    'SharedTemplate',
+    'UserQuota',
 ]
