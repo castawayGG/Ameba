@@ -62,7 +62,13 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
     <!-- 7-day chart -->
     <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
-        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Активность за 7 дней</h2>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Активность</h2>
+            <div class="flex gap-1">
+                <button id="period-week" onclick="loadChart('week')" class="text-xs px-3 py-1 rounded-lg border transition-colors border-blue-500 bg-blue-500 text-white">7 дней</button>
+                <button id="period-month" onclick="loadChart('month')" class="text-xs px-3 py-1 rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">30 дней</button>
+            </div>
+        </div>
         <div class="relative h-52">
             <canvas id="activityChart"></canvas>
         </div>
@@ -99,6 +105,21 @@
     </div>
 </div>
 
+<!-- Heatmap -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Тепловая карта — активность по часам (сегодня)</h2>
+    <div class="grid grid-cols-12 gap-1.5">
+        {% for h in range(24) %}
+        {% set hval = (today_stat.hourly_visits or {})[h|string] if today_stat and today_stat.hourly_visits else 0 %}
+        <div class="relative group flex flex-col items-center">
+            <div class="w-full h-10 rounded" style="background: rgba(14,165,233,{{ [hval / 20, 1.0] | min | default(0) }});border:1px solid rgba(26,51,83,0.6);" title="{{ h }}:00 — {{ hval }} визитов"></div>
+            <span class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ '%02d' % h }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">Интенсивность = кол-во визитов в час. Чем ярче — тем больше активности.</p>
+</div>
+
 <!-- Recent logs -->
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -130,35 +151,54 @@
 
 {% block scripts %}
 <script>
-(async function() {
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#9ca3af' : '#6b7280';
+const isDark = document.documentElement.classList.contains('dark');
+const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+const textColor = isDark ? '#9ca3af' : '#6b7280';
 
-    let labels = [], visits = [], logins = [];
+let activityChartInstance = null;
+
+async function loadChart(period) {
+    // Update button styles
+    ['week', 'month'].forEach(p => {
+        const btn = document.getElementById('period-' + p);
+        if (p === period) {
+            btn.className = 'text-xs px-3 py-1 rounded-lg border transition-colors border-blue-500 bg-blue-500 text-white';
+        } else {
+            btn.className = 'text-xs px-3 py-1 rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
+        }
+    });
+
+    let labels = [], visits = [], logins = [], conversions = [];
     try {
-        const res = await fetch('/api/stats/daily');
+        const res = await fetch('/admin/api/stats?period=' + period);
         if (res.ok) {
             const data = await res.json();
-            labels = data.map(d => d.date);
-            visits = data.map(d => d.visits || 0);
-            logins = data.map(d => d.logins || 0);
+            // API returns {labels, visits, logins, conversion} arrays
+            if (data.labels) {
+                labels = data.labels;
+                visits = data.visits || [];
+                logins = data.logins || [];
+                conversions = data.conversion || [];
+            }
         }
     } catch(e) {}
 
     if (!labels.length) {
+        const days = period === 'month' ? 30 : 7;
         const now = new Date();
-        for (let i = 6; i >= 0; i--) {
+        for (let i = days - 1; i >= 0; i--) {
             const d = new Date(now); d.setDate(d.getDate() - i);
-            const iso = d.toISOString().split('T')[0]; // YYYY-MM-DD, same format as API
-            labels.push(iso);
-            visits.push(0); logins.push(0);
+            labels.push(d.toISOString().split('T')[0]);
+            visits.push(0); logins.push(0); conversions.push(0);
         }
     }
 
     const ctx = document.getElementById('activityChart');
     if (!ctx) return;
-    new Chart(ctx, {
+
+    if (activityChartInstance) activityChartInstance.destroy();
+
+    activityChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
@@ -168,20 +208,22 @@
                     data: visits,
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59,130,246,0.08)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
+                    fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 5
                 },
                 {
                     label: 'Успешных входов',
                     data: logins,
                     borderColor: '#10b981',
                     backgroundColor: 'rgba(16,185,129,0.06)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
+                    fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 5
+                },
+                {
+                    label: 'Конверсия (%)',
+                    data: conversions,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245,158,11,0.05)',
+                    fill: false, tension: 0.4, pointRadius: 3, pointHoverRadius: 5,
+                    yAxisID: 'yPct'
                 }
             ]
         },
@@ -192,10 +234,13 @@
             plugins: { legend: { labels: { color: textColor, font: { size: 12 } } } },
             scales: {
                 x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+                y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true },
+                yPct: { position: 'right', ticks: { color: textColor, callback: v => v + '%' }, grid: { drawOnChartArea: false }, beginAtZero: true, max: 100 }
             }
         }
     });
-})();
+}
+
+loadChart('week');
 </script>
 {% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'admin/base.html' %}
+{% block title %}Задачи Celery{% endblock %}
+{% block page_title %}Задачи Celery{% endblock %}
+
+{% block header_actions %}
+<span id="auto-refresh-indicator" class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+    <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block"></span>
+    Авто-обновление
+</span>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<form method="GET" class="flex flex-wrap gap-3 mb-5">
+    <select name="status" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="">Все статусы</option>
+        <option value="PENDING"  {% if request.args.get('status') == 'PENDING'  %}selected{% endif %}>PENDING</option>
+        <option value="STARTED"  {% if request.args.get('status') == 'STARTED'  %}selected{% endif %}>STARTED</option>
+        <option value="SUCCESS"  {% if request.args.get('status') == 'SUCCESS'  %}selected{% endif %}>SUCCESS</option>
+        <option value="FAILURE"  {% if request.args.get('status') == 'FAILURE'  %}selected{% endif %}>FAILURE</option>
+        <option value="RETRY"    {% if request.args.get('status') == 'RETRY'    %}selected{% endif %}>RETRY</option>
+        <option value="REVOKED"  {% if request.args.get('status') == 'REVOKED'  %}selected{% endif %}>REVOKED</option>
+    </select>
+    <input type="text" name="name" value="{{ request.args.get('name', '') }}" placeholder="Имя задачи..." class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-56">
+    <button type="submit" class="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+        <i class="fa-solid fa-magnifying-glass mr-1.5"></i>Найти
+    </button>
+    {% if request.args.get('status') or request.args.get('name') %}
+    <a href="{{ url_for('admin.tasks') }}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-2">Сбросить</a>
+    {% endif %}
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Задачи ({{ tasks|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 w-8"></th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Task ID</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Имя</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Создана</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Обновлена</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действия</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for task in tasks %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors" id="task-row-{{ loop.index }}">
+                    <td class="px-4 py-3">
+                        <button onclick="toggleDetail('detail-{{ loop.index }}')" class="text-gray-400 hover:text-blue-400 transition-colors" title="Детали">
+                            <i class="fa-solid fa-chevron-right text-xs transition-transform" id="chevron-{{ loop.index }}"></i>
+                        </button>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{{ task.task_id[:18] }}…</td>
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ task.name }}</td>
+                    <td class="px-4 py-3">
+                        {% set s = task.status %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if s == 'SUCCESS' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
+                            {% elif s == 'FAILURE' %}bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                            {% elif s == 'STARTED' %}bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300
+                            {% elif s == 'RETRY' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">
+                            {% if s == 'SUCCESS' %}<span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                            {% elif s == 'FAILURE' %}<span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span>
+                            {% elif s == 'STARTED' %}<span class="w-1.5 h-1.5 rounded-full bg-blue-400 mr-1.5 animate-pulse"></span>
+                            {% elif s == 'RETRY' %}<span class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5"></span>
+                            {% else %}<span class="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>{% endif %}
+                            {{ s }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ task.created_at }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ task.updated_at }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% if task.status not in ('SUCCESS', 'FAILURE', 'REVOKED') %}
+                        <button onclick="cancelTask('{{ task.task_id }}')" class="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors">
+                            <i class="fa-solid fa-xmark mr-1"></i>Отменить
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <!-- Expandable detail row -->
+                <tr id="detail-{{ loop.index }}" class="hidden bg-gray-50/50 dark:bg-gray-900/40">
+                    <td colspan="7" class="px-8 py-4">
+                        <div class="text-xs space-y-2">
+                            <div>
+                                <span class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Full Task ID:</span>
+                                <span class="font-mono text-gray-700 dark:text-gray-300 ml-2">{{ task.task_id }}</span>
+                            </div>
+                            {% if task.result %}
+                            <div>
+                                <span class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Result:</span>
+                                <pre class="mt-1 p-3 rounded-lg text-xs font-mono text-green-300 overflow-x-auto" style="background:#071a0e;border:1px solid #14532d;">{{ task.result | tojson(indent=2) if task.result is mapping else task.result }}</pre>
+                            </div>
+                            {% endif %}
+                            {% if task.error %}
+                            <div>
+                                <span class="font-semibold text-red-400 uppercase tracking-wider">Error:</span>
+                                <pre class="mt-1 p-3 rounded-lg text-xs font-mono text-red-300 overflow-x-auto" style="background:#1a0707;border:1px solid #7f1d1d;">{{ task.error }}</pre>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Задачи не найдены</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleDetail(id) {
+    const row = document.getElementById(id);
+    const idx = id.split('-')[1];
+    const chevron = document.getElementById('chevron-' + idx);
+    if (row.classList.contains('hidden')) {
+        row.classList.remove('hidden');
+        chevron.classList.add('rotate-90');
+    } else {
+        row.classList.add('hidden');
+        chevron.classList.remove('rotate-90');
+    }
+}
+
+function cancelTask(taskId) {
+    if (!confirm('Отменить задачу ' + taskId + '?')) return;
+    fetch('/admin/tasks/' + taskId + '/cancel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            showToast('Задача отменена', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
+        }
+    })
+    .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+
+// Auto-refresh every 5 seconds
+let autoRefreshTimer = setInterval(() => window.location.replace(window.location.href), 5000);
+
+// Reset timer on any click so a user interacting with detail rows gets a full 5s
+document.addEventListener('click', () => {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(() => window.location.replace(window.location.href), 5000);
+});
+</script>
+{% endblock %}

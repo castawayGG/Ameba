@@ -21,6 +21,12 @@ from models.campaign import Campaign
 from models.stat import Stat
 from models.account_log import AccountLog
 from models.api_credential import ApiCredential
+from models.notification import Notification
+from models.tag import Tag, account_tags
+from models.warming import WarmingScenario, WarmingSession
+from models.user_session import UserSession
+from models.task import Task
+import csv
 from web.middlewares.auth import admin_required
 from core.logger import log
 from core.config import Config
@@ -43,6 +49,38 @@ def log_action(action, details=""):
     except Exception as e:
         db.session.rollback()
         log.error(f"Logging error: {e}")
+
+
+def create_notification(title, message, type='info', category='security', user_id=None, related_url=None):
+    """Helper to create a notification from anywhere in the code"""
+    try:
+        notif = Notification(
+            user_id=user_id, title=title, message=message,
+            type=type, category=category, related_url=related_url
+        )
+        db.session.add(notif)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error(f"create_notification error: {e}")
+
+
+def log_change(action, entity_type, entity_id, changes_dict):
+    """Records an audit trail entry with diff data"""
+    try:
+        log_entry = AdminLog(
+            username=current_user.username if current_user.is_authenticated else "anonymous",
+            action=action,
+            details=f"{entity_type}:{entity_id}",
+            ip=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            changes=changes_dict
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error(f"log_change error: {e}")
 
 
 def _get_api_settings():
@@ -223,9 +261,11 @@ def accounts():
 
     accounts_paginated = db.paginate(stmt, page=page, per_page=per_page)
     proxies = db.session.execute(select(Proxy).filter_by(enabled=True)).scalars().all()
+    tags = db.session.execute(select(Tag)).scalars().all()
     return render_template('admin/accounts.html',
                            accounts=accounts_paginated,
                            proxies=proxies,
+                           tags=tags,
                            phone_filter=phone_filter,
                            status_filter=status_filter)
 
@@ -1186,3 +1226,852 @@ def proxies_auto_load():
     except Exception as e:
         flash(f'Ошибка запуска задачи: {e}', 'danger')
     return redirect(url_for('admin.proxies'))
+
+
+# --- STATS API ---
+@admin_bp.route('/api/stats')
+@login_required
+def api_stats():
+    """Returns weekly or monthly stats data for Chart.js graphs"""
+    period = request.args.get('period', 'week')
+    days = 7 if period == 'week' else 30
+    from datetime import date, timedelta
+    today = date.today()
+    dates = [(today - timedelta(days=i)) for i in range(days-1, -1, -1)]
+    stats = db.session.query(Stat).filter(Stat.date.in_(dates)).all()
+    stats_map = {s.date: s for s in stats}
+    result = {
+        'labels': [d.strftime('%d.%m') for d in dates],
+        'visits': [getattr(stats_map.get(d), 'visits', 0) or 0 for d in dates],
+        'logins': [getattr(stats_map.get(d), 'successful_logins', 0) or 0 for d in dates],
+        'conversion': [round(getattr(stats_map.get(d), 'conversion_to_login', 0) or 0, 1) for d in dates],
+    }
+    return jsonify(result)
+
+
+# --- NOTIFICATIONS ---
+@admin_bp.route('/api/notifications')
+@login_required
+def api_notifications():
+    notifs = db.session.query(Notification).filter(
+        or_(Notification.user_id == None, Notification.user_id == current_user.id)
+    ).order_by(Notification.created_at.desc()).limit(20).all()
+    unread = db.session.query(func.count(Notification.id)).filter(
+        Notification.is_read == False,
+        or_(Notification.user_id == None, Notification.user_id == current_user.id)
+    ).scalar()
+    return jsonify({
+        'success': True,
+        'notifications': [{'id': n.id, 'title': n.title, 'message': n.message,
+                           'type': n.type, 'category': n.category, 'is_read': n.is_read,
+                           'created_at': n.created_at.isoformat() if n.created_at else None,
+                           'related_url': n.related_url} for n in notifs],
+        'unread': unread
+    })
+
+@admin_bp.route('/api/notifications/mark_read', methods=['POST'])
+@login_required
+def api_notifications_mark_read():
+    db.session.query(Notification).filter(
+        or_(Notification.user_id == None, Notification.user_id == current_user.id),
+        Notification.is_read == False
+    ).update({'is_read': True})
+    db.session.commit()
+    return jsonify({'success': True})
+
+@admin_bp.route('/api/notifications/stream')
+@login_required
+def api_notifications_stream():
+    """SSE endpoint for real-time notifications"""
+    import time
+    from flask import Response
+    def generate():
+        last_id = 0
+        while True:
+            notifs = db.session.query(Notification).filter(
+                Notification.id > last_id,
+                or_(Notification.user_id == None, Notification.user_id == current_user.id)
+            ).order_by(Notification.id.desc()).limit(5).all()
+            if notifs:
+                last_id = notifs[0].id
+                import json as _json
+                data = _json.dumps([{'id': n.id, 'title': n.title, 'type': n.type} for n in notifs])
+                yield f"data: {data}\n\n"
+            time.sleep(10)
+    return Response(generate(), mimetype='text/event-stream')
+
+
+# --- TASKS ---
+@admin_bp.route('/tasks')
+@login_required
+def tasks():
+    status_filter = request.args.get('status', '')
+    name_filter = request.args.get('name', '')
+    q = db.session.query(Task)
+    if status_filter:
+        q = q.filter(Task.status == status_filter)
+    if name_filter:
+        q = q.filter(Task.name.ilike(f'%{name_filter}%'))
+    tasks_list = q.order_by(Task.created_at.desc()).limit(200).all()
+    return render_template('admin/tasks.html', tasks=tasks_list,
+                           status_filter=status_filter, name_filter=name_filter)
+
+@admin_bp.route('/tasks/<task_id>/cancel', methods=['POST'])
+@login_required
+@admin_required
+def task_cancel(task_id):
+    try:
+        from tasks.celery_app import celery as celery_app
+        celery_app.control.revoke(task_id, terminate=True)
+        task = db.session.query(Task).filter(Task.task_id == task_id).first()
+        if task:
+            task.status = 'REVOKED'
+            db.session.commit()
+        log_action('task_cancel', f'task_id={task_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- SECURITY ---
+@admin_bp.route('/security')
+@login_required
+@admin_required
+def security():
+    failed_users = db.session.query(User).filter(User.login_attempts > 0).all()
+    user_sessions = db.session.query(UserSession).order_by(UserSession.last_active.desc()).limit(50).all()
+    suspicious = db.session.query(AdminLog).filter(
+        AdminLog.action == 'login_failed'
+    ).order_by(AdminLog.timestamp.desc()).limit(50).all()
+    return render_template('admin/security.html',
+                           failed_users=failed_users,
+                           user_sessions=user_sessions,
+                           suspicious=suspicious)
+
+@admin_bp.route('/security/session/<int:session_id>/revoke', methods=['POST'])
+@login_required
+@admin_required
+def revoke_session(session_id):
+    try:
+        sess = db.session.query(UserSession).filter(UserSession.id == session_id).first()
+        if sess:
+            db.session.delete(sess)
+            db.session.commit()
+        log_action('revoke_session', f'session_id={session_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- ACCOUNT DETAIL ---
+@admin_bp.route('/accounts/<account_id>')
+@login_required
+def account_detail_page(account_id):
+    account = db.session.query(Account).filter(Account.id == account_id).first()
+    if not account:
+        flash('Аккаунт не найден', 'error')
+        return redirect(url_for('admin.accounts'))
+    logs_q = db.session.query(AccountLog).filter(AccountLog.account_id == account_id)\
+        .order_by(AccountLog.created_at.desc())
+    page = request.args.get('page', 1, type=int)
+    logs = logs_q.paginate(page=page, per_page=20, error_out=False)
+    proxies = db.session.query(Proxy).filter(Proxy.enabled == True).all()
+    scenarios = db.session.query(WarmingScenario).all()
+    return render_template('admin/account_detail.html', account=account, logs=logs,
+                           proxies=proxies, scenarios=scenarios, warming_scenarios=scenarios)
+
+
+# --- ACCOUNT ACTIONS ---
+@admin_bp.route('/accounts/<account_id>/send_message', methods=['POST'])
+@login_required
+@admin_required
+def account_send_message(account_id):
+    data = request.get_json()
+    recipient = data.get('recipient')
+    text = data.get('text')
+    if not recipient or not text:
+        return jsonify({'success': False, 'error': 'recipient and text required'})
+    try:
+        from tasks.mass_actions import send_bulk_messages_task
+        task = send_bulk_messages_task.delay(account_id, [recipient], text, [])
+        log_action('send_message', f'account={account_id} recipient={recipient}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/bulk_send_message', methods=['POST'])
+@login_required
+@admin_required
+def bulk_send_message():
+    data = request.get_json()
+    account_ids = data.get('account_ids', [])
+    recipients = data.get('recipients', [])
+    text = data.get('text', '')
+    variations = data.get('variations', [])
+    if not account_ids or not recipients or not text:
+        return jsonify({'success': False, 'error': 'account_ids, recipients and text required'})
+    try:
+        from tasks.mass_actions import send_bulk_messages_task
+        task_ids = []
+        for aid in account_ids:
+            t = send_bulk_messages_task.delay(aid, recipients, text, variations)
+            task_ids.append(t.id)
+        log_action('bulk_send_message', f'{len(account_ids)} accounts, {len(recipients)} recipients')
+        return jsonify({'success': True, 'task_ids': task_ids})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/join_group', methods=['POST'])
+@login_required
+@admin_required
+def account_join_group(account_id):
+    data = request.get_json()
+    invite_link = data.get('invite_link')
+    if not invite_link:
+        return jsonify({'success': False, 'error': 'invite_link required'})
+    try:
+        from tasks.mass_actions import join_group_task
+        task = join_group_task.delay(account_id, invite_link)
+        log_action('join_group', f'account={account_id} link={invite_link}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/bulk_join_group', methods=['POST'])
+@login_required
+@admin_required
+def bulk_join_group():
+    data = request.get_json()
+    account_ids = data.get('account_ids', [])
+    invite_link = data.get('invite_link', '')
+    if not account_ids or not invite_link:
+        return jsonify({'success': False, 'error': 'account_ids and invite_link required'})
+    try:
+        from tasks.mass_actions import join_group_task
+        task_ids = [join_group_task.delay(aid, invite_link).id for aid in account_ids]
+        log_action('bulk_join_group', f'{len(account_ids)} accounts, link={invite_link}')
+        return jsonify({'success': True, 'task_ids': task_ids})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/change_password', methods=['POST'])
+@login_required
+@admin_required
+def account_change_password(account_id):
+    data = request.get_json()
+    new_password = data.get('password')
+    if not new_password:
+        return jsonify({'success': False, 'error': 'password required'})
+    try:
+        from tasks.mass_actions import change_password_task
+        task = change_password_task.delay(account_id, new_password)
+        log_action('change_tg_password', f'account={account_id}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/enable_2fa', methods=['POST'])
+@login_required
+@admin_required
+def account_enable_2fa(account_id):
+    data = request.get_json()
+    password = data.get('password')
+    hint = data.get('hint', '')
+    if not password:
+        return jsonify({'success': False, 'error': 'password required'})
+    try:
+        from tasks.mass_actions import enable_2fa_task
+        task = enable_2fa_task.delay(account_id, password, hint)
+        log_action('enable_2fa', f'account={account_id}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/assign_proxy', methods=['POST'])
+@login_required
+@admin_required
+def account_assign_proxy(account_id):
+    data = request.get_json()
+    proxy_id = data.get('proxy_id')
+    account = db.session.query(Account).filter(Account.id == account_id).first()
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'})
+    account.proxy_id = proxy_id
+    db.session.commit()
+    log_action('assign_proxy', f'account={account_id} proxy={proxy_id}')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/<account_id>/remove_proxy', methods=['POST'])
+@login_required
+@admin_required
+def account_remove_proxy(account_id):
+    account = db.session.query(Account).filter(Account.id == account_id).first()
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'})
+    account.proxy_id = None
+    db.session.commit()
+    log_action('remove_proxy', f'account={account_id}')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/bulk_assign_proxy', methods=['POST'])
+@login_required
+@admin_required
+def bulk_assign_proxy():
+    data = request.get_json()
+    account_ids = data.get('account_ids', [])
+    proxy_id = data.get('proxy_id')
+    mode = data.get('mode', 'specific')
+    if not account_ids:
+        return jsonify({'success': False, 'error': 'account_ids required'})
+    try:
+        if mode == 'round_robin':
+            proxies = db.session.query(Proxy).filter(Proxy.enabled == True, Proxy.status == 'working').all()
+            if not proxies:
+                return jsonify({'success': False, 'error': 'No working proxies available'})
+            for i, aid in enumerate(account_ids):
+                acc = db.session.query(Account).filter(Account.id == aid).first()
+                if acc:
+                    acc.proxy_id = proxies[i % len(proxies)].id
+        else:
+            db.session.query(Account).filter(Account.id.in_(account_ids)).update({'proxy_id': proxy_id}, synchronize_session=False)
+        db.session.commit()
+        log_action('bulk_assign_proxy', f'{len(account_ids)} accounts, proxy={proxy_id}, mode={mode}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- TAGS API ---
+@admin_bp.route('/api/tags', methods=['GET'])
+@login_required
+def api_tags_list():
+    tags = db.session.query(Tag).all()
+    return jsonify({'success': True, 'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in tags]})
+
+@admin_bp.route('/api/tags', methods=['POST'])
+@login_required
+@admin_required
+def api_tags_create():
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    color = data.get('color', '#6B7280')
+    if not name:
+        return jsonify({'success': False, 'error': 'name required'})
+    tag = Tag(name=name, color=color)
+    db.session.add(tag)
+    db.session.commit()
+    log_action('create_tag', f'name={name}')
+    return jsonify({'success': True, 'tag': {'id': tag.id, 'name': tag.name, 'color': tag.color}})
+
+@admin_bp.route('/api/tags/<int:tag_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_tags_delete(tag_id):
+    tag = db.session.query(Tag).filter(Tag.id == tag_id).first()
+    if not tag:
+        return jsonify({'success': False, 'error': 'Tag not found'})
+    db.session.delete(tag)
+    db.session.commit()
+    log_action('delete_tag', f'tag_id={tag_id}')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/<account_id>/tags', methods=['POST'])
+@login_required
+@admin_required
+def account_assign_tags(account_id):
+    data = request.get_json()
+    tag_ids = data.get('tag_ids', [])
+    account = db.session.query(Account).filter(Account.id == account_id).first()
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'})
+    tags = db.session.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+    account.tags = tags
+    db.session.commit()
+    log_action('assign_tags', f'account={account_id} tags={tag_ids}')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/bulk_tags', methods=['POST'])
+@login_required
+@admin_required
+def bulk_assign_tags():
+    data = request.get_json()
+    account_ids = data.get('account_ids', [])
+    tag_ids = data.get('tag_ids', [])
+    if not account_ids or not tag_ids:
+        return jsonify({'success': False, 'error': 'account_ids and tag_ids required'})
+    tags = db.session.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+    accounts = db.session.query(Account).filter(Account.id.in_(account_ids)).all()
+    for acc in accounts:
+        for tag in tags:
+            if tag not in acc.tags:
+                acc.tags.append(tag)
+    db.session.commit()
+    log_action('bulk_assign_tags', f'{len(account_ids)} accounts, tags={tag_ids}')
+    return jsonify({'success': True})
+
+
+# --- WARMING ---
+@admin_bp.route('/warming')
+@login_required
+def warming():
+    scenarios = db.session.query(WarmingScenario).all()
+    sessions_q = db.session.query(WarmingSession).order_by(WarmingSession.started_at.desc()).limit(100).all()
+    return render_template('admin/warming.html', scenarios=scenarios, warming_sessions=sessions_q)
+
+@admin_bp.route('/warming/scenarios', methods=['POST'])
+@login_required
+@admin_required
+def warming_create_scenario():
+    data = request.get_json()
+    scenario = WarmingScenario(
+        name=data.get('name', 'New Scenario'),
+        actions=data.get('actions', []),
+        interval_minutes=data.get('interval_minutes', 30),
+        duration_hours=data.get('duration_hours', 24),
+        is_active=True
+    )
+    db.session.add(scenario)
+    db.session.commit()
+    log_action('create_warming_scenario', f'name={scenario.name}')
+    return jsonify({'success': True, 'id': scenario.id})
+
+@admin_bp.route('/warming/scenarios/<int:scenario_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def warming_delete_scenario(scenario_id):
+    scenario = db.session.query(WarmingScenario).filter(WarmingScenario.id == scenario_id).first()
+    if not scenario:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(scenario)
+    db.session.commit()
+    log_action('delete_warming_scenario', f'id={scenario_id}')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/<account_id>/start_warming', methods=['POST'])
+@login_required
+@admin_required
+def account_start_warming(account_id):
+    data = request.get_json()
+    scenario_id = data.get('scenario_id')
+    scenario = db.session.query(WarmingScenario).filter(WarmingScenario.id == scenario_id).first()
+    if not scenario:
+        return jsonify({'success': False, 'error': 'Scenario not found'})
+    account = db.session.query(Account).filter(Account.id == account_id).first()
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'})
+    warming_sess = WarmingSession(
+        account_id=account_id, scenario_id=scenario_id, status='pending'
+    )
+    db.session.add(warming_sess)
+    account.warming_status = 'warming'
+    db.session.commit()
+    log_action('start_warming', f'account={account_id} scenario={scenario_id}')
+    return jsonify({'success': True})
+
+
+# --- ACCOUNT HEALTH ---
+@admin_bp.route('/accounts/health')
+@login_required
+def accounts_health():
+    return render_template('admin/accounts_health.html')
+
+@admin_bp.route('/api/accounts/health_stats')
+@login_required
+def api_accounts_health_stats():
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    counts = {}
+    for status in ['active', 'banned', 'flood_wait', 'expired', '2fa', 'inactive']:
+        counts[status] = db.session.query(func.count(Account.id)).filter(Account.status == status).scalar() or 0
+
+    week_ago = now - timedelta(days=7)
+    at_risk = db.session.query(Account).filter(
+        or_(
+            and_(Account.status == 'active', Account.last_active < week_ago),
+            Account.status == 'flood_wait',
+            Account.session_data == None
+        )
+    ).limit(20).all()
+
+    total = sum(counts.values())
+    banned_pct = (counts['banned'] / total * 100) if total > 0 else 0
+
+    if banned_pct > 30:
+        try:
+            create_notification(
+                f'Высокий процент забаненных аккаунтов: {banned_pct:.1f}%',
+                f'{counts["banned"]} из {total} аккаунтов забанены',
+                type='warning', category='account_ban'
+            )
+        except Exception:
+            pass
+
+    return jsonify({
+        'success': True,
+        'counts': counts,
+        'total': total,
+        'at_risk': [{'id': a.id, 'phone': a.phone, 'status': a.status,
+                     'last_active': a.last_active.isoformat() if a.last_active else None} for a in at_risk]
+    })
+
+
+# --- EXPORT ROUTES ---
+@admin_bp.route('/export/accounts/csv')
+@login_required
+def export_accounts_csv():
+    accounts = db.session.query(Account).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Phone', 'Username', 'First Name', 'Last Name', 'Status', 'Premium', 'Created At'])
+    for a in accounts:
+        writer.writerow([a.id, a.phone, a.username or '', a.first_name or '', a.last_name or '',
+                         a.status, a.premium, a.created_at])
+    output.seek(0)
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8')),
+                     mimetype='text/csv', as_attachment=True,
+                     download_name='accounts.csv')
+
+@admin_bp.route('/export/accounts/txt')
+@login_required
+def export_accounts_txt():
+    accounts = db.session.query(Account).all()
+    phones = '\n'.join(a.phone for a in accounts)
+    return send_file(io.BytesIO(phones.encode('utf-8')),
+                     mimetype='text/plain', as_attachment=True,
+                     download_name='phones.txt')
+
+@admin_bp.route('/export/logs/csv')
+@login_required
+def export_logs_csv():
+    logs = db.session.query(AdminLog).order_by(AdminLog.timestamp.desc()).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Username', 'Action', 'Details', 'IP', 'Timestamp'])
+    for l in logs:
+        writer.writerow([l.id, l.username, l.action, l.details or '', l.ip, l.timestamp])
+    output.seek(0)
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8')),
+                     mimetype='text/csv', as_attachment=True,
+                     download_name='logs.csv')
+
+@admin_bp.route('/export/logs/json')
+@login_required
+def export_logs_json():
+    logs = db.session.query(AdminLog).order_by(AdminLog.timestamp.desc()).all()
+    data = [{'id': l.id, 'username': l.username, 'action': l.action,
+             'details': l.details, 'ip': l.ip,
+             'timestamp': l.timestamp.isoformat() if l.timestamp else None} for l in logs]
+    return send_file(io.BytesIO(json.dumps(data, ensure_ascii=False).encode('utf-8')),
+                     mimetype='application/json', as_attachment=True,
+                     download_name='logs.json')
+
+@admin_bp.route('/export/campaigns')
+@login_required
+def export_campaigns():
+    campaigns = db.session.query(Campaign).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Name', 'Status', 'Total', 'Processed', 'Successful', 'Failed', 'Created At'])
+    for c in campaigns:
+        writer.writerow([c.id, c.name, c.status, c.total_targets, c.processed, c.successful, c.failed, c.created_at])
+    output.seek(0)
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8')),
+                     mimetype='text/csv', as_attachment=True,
+                     download_name='campaigns.csv')
+
+@admin_bp.route('/export/sessions')
+@login_required
+def export_sessions():
+    accounts = db.session.query(Account).filter(Account.session_data != None).all()
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for a in accounts:
+            if a.session_data:
+                try:
+                    from utils.encryption import decrypt_session_data
+                    session_str = decrypt_session_data(a.session_data)
+                    zf.writestr(f'{a.phone}.session', session_str)
+                except Exception:
+                    pass
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True,
+                     download_name='sessions.zip')
+
+
+# --- BULK OPERATIONS ---
+@admin_bp.route('/accounts/bulk_deactivate', methods=['POST'])
+@login_required
+@admin_required
+def bulk_deactivate():
+    data = request.get_json()
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify({'success': False, 'error': 'ids required'})
+    db.session.query(Account).filter(Account.id.in_(ids)).update({'status': 'inactive'}, synchronize_session=False)
+    db.session.commit()
+    log_action('bulk_deactivate', f'{len(ids)} accounts')
+    return jsonify({'success': True})
+
+@admin_bp.route('/accounts/bulk_check_sessions', methods=['POST'])
+@login_required
+@admin_required
+def bulk_check_sessions():
+    data = request.get_json()
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify({'success': False, 'error': 'ids required'})
+    try:
+        from tasks.session_checker import check_single_session_task
+        task_ids = []
+        for aid in ids:
+            t = check_single_session_task.delay(aid)
+            task_ids.append(t.id)
+        log_action('bulk_check_sessions', f'{len(ids)} accounts')
+        return jsonify({'success': True, 'task_ids': task_ids})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/bulk_export', methods=['POST'])
+@login_required
+def bulk_export():
+    data = request.get_json()
+    ids = data.get('ids', [])
+    fmt = data.get('format', 'excel')
+    if not ids:
+        return jsonify({'success': False, 'error': 'ids required'})
+    accounts = db.session.query(Account).filter(Account.id.in_(ids)).all()
+    if fmt == 'txt':
+        phones = '\n'.join(a.phone for a in accounts)
+        return send_file(io.BytesIO(phones.encode('utf-8')),
+                         mimetype='text/plain', as_attachment=True,
+                         download_name='phones.txt')
+    elif fmt == 'json':
+        data_list = [{'id': a.id, 'phone': a.phone, 'username': a.username,
+                      'status': a.status} for a in accounts]
+        return send_file(io.BytesIO(json.dumps(data_list, ensure_ascii=False).encode('utf-8')),
+                         mimetype='application/json', as_attachment=True,
+                         download_name='accounts.json')
+    elif fmt == 'sessions_zip':
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for a in accounts:
+                if a.session_data:
+                    try:
+                        from utils.encryption import decrypt_session_data
+                        session_str = decrypt_session_data(a.session_data)
+                        zf.writestr(f'{a.phone}.session', session_str)
+                    except Exception:
+                        pass
+        zip_buffer.seek(0)
+        return send_file(zip_buffer, mimetype='application/zip', as_attachment=True,
+                         download_name='sessions.zip')
+    else:
+        try:
+            from services.export.excel import ExcelExporter
+            exporter = ExcelExporter()
+            output = exporter.export_accounts(accounts)
+            return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             as_attachment=True, download_name='accounts.xlsx')
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
+
+# --- CAMPAIGN DETAIL AND MANAGEMENT ---
+@admin_bp.route('/campaigns/<int:campaign_id>')
+@login_required
+def campaign_detail(campaign_id):
+    campaign = db.session.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        flash('Кампания не найдена', 'error')
+        return redirect(url_for('admin.campaigns'))
+    return render_template('admin/campaign_detail.html', campaign=campaign)
+
+@admin_bp.route('/campaigns/create', methods=['POST'])
+@login_required
+@admin_required
+def campaign_create():
+    data = request.get_json()
+    targets_raw = data.get('targets', data.get('target_list', []))
+    if isinstance(targets_raw, str):
+        targets = [t.strip() for t in targets_raw.split('\n') if t.strip()]
+    else:
+        targets = targets_raw
+    campaign = Campaign(
+        name=data.get('name', 'New Campaign'),
+        description=data.get('description', ''),
+        target_type=data.get('target_type', 'direct_message'),
+        target_list=targets,
+        message_template=data.get('message_template', ''),
+        variations=data.get('variations', []),
+        total_targets=len(targets),
+        created_by=current_user.id
+    )
+    db.session.add(campaign)
+    db.session.commit()
+    log_action('create_campaign', f'name={campaign.name}')
+    return jsonify({'success': True, 'id': campaign.id})
+
+@admin_bp.route('/campaigns/<int:campaign_id>/action', methods=['POST'])
+@login_required
+@admin_required
+def campaign_action(campaign_id):
+    data = request.get_json()
+    action = data.get('action')
+    campaign = db.session.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        return jsonify({'success': False, 'error': 'Campaign not found'})
+    if action == 'start':
+        campaign.status = 'running'
+        campaign.started_at = datetime.datetime.utcnow()
+        db.session.commit()
+        try:
+            from tasks.mass_actions import run_campaign
+            run_campaign.delay(campaign_id)
+        except Exception as e:
+            log.error(f'campaign start error: {e}')
+    elif action == 'pause':
+        campaign.status = 'paused'
+        db.session.commit()
+    elif action == 'stop':
+        campaign.status = 'completed'
+        campaign.completed_at = datetime.datetime.utcnow()
+        db.session.commit()
+    log_action(f'campaign_{action}', f'campaign_id={campaign_id}')
+    return jsonify({'success': True, 'status': campaign.status})
+
+
+# --- IMPORT SESSIONS ---
+@admin_bp.route('/accounts/import_sessions', methods=['POST'])
+@login_required
+@admin_required
+def import_sessions():
+    files = request.files.getlist('sessions')
+    imported = 0
+    errors = []
+    for f in files:
+        try:
+            session_str = f.read().decode('utf-8').strip()
+            if not session_str:
+                continue
+            from utils.encryption import encrypt_session_data
+            from models.account import Account
+            import uuid
+            acc = Account(
+                id=uuid.uuid4().hex,
+                phone=f'imported_{uuid.uuid4().hex[:8]}',
+                session_data=encrypt_session_data(session_str),
+                session_file=f.filename,
+                status='active'
+            )
+            db.session.add(acc)
+            db.session.commit()
+            try:
+                from tasks.session_checker import check_single_session_task
+                check_single_session_task.delay(acc.id)
+            except Exception:
+                pass
+            imported += 1
+        except Exception as e:
+            errors.append(str(e))
+    log_action('import_sessions', f'imported={imported}')
+    return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
+@admin_bp.route('/accounts/import_sessions_zip', methods=['POST'])
+@login_required
+@admin_required
+def import_sessions_zip():
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'success': False, 'error': 'No file'})
+    imported = 0
+    errors = []
+    try:
+        zip_data = io.BytesIO(f.read())
+        with zipfile.ZipFile(zip_data, 'r') as zf:
+            for name in zf.namelist():
+                if not name.endswith('.session'):
+                    continue
+                try:
+                    session_str = zf.read(name).decode('utf-8').strip()
+                    from utils.encryption import encrypt_session_data
+                    import uuid
+                    acc = Account(
+                        id=uuid.uuid4().hex,
+                        phone=f'imported_{uuid.uuid4().hex[:8]}',
+                        session_data=encrypt_session_data(session_str),
+                        session_file=name,
+                        status='active'
+                    )
+                    db.session.add(acc)
+                    db.session.commit()
+                    try:
+                        from tasks.session_checker import check_single_session_task
+                        check_single_session_task.delay(acc.id)
+                    except Exception:
+                        pass
+                    imported += 1
+                except Exception as e:
+                    errors.append(f'{name}: {e}')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    log_action('import_sessions_zip', f'imported={imported}')
+    return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
+@admin_bp.route('/accounts/<account_id>/update_profile', methods=['POST'])
+@login_required
+@admin_required
+def account_update_profile(account_id):
+    data = request.get_json()
+    try:
+        import asyncio
+        from services.telegram.actions import update_profile, update_username
+        if any(k in data for k in ('first_name', 'last_name', 'about')):
+            asyncio.run(update_profile(
+                account_id,
+                first_name=data.get('first_name'),
+                last_name=data.get('last_name'),
+                about=data.get('about')
+            ))
+        if 'username' in data:
+            asyncio.run(update_username(account_id, data['username']))
+        account = db.session.query(Account).filter(Account.id == account_id).first()
+        if account:
+            if 'first_name' in data: account.first_name = data['first_name']
+            if 'last_name' in data: account.last_name = data['last_name']
+            if 'username' in data: account.username = data['username']
+            db.session.commit()
+        log_action('update_profile', f'account={account_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/update_avatar', methods=['POST'])
+@login_required
+@admin_required
+def account_update_avatar(account_id):
+    file = request.files.get('photo')
+    if not file:
+        return jsonify({'success': False, 'error': 'No photo file'})
+    try:
+        import asyncio
+        from services.telegram.actions import update_avatar
+        photo_bytes = file.read()
+        success = asyncio.run(update_avatar(account_id, photo_bytes))
+        log_action('update_avatar', f'account={account_id}')
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/delete_avatar', methods=['POST'])
+@login_required
+@admin_required
+def account_delete_avatar(account_id):
+    try:
+        import asyncio
+        from services.telegram.actions import delete_avatar
+        success = asyncio.run(delete_avatar(account_id))
+        log_action('delete_avatar', f'account={account_id}')
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})

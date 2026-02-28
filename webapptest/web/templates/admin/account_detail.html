@@ -1,0 +1,390 @@
+{% extends 'admin/base.html' %}
+{% block title %}Аккаунт {{ account.phone }}{% endblock %}
+{% block page_title %}Детали аккаунта{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.accounts') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i class="fa-solid fa-arrow-left mr-1.5"></i>К аккаунтам
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Header card -->
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-6 py-5 flex flex-wrap items-center gap-4">
+    <div class="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+        <i class="fa-brands fa-telegram"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-3">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ account.phone }}</h2>
+            {% if account.username %}
+            <span class="text-sm text-gray-500 dark:text-gray-400">@{{ account.username }}</span>
+            {% endif %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if account.status == 'active' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
+                {% elif account.status == '2fa' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300
+                {% elif account.status == 'flood_wait' %}bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300
+                {% elif account.status == 'banned' %}bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">
+                {{ account.status }}
+            </span>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ account.first_name or '' }} {{ account.last_name or '' }}</p>
+    </div>
+    {% if account.flood_wait_until %}
+    <div id="flood-countdown" class="text-sm font-medium text-orange-400 flex items-center gap-2">
+        <i class="fa-solid fa-hourglass-half animate-spin"></i>
+        <span id="flood-timer">Вычисляется…</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Info + Notes row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Info card -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Информация об аккаунте</h3>
+        </div>
+        <div class="px-6 py-4 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            {% set fields = [
+                ('Телефон', account.phone),
+                ('Username', account.username or '—'),
+                ('Имя', account.first_name or '—'),
+                ('Фамилия', account.last_name or '—'),
+                ('Premium', 'Да' if account.premium else 'Нет'),
+                ('DC ID', account.dc_id or '—'),
+                ('TG ID', account.tg_id or '—'),
+                ('Статус', account.status),
+                ('Детали статуса', account.status_detail or '—'),
+                ('Создан', account.created_at),
+                ('Последнее использование', account.last_used or '—'),
+                ('Последняя проверка', account.last_checked or '—'),
+                ('Последняя активность', account.last_active or '—'),
+                ('Flood wait до', account.flood_wait_until or '—'),
+                ('Прокси', (account.proxy.host ~ ':' ~ account.proxy.port) if account.proxy else '—'),
+                ('Статус прогрева', account.warming_status or '—'),
+            ] %}
+            {% for label, val in fields %}
+            <div class="flex flex-col">
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{{ label }}</span>
+                <span class="mt-0.5 text-gray-900 dark:text-gray-100 font-medium break-all">{{ val }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Notes card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Примечания</h3>
+            <button id="notes-edit-btn" onclick="startEditNotes()" class="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                <i class="fa-solid fa-pen mr-1"></i>Изменить
+            </button>
+        </div>
+        <div class="px-6 py-4 flex-1 flex flex-col">
+            <p id="notes-display" class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap flex-1">{{ account.notes or 'Примечания отсутствуют…' }}</p>
+            <div id="notes-edit-area" class="hidden flex-1 flex flex-col gap-2">
+                <textarea id="notes-textarea" rows="6" class="w-full text-sm rounded-lg px-3 py-2 resize-none flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{{ account.notes or '' }}</textarea>
+                <div class="flex gap-2">
+                    <button onclick="saveNotes({{ account.id }})" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">Сохранить</button>
+                    <button onclick="cancelEditNotes()" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-1.5">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="border-b border-gray-200 dark:border-gray-700 px-6 flex gap-0" id="account-tabs">
+        <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-500 -mb-px transition-colors">
+            <i class="fa-solid fa-file-lines mr-1.5"></i>Логи
+        </button>
+        <button onclick="switchTab('actions')" id="tab-actions" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+            <i class="fa-solid fa-bolt mr-1.5"></i>Действия
+        </button>
+    </div>
+
+    <!-- Logs tab -->
+    <div id="panel-logs" class="tab-panel">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Время</th>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Действие</th>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Детали</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for log in logs.items %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ log.created_at }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ log.action }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ log.details or '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Логи отсутствуют</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+            <span>Страница {{ logs.page }} из {{ logs.pages }}</span>
+            <div class="flex gap-2">
+                {% if logs.has_prev %}
+                <a href="?page={{ logs.prev_num }}" class="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                {% endif %}
+                {% if logs.has_next %}
+                <a href="?page={{ logs.next_num }}" class="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions tab -->
+    <div id="panel-actions" class="tab-panel hidden px-6 py-6">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+            <button onclick="openModal('sendMessageModal')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                <i class="fa-solid fa-paper-plane text-blue-400 text-xl"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Отправить сообщение</span>
+            </button>
+            <button onclick="openModal('joinGroupModal')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 hover:bg-green-50/30 dark:hover:bg-green-900/10 transition-colors">
+                <i class="fa-solid fa-users text-green-400 text-xl"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вступить в группу</span>
+            </button>
+            <button onclick="openModal('changeTgPasswordModal')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-yellow-400 dark:hover:border-yellow-500 hover:bg-yellow-50/30 dark:hover:bg-yellow-900/10 transition-colors">
+                <i class="fa-solid fa-key text-yellow-400 text-xl"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Изменить пароль TG</span>
+            </button>
+            <button onclick="openModal('enable2faModal')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/30 dark:hover:bg-purple-900/10 transition-colors">
+                <i class="fa-solid fa-lock text-purple-400 text-xl"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Включить 2FA</span>
+            </button>
+        </div>
+
+        <!-- Assign Proxy -->
+        <div class="mb-4 flex flex-wrap items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <i class="fa-solid fa-network-wired text-sky-400"></i>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Назначить прокси:</span>
+            <select id="proxy-select" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">— без прокси —</option>
+                {% for proxy in proxies %}
+                <option value="{{ proxy.id }}" {% if account.proxy and account.proxy.id == proxy.id %}selected{% endif %}>{{ proxy.host }}:{{ proxy.port }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="assignProxy({{ account.id }})" class="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Назначить</button>
+        </div>
+
+        <!-- Start Warming -->
+        <div class="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <i class="fa-solid fa-fire text-orange-400"></i>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Запустить прогрев:</span>
+            <button onclick="openModal('startWarmingModal')" class="text-sm bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                <i class="fa-solid fa-play mr-1.5"></i>Выбрать сценарий
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modals ── -->
+
+<!-- Send Message -->
+<div id="sendMessageModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('sendMessageModal')">
+    <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-paper-plane text-blue-400 mr-2"></i>Отправить сообщение</h3>
+        <div class="space-y-3">
+            <input id="msg-recipient" type="text" placeholder="Получатель (username или телефон)" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <textarea id="msg-text" rows="4" placeholder="Текст сообщения…" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="flex justify-end gap-3 mt-5">
+            <button onclick="closeModal('sendMessageModal')" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">Отмена</button>
+            <button onclick="sendMessage({{ account.id }})" class="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Отправить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Join Group -->
+<div id="joinGroupModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('joinGroupModal')">
+    <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-users text-green-400 mr-2"></i>Вступить в группу</h3>
+        <input id="join-link" type="text" placeholder="Ссылка-приглашение (t.me/…)" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div class="flex justify-end gap-3 mt-5">
+            <button onclick="closeModal('joinGroupModal')" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">Отмена</button>
+            <button onclick="joinGroup({{ account.id }})" class="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">Вступить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Change TG Password -->
+<div id="changeTgPasswordModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('changeTgPasswordModal')">
+    <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-key text-yellow-400 mr-2"></i>Изменить пароль TG</h3>
+        <input id="new-tg-password" type="password" placeholder="Новый пароль" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div class="flex justify-end gap-3 mt-5">
+            <button onclick="closeModal('changeTgPasswordModal')" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">Отмена</button>
+            <button onclick="changeTgPassword({{ account.id }})" class="text-sm bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors">Изменить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Enable 2FA -->
+<div id="enable2faModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('enable2faModal')">
+    <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-lock text-purple-400 mr-2"></i>Включить 2FA</h3>
+        <div class="space-y-3">
+            <input id="twofa-password" type="password" placeholder="Пароль 2FA" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input id="twofa-hint" type="text" placeholder="Подсказка (необязательно)" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex justify-end gap-3 mt-5">
+            <button onclick="closeModal('enable2faModal')" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">Отмена</button>
+            <button onclick="enable2fa({{ account.id }})" class="text-sm bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">Включить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Start Warming -->
+<div id="startWarmingModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('startWarmingModal')">
+    <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-fire text-orange-400 mr-2"></i>Запустить прогрев</h3>
+        <select id="warming-scenario" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">— выберите сценарий —</option>
+            {% for sc in warming_scenarios %}
+            <option value="{{ sc.id }}">{{ sc.name }}</option>
+            {% else %}
+            <option value="" disabled>Сценарии не созданы</option>
+            {% endfor %}
+        </select>
+        <div class="flex justify-end gap-3 mt-5">
+            <button onclick="closeModal('startWarmingModal')" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2">Отмена</button>
+            <button onclick="startWarming({{ account.id }})" class="text-sm bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">Запустить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Tab switching
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-500');
+        btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('tab-' + name).classList.add('border-blue-500', 'text-blue-500');
+    document.getElementById('tab-' + name).classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+    document.getElementById('panel-' + name).classList.remove('hidden');
+}
+
+// Notes editing
+function startEditNotes() {
+    document.getElementById('notes-display').classList.add('hidden');
+    document.getElementById('notes-edit-area').classList.remove('hidden');
+    document.getElementById('notes-edit-btn').classList.add('hidden');
+}
+function cancelEditNotes() {
+    document.getElementById('notes-display').classList.remove('hidden');
+    document.getElementById('notes-edit-area').classList.add('hidden');
+    document.getElementById('notes-edit-btn').classList.remove('hidden');
+}
+function saveNotes(accountId) {
+    const notes = document.getElementById('notes-textarea').value;
+    fetch('/admin/accounts/' + accountId + '/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notes})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            document.getElementById('notes-display').textContent = notes || 'Примечания отсутствуют…';
+            cancelEditNotes();
+            showToast('Примечания сохранены', 'success');
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
+        }
+    })
+    .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+
+// Flood wait countdown
+{% if account.flood_wait_until %}
+(function() {
+    const until = new Date('{{ account.flood_wait_until }}').getTime();
+    function tick() {
+        const diff = Math.max(0, until - Date.now());
+        if (diff === 0) { document.getElementById('flood-timer').textContent = 'Снято'; return; }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('flood-timer').textContent =
+            (h ? h + 'ч ' : '') + (m ? m + 'м ' : '') + s + 'с до снятия';
+        setTimeout(tick, 1000);
+    }
+    tick();
+})();
+{% endif %}
+
+// AJAX action helpers
+function accountAction(accountId, endpoint, payload) {
+    return fetch('/admin/accounts/' + accountId + '/' + endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json());
+}
+
+function sendMessage(id) {
+    const recipient = document.getElementById('msg-recipient').value.trim();
+    const text = document.getElementById('msg-text').value.trim();
+    if (!recipient || !text) { showToast('Заполните все поля', 'warning'); return; }
+    accountAction(id, 'send_message', {recipient, text})
+        .then(d => { closeModal('sendMessageModal'); showToast(d.success ? 'Сообщение отправлено' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+function joinGroup(id) {
+    const invite_link = document.getElementById('join-link').value.trim();
+    if (!invite_link) { showToast('Введите ссылку', 'warning'); return; }
+    accountAction(id, 'join_group', {invite_link})
+        .then(d => { closeModal('joinGroupModal'); showToast(d.success ? 'Вступление выполнено' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+function changeTgPassword(id) {
+    const password = document.getElementById('new-tg-password').value;
+    if (!password) { showToast('Введите пароль', 'warning'); return; }
+    accountAction(id, 'change_tg_password', {password})
+        .then(d => { closeModal('changeTgPasswordModal'); showToast(d.success ? 'Пароль изменён' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+function enable2fa(id) {
+    const password = document.getElementById('twofa-password').value;
+    const hint = document.getElementById('twofa-hint').value;
+    if (!password) { showToast('Введите пароль 2FA', 'warning'); return; }
+    accountAction(id, 'enable_2fa', {password, hint})
+        .then(d => { closeModal('enable2faModal'); showToast(d.success ? '2FA включён' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+function assignProxy(id) {
+    const proxy_id = document.getElementById('proxy-select').value;
+    accountAction(id, 'assign_proxy', {proxy_id: proxy_id || null})
+        .then(d => showToast(d.success ? 'Прокси назначен' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'))
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+function startWarming(id) {
+    const scenario_id = document.getElementById('warming-scenario').value;
+    if (!scenario_id) { showToast('Выберите сценарий', 'warning'); return; }
+    accountAction(id, 'start_warming', {scenario_id})
+        .then(d => { closeModal('startWarmingModal'); showToast(d.success ? 'Прогрев запущен' : 'Ошибка: ' + d.error, d.success ? 'success' : 'error'); })
+        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+</script>
+{% endblock %}

@@ -41,13 +41,126 @@
 </div>
 
 <!-- Bulk actions bar (hidden by default) -->
-<div id="bulk-bar" class="hidden mb-4 flex items-center gap-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3">
-    <span id="bulk-count" class="text-sm font-medium text-blue-700 dark:text-blue-300">0 выбрано</span>
+<div id="bulk-bar" class="hidden mb-4 flex flex-wrap items-center gap-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3">
+    <span id="bulk-count" class="text-sm font-medium text-blue-700 dark:text-blue-300 mr-1">0 выбрано</span>
     <button onclick="bulkDelete()" class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors flex items-center">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-        Удалить выбранные
+        Удалить
     </button>
-    <button onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Отмена</button>
+    <button onclick="openModal('bulkExportModal')" class="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors flex items-center">
+        <i class="fa-solid fa-download mr-1"></i> Экспорт
+    </button>
+    <button onclick="openModal('bulkProxyModal')" class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center">
+        <i class="fa-solid fa-network-wired mr-1"></i> Прокси
+    </button>
+    <button onclick="openBulkTagsModal()" class="text-sm bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-colors flex items-center">
+        <i class="fa-solid fa-tags mr-1"></i> Теги
+    </button>
+    <button onclick="openModal('bulkSendMessageModal')" class="text-sm bg-sky-600 text-white px-3 py-1.5 rounded-lg hover:bg-sky-700 transition-colors flex items-center">
+        <i class="fa-solid fa-paper-plane mr-1"></i> Сообщение
+    </button>
+    <button onclick="openModal('bulkJoinGroupModal')" class="text-sm bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors flex items-center">
+        <i class="fa-solid fa-users-plus mr-1"></i> Вступить
+    </button>
+    <button onclick="bulkDeactivate()" class="text-sm bg-yellow-600 text-white px-3 py-1.5 rounded-lg hover:bg-yellow-700 transition-colors flex items-center">
+        <i class="fa-solid fa-power-off mr-1"></i> Деактивировать
+    </button>
+    <button onclick="bulkCheckSessions()" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center">
+        <i class="fa-solid fa-shield-check mr-1"></i> Проверить
+    </button>
+    <button onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-auto">Отмена</button>
+</div>
+
+<!-- Bulk Export Modal -->
+<div id="bulkExportModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkExportModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-download mr-2 text-emerald-500"></i>Экспорт выбранных</h3>
+        <div class="space-y-2 mb-5">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="exportFormat" value="excel" checked class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300">Excel (.xlsx)</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="exportFormat" value="json" class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300">JSON</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="exportFormat" value="txt" class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300">TXT (номера)</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="exportFormat" value="sessions_zip" class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300">Sessions ZIP</span></label>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkExport()" class="flex-1 bg-emerald-600 text-white text-sm py-2 rounded-lg hover:bg-emerald-700 transition-colors">Экспортировать</button>
+            <button onclick="closeModal('bulkExportModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Assign Proxy Modal -->
+<div id="bulkProxyModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkProxyModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-network-wired mr-2 text-indigo-500"></i>Назначить прокси</h3>
+        <div class="mb-4">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Прокси</label>
+            <select id="bulkProxySelect" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">— Без прокси —</option>
+                {% for p in proxies %}
+                <option value="{{ p.id }}">{{ p.type }}://{{ p.host }}:{{ p.port }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-5">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Режим</label>
+            <select id="bulkProxyMode" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="assign">Назначить выбранный</option>
+                <option value="rotate">Равномерно ротировать</option>
+            </select>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkAssignProxy()" class="flex-1 bg-indigo-600 text-white text-sm py-2 rounded-lg hover:bg-indigo-700 transition-colors">Назначить</button>
+            <button onclick="closeModal('bulkProxyModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Assign Tags Modal -->
+<div id="bulkTagsModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkTagsModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-tags mr-2 text-purple-500"></i>Назначить теги</h3>
+        <div id="bulkTagsList" class="max-h-48 overflow-y-auto space-y-2 mb-5">
+            <div class="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Загрузка...</div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkAssignTags()" class="flex-1 bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition-colors">Применить</button>
+            <button onclick="closeModal('bulkTagsModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Send Message Modal -->
+<div id="bulkSendMessageModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkSendMessageModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-paper-plane mr-2 text-sky-500"></i>Отправить сообщение</h3>
+        <div class="mb-3">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Получатели (по одному на строку)</label>
+            <textarea id="bulkMsgRecipients" rows="3" placeholder="@username или +79001234567" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="mb-5">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Текст сообщения</label>
+            <textarea id="bulkMsgText" rows="4" placeholder="Введите текст сообщения..." class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkSendMessage()" class="flex-1 bg-sky-600 text-white text-sm py-2 rounded-lg hover:bg-sky-700 transition-colors">Отправить</button>
+            <button onclick="closeModal('bulkSendMessageModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Join Group Modal -->
+<div id="bulkJoinGroupModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkJoinGroupModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i class="fa-solid fa-users-plus mr-2 text-teal-500"></i>Вступить в группу</h3>
+        <div class="mb-5">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Ссылка-приглашение</label>
+            <input type="text" id="bulkJoinLink" placeholder="https://t.me/joinchat/... или @channel" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkJoinGroup()" class="flex-1 bg-teal-600 text-white text-sm py-2 rounded-lg hover:bg-teal-700 transition-colors">Вступить</button>
+            <button onclick="closeModal('bulkJoinGroupModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
 </div>
 
 <!-- Table -->
@@ -508,6 +621,127 @@ async function showHistory(accountId, phone) {
     } catch(e) {
         document.getElementById('historyContent').innerHTML = '<p class="text-center py-8 text-red-400 text-sm">Ошибка загрузки истории</p>';
     }
+}
+
+// Bulk operations
+async function bulkDeactivate() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    if (!ids.length || !confirm(`Деактивировать ${ids.length} аккаунт(ов)?`)) return;
+    const res = await fetch('/admin/accounts/bulk_deactivate', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids})
+    });
+    if (res.ok) { showToast('Деактивировано: ' + ids.length, 'warning'); setTimeout(() => location.reload(), 800); }
+    else showToast('Ошибка деактивации', 'error');
+}
+
+async function bulkCheckSessions() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    if (!ids.length) return;
+    const res = await fetch('/admin/accounts/bulk_check_sessions', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids})
+    });
+    if (res.ok) showToast('Проверка сессий запущена для ' + ids.length + ' аккаунт(ов)', 'info');
+    else showToast('Ошибка', 'error');
+}
+
+async function bulkExport() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    if (!ids.length) { showToast('Ничего не выбрано', 'warning'); return; }
+    const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'excel';
+    closeModal('bulkExportModal');
+    const res = await fetch('/admin/accounts/bulk_export', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids, format})
+    });
+    if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'accounts_export';
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    } else showToast('Ошибка экспорта', 'error');
+}
+
+async function bulkAssignProxy() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    if (!ids.length) { showToast('Ничего не выбрано', 'warning'); return; }
+    const proxyId = document.getElementById('bulkProxySelect').value;
+    const mode = document.getElementById('bulkProxyMode').value;
+    // Backend expects account_ids and mode='round_robin' for rotation
+    const backendMode = mode === 'rotate' ? 'round_robin' : 'specific';
+    const res = await fetch('/admin/accounts/bulk_assign_proxy', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({account_ids: ids, proxy_id: proxyId || null, mode: backendMode})
+    });
+    closeModal('bulkProxyModal');
+    if (res.ok) { showToast('Прокси назначен для ' + ids.length + ' аккаунт(ов)', 'success'); setTimeout(() => location.reload(), 800); }
+    else showToast('Ошибка назначения прокси', 'error');
+}
+
+async function openBulkTagsModal() {
+    openModal('bulkTagsModal');
+    try {
+        const res = await fetch('/admin/api/tags');
+        if (res.ok) {
+            const resp = await res.json();
+            const tags = resp.tags || resp;  // backend returns {success, tags:[...]}
+            const container = document.getElementById('bulkTagsList');
+            if (!tags.length) {
+                container.innerHTML = '<div class="text-sm text-gray-400 text-center py-4">Нет доступных тегов</div>';
+                return;
+            }
+            container.innerHTML = tags.map(t => `
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" class="bulk-tag-cb rounded border-gray-300 text-blue-500" value="${t.id}">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">${t.name}</span>
+                </label>`).join('');
+        }
+    } catch(e) {
+        document.getElementById('bulkTagsList').innerHTML = '<div class="text-sm text-red-400 text-center py-4">Ошибка загрузки тегов</div>';
+    }
+}
+
+async function bulkAssignTags() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    const tagIds = Array.from(document.querySelectorAll('.bulk-tag-cb:checked')).map(c => c.value);
+    if (!ids.length) { showToast('Ничего не выбрано', 'warning'); return; }
+    const res = await fetch('/admin/accounts/bulk_tags', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({account_ids: ids, tag_ids: tagIds})
+    });
+    closeModal('bulkTagsModal');
+    if (res.ok) showToast('Теги назначены для ' + ids.length + ' аккаунт(ов)', 'success');
+    else showToast('Ошибка назначения тегов', 'error');
+}
+
+async function bulkSendMessage() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    const recipients = document.getElementById('bulkMsgRecipients').value.trim();
+    const text = document.getElementById('bulkMsgText').value.trim();
+    if (!ids.length) { showToast('Ничего не выбрано', 'warning'); return; }
+    if (!text) { showToast('Введите текст сообщения', 'warning'); return; }
+    const res = await fetch('/admin/accounts/bulk_send_message', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({account_ids: ids, recipients: recipients.split('\n').map(r => r.trim()).filter(Boolean), text})
+    });
+    closeModal('bulkSendMessageModal');
+    if (res.ok) showToast('Сообщения отправляются...', 'info');
+    else showToast('Ошибка отправки', 'error');
+}
+
+async function bulkJoinGroup() {
+    const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(c => c.value);
+    const link = document.getElementById('bulkJoinLink').value.trim();
+    if (!ids.length) { showToast('Ничего не выбрано', 'warning'); return; }
+    if (!link) { showToast('Введите ссылку', 'warning'); return; }
+    const res = await fetch('/admin/accounts/bulk_join_group', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({account_ids: ids, invite_link: link})
+    });
+    closeModal('bulkJoinGroupModal');
+    if (res.ok) showToast('Запрос на вступление отправлен', 'info');
+    else showToast('Ошибка', 'error');
 }
 </script>
 {% endblock %}

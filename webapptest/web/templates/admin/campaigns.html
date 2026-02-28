@@ -2,7 +2,58 @@
 {% block title %}Кампании{% endblock %}
 {% block page_title %}Кампании{% endblock %}
 
+{% block header_actions %}
+<button onclick="document.getElementById('createCampaignModal').classList.remove('hidden')"
+        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+    + Создать кампанию
+</button>
+{% endblock %}
+
 {% block content %}
+<!-- Create Campaign Modal -->
+<div id="createCampaignModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-y-auto max-h-screen">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Создать кампанию</h3>
+            <button onclick="document.getElementById('createCampaignModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">&times;</button>
+        </div>
+        <form id="createCampaignForm" class="px-6 py-4 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название</label>
+                <input type="text" id="cc_name" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание <span class="text-gray-400">(необязательно)</span></label>
+                <textarea id="cc_description" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тип цели</label>
+                <select id="cc_target_type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+                    <option value="direct_message">direct_message</option>
+                    <option value="group_invite">group_invite</option>
+                    <option value="channel_post">channel_post</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Шаблон сообщения</label>
+                <textarea id="cc_message_template" rows="3" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Список целей <span class="text-gray-400">(по одной на строку)</span></label>
+                <textarea id="cc_target_list" rows="4" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-mono"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Вариации <span class="text-gray-400">(по одной на строку, необязательно)</span></label>
+                <textarea id="cc_variations" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-mono"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('createCampaignModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Отмена</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Создать</button>
+            </div>
+        </form>
+    </div>
+</div>
 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Список кампаний ({{ campaigns|length }})</h2>
@@ -41,9 +92,16 @@
                     <td class="px-6 py-4 text-green-600 dark:text-green-400">{{ campaign.successful }}</td>
                     <td class="px-6 py-4 text-red-500 dark:text-red-400">{{ campaign.failed }}</td>
                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{{ campaign.created_at | timestamp_to_date }}</td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-6 py-4 text-right space-x-1">
+                        <a href="/admin/campaigns/{{ campaign.id }}" class="text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium">Детали</a>
                         {% if campaign.status in ('draft', 'paused') %}
-                        <button onclick="startCampaign({{ campaign.id }})" class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">Запустить</button>
+                        <button onclick="campaignAction({{ campaign.id }}, 'start')" class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">Запустить</button>
+                        {% endif %}
+                        {% if campaign.status == 'running' %}
+                        <button onclick="campaignAction({{ campaign.id }}, 'pause')" class="text-sm bg-yellow-500 text-white px-3 py-1.5 rounded-lg hover:bg-yellow-600 transition-colors font-medium">Пауза</button>
+                        {% endif %}
+                        {% if campaign.status in ('running', 'paused') %}
+                        <button onclick="campaignAction({{ campaign.id }}, 'stop')" class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors font-medium">Стоп</button>
                         {% endif %}
                     </td>
                 </tr>
@@ -56,19 +114,53 @@
 </div>
 
 <script>
-function startCampaign(id) {
-    if (!confirm('Запустить кампанию?')) return;
-    fetch('/api/campaigns/' + id + '/start', {method: 'POST', headers: {'Content-Type': 'application/json'}})
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                showToast('Кампания запущена', 'success');
-                setTimeout(() => location.reload(), 800);
-            } else {
-                showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
-            }
+document.getElementById('createCampaignForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const targets = document.getElementById('cc_target_list').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const variations = document.getElementById('cc_variations').value.split('\n').map(s => s.trim()).filter(Boolean);
+    fetch('/admin/campaigns/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: document.getElementById('cc_name').value,
+            description: document.getElementById('cc_description').value,
+            target_type: document.getElementById('cc_target_type').value,
+            message_template: document.getElementById('cc_message_template').value,
+            targets: targets,
+            variations: variations
         })
-        .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            showToast('Кампания создана', 'success');
+            document.getElementById('createCampaignModal').classList.add('hidden');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
+        }
+    })
+    .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+});
+
+function campaignAction(id, action) {
+    const labels = {start: 'Запустить', pause: 'Поставить на паузу', stop: 'Остановить'};
+    if (!confirm((labels[action] || action) + ' кампанию?')) return;
+    fetch('/admin/campaigns/' + id + '/action', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: action})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            showToast('Готово', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
+        }
+    })
+    .catch(err => showToast('Ошибка сети: ' + err, 'error'));
 }
 </script>
 {% endblock %}

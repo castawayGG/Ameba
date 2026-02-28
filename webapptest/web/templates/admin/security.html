@@ -1,0 +1,141 @@
+{% extends 'admin/base.html' %}
+{% block title %}Безопасность{% endblock %}
+{% block page_title %}Безопасность{% endblock %}
+
+{% block content %}
+
+<!-- Active Sessions -->
+<div class="mb-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        <i class="fa-solid fa-users-rectangle text-blue-400"></i>
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Активные сессии ({{ user_sessions|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Пользователь</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP-адрес</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">User-Agent</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Создана</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Активность</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действие</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for sess in user_sessions %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ sess.username or sess.user_id }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{{ sess.ip }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate" title="{{ sess.user_agent }}">{{ sess.user_agent }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ sess.created_at }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ sess.last_active }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="forceLogout('{{ sess.id }}')" class="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors">
+                            <i class="fa-solid fa-right-from-bracket mr-1"></i>Выйти
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-6 py-6 text-center text-gray-400 dark:text-gray-500">Активных сессий нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Failed Logins -->
+<div class="mb-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i>
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Неудачные входы ({{ failed_users|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Пользователь</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Попытки входа</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Заблокирован до</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Последний вход</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for user in failed_users %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ user.username }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if user.login_attempts >= 5 %}bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                            {% else %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300{% endif %}">
+                            {{ user.login_attempts }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                        {% if user.locked_until %}
+                        <span class="text-red-400">{{ user.locked_until }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ user.last_login or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-6 py-6 text-center text-gray-400 dark:text-gray-500">Нет данных о неудачных входах</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Suspicious Activity -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        <i class="fa-solid fa-shield-halved text-red-400"></i>
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Подозрительная активность ({{ suspicious|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Пользователь</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP-адрес</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Время</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for entry in suspicious %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ entry.username or '—' }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{{ entry.ip or '—' }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ entry.timestamp }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="px-6 py-6 text-center text-gray-400 dark:text-gray-500">Подозрительной активности не обнаружено</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function forceLogout(sessionId) {
+    if (!confirm('Принудительно завершить сессию?')) return;
+    fetch('/admin/security/sessions/' + sessionId + '/revoke', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            showToast('Сессия завершена', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Неизвестная ошибка'), 'error');
+        }
+    })
+    .catch(err => showToast('Ошибка сети: ' + err, 'error'));
+}
+</script>
+{% endblock %}

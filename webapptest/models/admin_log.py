@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON
 from sqlalchemy.sql import func
 from core.database import Base
 
@@ -16,6 +16,7 @@ class AdminLog(Base):
     ip = Column(String(45), nullable=False)                    # IP адрес, с которого пришёл запрос
     user_agent = Column(String(500), nullable=True)            # User-Agent браузера
     timestamp = Column(DateTime, server_default=func.now(), index=True)  # время действия
+    changes = Column(JSON, nullable=True)  # для хранения diff данных
 
     def __repr__(self):
         return f"<AdminLog {self.username} {self.action} at {self.timestamp}>"

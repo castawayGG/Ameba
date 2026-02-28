@@ -1,0 +1,175 @@
+{% extends 'admin/base.html' %}
+{% block title %}Здоровье аккаунтов{% endblock %}
+{% block page_title %}Здоровье аккаунтов{% endblock %}
+
+{% block header_actions %}
+<button onclick="loadHealthStats()" id="refresh-btn" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i class="fa-solid fa-rotate mr-1.5 text-blue-400"></i>Обновить
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stat cards -->
+<div id="stat-cards" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+    {% set stat_defs = [
+        ('active',     'Активные',    'fa-circle-check',           'text-green-400',  'bg-green-900/20',  'text-green-300'),
+        ('banned',     'Забанены',    'fa-ban',                    'text-red-400',    'bg-red-900/20',    'text-red-300'),
+        ('flood_wait', 'Flood Wait',  'fa-hourglass-half',         'text-orange-400', 'bg-orange-900/20', 'text-orange-300'),
+        ('expired',    'Истекли',     'fa-calendar-xmark',         'text-gray-400',   'bg-gray-700/30',   'text-gray-300'),
+        ('2fa',        '2FA',         'fa-lock',                   'text-yellow-400', 'bg-yellow-900/20', 'text-yellow-300'),
+        ('inactive',   'Неактивные',  'fa-moon',                   'text-blue-400',   'bg-blue-900/20',   'text-blue-300'),
+    ] %}
+    {% for key, label, icon, icon_color, bg, text_color in stat_defs %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</span>
+            <div class="w-8 h-8 rounded-lg {{ bg }} flex items-center justify-center">
+                <i class="fa-solid {{ icon }} {{ icon_color }} text-sm"></i>
+            </div>
+        </div>
+        <p id="stat-{{ key }}" class="text-2xl font-bold {{ text_color }}">—</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Chart + At Risk table -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Doughnut chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 flex flex-col items-center">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4 self-start">Распределение</h3>
+        <div class="relative" style="width:220px;height:220px;">
+            <canvas id="health-chart"></canvas>
+            <div id="chart-center" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span id="chart-total" class="text-2xl font-bold text-gray-900 dark:text-white">—</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">всего</span>
+            </div>
+        </div>
+        <div id="chart-legend" class="mt-4 space-y-1.5 w-full text-sm"></div>
+    </div>
+
+    <!-- At Risk table -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i>
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Группа риска</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Телефон</th>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                        <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Последняя активность</th>
+                    </tr>
+                </thead>
+                <tbody id="at-risk-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Загрузка…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let healthChart = null;
+
+const STATUS_COLORS = {
+    active:     '#22c55e',
+    banned:     '#ef4444',
+    flood_wait: '#f97316',
+    expired:    '#6b7280',
+    twofa:      '#eab308',
+    inactive:   '#3b82f6',
+};
+const STATUS_LABELS = {
+    active: 'Активные', banned: 'Забанены', flood_wait: 'Flood Wait',
+    expired: 'Истекли', twofa: '2FA', inactive: 'Неактивные',
+};
+
+function loadHealthStats() {
+    const btn = document.getElementById('refresh-btn');
+    btn.querySelector('i').classList.add('fa-spin');
+
+    fetch('/admin/api/accounts/health_stats')
+        .then(r => r.json())
+        .then(data => {
+            // Update stat cards
+            const keys = ['active', 'banned', 'flood_wait', 'expired', '2fa', 'inactive'];
+            const domKeys = ['active', 'banned', 'flood_wait', 'expired', '2fa', 'inactive'];
+            let total = data.total || 0;
+            keys.forEach((k, i) => {
+                const val = (data.counts && data.counts[k]) || 0;
+                const el = document.getElementById('stat-' + domKeys[i]);
+                if (el) el.textContent = val;
+            });
+            document.getElementById('chart-total').textContent = total;
+
+            // Update chart
+            const vals = keys.map(k => (data.counts && data.counts[k]) || 0);
+            const colors = keys.map(k => STATUS_COLORS[k]);
+
+            if (healthChart) {
+                healthChart.data.datasets[0].data = vals;
+                healthChart.update();
+            } else {
+                healthChart = new Chart(document.getElementById('health-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: keys.map(k => STATUS_LABELS[k]),
+                        datasets: [{data: vals, backgroundColor: colors, borderWidth: 2, borderColor: '#0f1f38', hoverOffset: 6}]
+                    },
+                    options: {
+                        cutout: '72%',
+                        plugins: {legend: {display: false}, tooltip: {callbacks: {label: ctx => ' ' + ctx.label + ': ' + ctx.raw}}},
+                        animation: {duration: 600}
+                    }
+                });
+            }
+
+            // Legend
+            const legend = document.getElementById('chart-legend');
+            legend.innerHTML = keys.map((k, i) => `
+                <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${colors[i]}"></span>
+                        <span class="text-gray-600 dark:text-gray-400">${STATUS_LABELS[k]}</span>
+                    </div>
+                    <span class="font-semibold text-gray-900 dark:text-white">${vals[i]}</span>
+                </div>`).join('');
+
+            // At risk table
+            const tbody = document.getElementById('at-risk-body');
+            const atRisk = data.at_risk || [];
+            if (atRisk.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">Нет аккаунтов в группе риска</td></tr>';
+            } else {
+                tbody.innerHTML = atRisk.map(a => {
+                    const statusColors = {
+                        active: 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300',
+                        banned: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
+                        flood_wait: 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300',
+                        expired: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+                        '2fa': 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300',
+                        inactive: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',
+                    };
+                    const sc = statusColors[a.status] || statusColors.expired;
+                    return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">${a.phone}</td>
+                        <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${sc}">${a.status}</span></td>
+                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">${a.last_active || '—'}</td>
+                    </tr>`;
+                }).join('');
+            }
+        })
+        .catch(err => showToast('Ошибка загрузки статистики: ' + err, 'error'))
+        .finally(() => btn.querySelector('i').classList.remove('fa-spin'));
+}
+
+// Load on page open
+loadHealthStats();
+</script>
+{% endblock %}
