@@ -3,6 +3,9 @@
 {% block page_title %}Детали аккаунта{% endblock %}
 
 {% block header_actions %}
+<a href="{{ url_for('admin.account_download_session', account_id=account.id) }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i class="fa-solid fa-download mr-1.5 text-green-400"></i>Скачать .session
+</a>
 <a href="{{ url_for('admin.accounts') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i class="fa-solid fa-arrow-left mr-1.5"></i>К аккаунтам
 </a>
@@ -11,7 +14,7 @@
 {% block content %}
 <!-- Header card -->
 <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-6 py-5 flex flex-wrap items-center gap-4">
-    <div class="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+    <div class="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0" style="background: linear-gradient(135deg, #10b981, #06b6d4);">
         <i class="fa-brands fa-telegram"></i>
     </div>
     <div class="flex-1 min-w-0">

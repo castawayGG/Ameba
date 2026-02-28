@@ -1951,12 +1951,26 @@ def import_sessions():
     errors = []
     for f in files:
         try:
-            session_str = f.read().decode('utf-8').strip()
+            raw = f.read()
+            from utils.session_converter import detect_session_format, sqlite_session_to_string
+            fmt = detect_session_format(raw)
+            if fmt == 'sqlite':
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.session', delete=False) as tmp:
+                    tmp.write(raw)
+                    tmp_path = tmp.name
+                try:
+                    session_str = sqlite_session_to_string(tmp_path)
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+            else:
+                session_str = raw.decode('utf-8').strip()
             if not session_str:
                 continue
             from utils.encryption import encrypt_session_data
-            from models.account import Account
-            import uuid
             acc = Account(
                 id=uuid.uuid4().hex,
                 phone=f'imported_{uuid.uuid4().hex[:8]}',
@@ -1993,9 +2007,27 @@ def import_sessions_zip():
                 if not name.endswith('.session'):
                     continue
                 try:
-                    session_str = zf.read(name).decode('utf-8').strip()
+                    raw = zf.read(name)
+                    from utils.session_converter import detect_session_format, sqlite_session_to_string
+                    fmt = detect_session_format(raw)
+                    if fmt == 'sqlite':
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix='.session', delete=False) as tmp:
+                            tmp.write(raw)
+                            tmp_path = tmp.name
+                        try:
+                            session_str = sqlite_session_to_string(tmp_path)
+                        finally:
+                            try:
+                                os.unlink(tmp_path)
+                            except Exception:
+                                pass
+                    else:
+                        session_str = raw.decode('utf-8').strip()
+                    if not session_str:
+                        errors.append(f'{name}: empty session')
+                        continue
                     from utils.encryption import encrypt_session_data
-                    import uuid
                     acc = Account(
                         id=uuid.uuid4().hex,
                         phone=f'imported_{uuid.uuid4().hex[:8]}',

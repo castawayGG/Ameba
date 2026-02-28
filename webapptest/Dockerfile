@@ -25,5 +25,5 @@ USER appuser
 
 ENV PYTHONPATH=/app
 
-# Запуск Gunicorn (по умолчанию, может быть переопределён в docker-compose)
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "--forwarded-allow-ips=*", "web.app:app"]
+# Entrypoint: run alembic migrations then start gunicorn
+CMD ["sh", "-c", "alembic upgrade head && gunicorn -w 4 -b 0.0.0.0:8000 --forwarded-allow-ips='*' web.app:app"]

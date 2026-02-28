@@ -3,6 +3,9 @@
 {% block page_title %}Прокси{% endblock %}
 
 {% block header_actions %}
+<button onclick="bulkCheckProxies()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" id="bulk-check-btn">
+    <i class="fa-solid fa-magnifying-glass mr-1.5 text-yellow-400"></i>Проверить все
+</button>
 <button onclick="openModal('autoLoadModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i class="fa-solid fa-cloud-arrow-down mr-1.5 text-blue-400"></i>Авто-загрузка
 </button>
@@ -226,6 +229,26 @@ async function saveDesc(input) {
     input.classList.add('hidden'); span.classList.remove('hidden');
     span.textContent = description || '+ описание';
     await fetch(`/admin/proxies/${id}/update_description`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({description})});
+}
+
+async function bulkCheckProxies() {
+    const btn = document.getElementById('bulk-check-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Запуск...';
+    try {
+        const res = await fetch('/admin/proxies/bulk_check', {method: 'POST'});
+        const data = await res.json();
+        if (data.success) {
+            showToast('Проверка всех прокси запущена', 'success');
+        } else {
+            showToast('Ошибка: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1.5 text-yellow-400"></i>Проверить все';
+    }
 }
 </script>
 {% endblock %}
