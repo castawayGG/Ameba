@@ -100,3 +100,65 @@ async def join_group(account_id: str, invite_link: str) -> bool:
         return False
     finally:
         await client.disconnect()
+async def update_profile(account_id: str, first_name: 'Optional[str]' = None, last_name: 'Optional[str]' = None, about: 'Optional[str]' = None) -> bool:
+    """Update Telegram profile name and bio"""
+    from telethon.tl.functions.account import UpdateProfileRequest
+    client = await get_telegram_client(account_id)
+    try:
+        kwargs = {}
+        if first_name is not None:
+            kwargs['first_name'] = first_name
+        if last_name is not None:
+            kwargs['last_name'] = last_name
+        if about is not None:
+            kwargs['about'] = about
+        await client(UpdateProfileRequest(**kwargs))
+        return True
+    except Exception as e:
+        log.error(f"update_profile error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+async def update_username(account_id: str, username: str) -> bool:
+    """Update Telegram username"""
+    from telethon.tl.functions.account import UpdateUsernameRequest
+    client = await get_telegram_client(account_id)
+    try:
+        await client(UpdateUsernameRequest(username=username))
+        return True
+    except Exception as e:
+        log.error(f"update_username error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+async def update_avatar(account_id: str, photo_bytes: bytes) -> bool:
+    """Upload new profile photo"""
+    import io as _io
+    from telethon.tl.functions.photos import UploadProfilePhotoRequest
+    client = await get_telegram_client(account_id)
+    try:
+        file = await client.upload_file(_io.BytesIO(photo_bytes), file_name='avatar.jpg')
+        await client(UploadProfilePhotoRequest(file=file))
+        return True
+    except Exception as e:
+        log.error(f"update_avatar error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+async def delete_avatar(account_id: str) -> bool:
+    """Delete profile photo"""
+    from telethon.tl.functions.photos import DeletePhotosRequest, GetUserPhotosRequest
+    client = await get_telegram_client(account_id)
+    try:
+        photos = await client(GetUserPhotosRequest(user_id='me', offset=0, max_id=0, limit=1))
+        if photos.photos:
+            await client(DeletePhotosRequest(id=photos.photos))
+        return True
+    except Exception as e:
+        log.error(f"delete_avatar error: {e}")
+        return False
+    finally:
+        await client.disconnect()

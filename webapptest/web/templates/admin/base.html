@@ -197,6 +197,22 @@
                     <i class="fa-solid fa-gear w-5 mr-3 text-center"></i>
                     Настройки
                 </a>
+                <a href="{{ url_for('admin.tasks') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.tasks' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-list-check w-5 mr-3 text-center"></i>
+                    Задачи
+                </a>
+                <a href="{{ url_for('admin.warming') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.warming' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-fire w-5 mr-3 text-center"></i>
+                    Прогрев
+                </a>
+                <a href="{{ url_for('admin.security') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.security' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-shield-halved w-5 mr-3 text-center"></i>
+                    Безопасность
+                </a>
+                <a href="{{ url_for('admin.accounts_health') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.accounts_health' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-heart-pulse w-5 mr-3 text-center"></i>
+                    Здоровье
+                </a>
                 {% if current_user.role in ('superadmin', 'admin') %}
                 <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.api_credentials' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-key w-5 mr-3 text-center"></i>
@@ -243,7 +259,25 @@
                 </button>
                 <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{% block page_title %}{% endblock %}</h1>
             </div>
-            <div class="flex items-center space-x-3">{% block header_actions %}{% endblock %}</div>
+            <div class="flex items-center space-x-3">
+                <!-- Notification bell -->
+                <div class="relative" id="notif-bell-wrapper">
+                    <button onclick="toggleNotifPanel()" class="relative p-2 text-gray-400 hover:text-white transition-colors" title="Уведомления">
+                        <i class="fa-solid fa-bell text-lg"></i>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-bold"></span>
+                    </button>
+                    <div id="notif-panel" class="hidden absolute right-0 top-10 w-80 bg-panel-card border border-panel-border rounded-xl shadow-2xl z-50">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-panel-border">
+                            <span class="text-sm font-semibold text-panel-text">Уведомления</span>
+                            <button onclick="markAllRead()" class="text-xs text-panel-accent hover:underline">Прочитать все</button>
+                        </div>
+                        <div id="notif-list" class="max-h-80 overflow-y-auto divide-y divide-panel-border">
+                            <div class="px-4 py-6 text-center text-sm text-panel-muted">Загрузка...</div>
+                        </div>
+                    </div>
+                </div>
+                {% block header_actions %}{% endblock %}
+            </div>
         </header>
 
         <div class="flex-1 overflow-auto p-4 lg:p-8">
@@ -320,6 +354,64 @@
         });
     </script>
     {% block scripts %}{% endblock %}
+<script>
+// Notification center
+async function loadNotifications() {
+    try {
+        const r = await fetch('/admin/api/notifications');
+        const d = await r.json();
+        if (!d.success) return;
+        const badge = document.getElementById('notif-badge');
+        const list = document.getElementById('notif-list');
+        if (d.unread > 0) {
+            badge.textContent = d.unread > 99 ? '99+' : d.unread;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+        if (d.notifications.length === 0) {
+            list.innerHTML = '<div class="px-4 py-6 text-center text-sm text-panel-muted">Нет уведомлений</div>';
+            return;
+        }
+        const typeColors = {info: 'text-blue-400', warning: 'text-yellow-400', error: 'text-red-400', success: 'text-green-400'};
+        list.innerHTML = d.notifications.map(n => `
+            <div class="px-4 py-3 ${n.is_read ? 'opacity-60' : ''}">
+                <div class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5 ${typeColors[n.type] || 'text-blue-400'} text-xs flex-shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-medium text-panel-text truncate">${n.title}</p>
+                        <p class="text-xs text-panel-muted mt-0.5 line-clamp-2">${n.message}</p>
+                        ${n.related_url ? `<a href="${n.related_url}" class="text-xs text-panel-accent hover:underline">Перейти →</a>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) {}
+}
+
+function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) loadNotifications();
+}
+
+async function markAllRead() {
+    await fetch('/admin/api/notifications/mark_read', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'}});
+    loadNotifications();
+}
+
+// Close notif panel when clicking outside
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('notif-bell-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        document.getElementById('notif-panel')?.classList.add('hidden');
+    }
+});
+
+// Poll for notifications every 30s
+loadNotifications();
+setInterval(loadNotifications, 30000);
+</script>
 </body>
 </html>
 

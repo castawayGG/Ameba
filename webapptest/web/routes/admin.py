@@ -261,9 +261,11 @@ def accounts():
 
     accounts_paginated = db.paginate(stmt, page=page, per_page=per_page)
     proxies = db.session.execute(select(Proxy).filter_by(enabled=True)).scalars().all()
+    tags = db.session.execute(select(Tag)).scalars().all()
     return render_template('admin/accounts.html',
                            accounts=accounts_paginated,
                            proxies=proxies,
+                           tags=tags,
                            phone_filter=phone_filter,
                            status_filter=status_filter)
 
@@ -1362,7 +1364,7 @@ def revoke_session(session_id):
 
 
 # --- ACCOUNT DETAIL ---
-@admin_bp.route('/accounts/<account_id>/detail')
+@admin_bp.route('/accounts/<account_id>')
 @login_required
 def account_detail_page(account_id):
     account = db.session.query(Account).filter(Account.id == account_id).first()
@@ -1374,7 +1376,9 @@ def account_detail_page(account_id):
     page = request.args.get('page', 1, type=int)
     logs = logs_q.paginate(page=page, per_page=20, error_out=False)
     proxies = db.session.query(Proxy).filter(Proxy.enabled == True).all()
-    return render_template('admin/account_detail.html', account=account, logs=logs, proxies=proxies)
+    scenarios = db.session.query(WarmingScenario).all()
+    return render_template('admin/account_detail.html', account=account, logs=logs,
+                           proxies=proxies, scenarios=scenarios, warming_scenarios=scenarios)
 
 
 # --- ACCOUNT ACTIONS ---
@@ -1888,7 +1892,7 @@ def campaign_detail(campaign_id):
 @admin_required
 def campaign_create():
     data = request.get_json()
-    targets_raw = data.get('target_list', [])
+    targets_raw = data.get('targets', data.get('target_list', []))
     if isinstance(targets_raw, str):
         targets = [t.strip() for t in targets_raw.split('\n') if t.strip()]
     else:
@@ -2013,3 +2017,61 @@ def import_sessions_zip():
         return jsonify({'success': False, 'error': str(e)})
     log_action('import_sessions_zip', f'imported={imported}')
     return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
+@admin_bp.route('/accounts/<account_id>/update_profile', methods=['POST'])
+@login_required
+@admin_required
+def account_update_profile(account_id):
+    data = request.get_json()
+    try:
+        import asyncio
+        from services.telegram.actions import update_profile, update_username
+        if any(k in data for k in ('first_name', 'last_name', 'about')):
+            asyncio.run(update_profile(
+                account_id,
+                first_name=data.get('first_name'),
+                last_name=data.get('last_name'),
+                about=data.get('about')
+            ))
+        if 'username' in data:
+            asyncio.run(update_username(account_id, data['username']))
+        account = db.session.query(Account).filter(Account.id == account_id).first()
+        if account:
+            if 'first_name' in data: account.first_name = data['first_name']
+            if 'last_name' in data: account.last_name = data['last_name']
+            if 'username' in data: account.username = data['username']
+            db.session.commit()
+        log_action('update_profile', f'account={account_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/update_avatar', methods=['POST'])
+@login_required
+@admin_required
+def account_update_avatar(account_id):
+    file = request.files.get('photo')
+    if not file:
+        return jsonify({'success': False, 'error': 'No photo file'})
+    try:
+        import asyncio
+        from services.telegram.actions import update_avatar
+        photo_bytes = file.read()
+        success = asyncio.run(update_avatar(account_id, photo_bytes))
+        log_action('update_avatar', f'account={account_id}')
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/accounts/<account_id>/delete_avatar', methods=['POST'])
+@login_required
+@admin_required
+def account_delete_avatar(account_id):
+    try:
+        import asyncio
+        from services.telegram.actions import delete_avatar
+        success = asyncio.run(delete_avatar(account_id))
+        log_action('delete_avatar', f'account={account_id}')
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
