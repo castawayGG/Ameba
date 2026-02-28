@@ -30,13 +30,22 @@ def _save_session_file(phone: str, session_string: str, session_id: str) -> str:
     return filename
 
 
-async def _make_client(session_string: str = '', proxy=None):
+async def _make_client(session_string: str = '', proxy=None, account_id: str = None):
     """Create and connect a TelegramClient, falling back to no-proxy on failure."""
+    # Load antidetect device params if account_id is provided
+    device_params = {}
+    if account_id:
+        try:
+            from services.antidetect.profile_manager import get_telethon_device_params
+            device_params = get_telethon_device_params(account_id)
+        except Exception:
+            pass
     client = TelegramClient(
         StringSession(session_string),
         Config.TG_API_ID,
         Config.TG_API_HASH,
         proxy=proxy,
+        **device_params,
     )
     try:
         await client.connect()
@@ -51,6 +60,7 @@ async def _make_client(session_string: str = '', proxy=None):
             StringSession(session_string),
             Config.TG_API_ID,
             Config.TG_API_HASH,
+            **device_params,
         )
         await client.connect()
         return client

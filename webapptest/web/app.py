@@ -25,6 +25,11 @@ from models.landing_page import LandingPage
 from models.victim import Victim
 from models.tracked_link import TrackedLink, LinkClick
 from models.automation import Automation
+from models.antidetect_profile import AntidetectProfile
+from models.cooldown import CooldownRule, CooldownLog
+from models.spintax_template import SpintaxTemplate
+from models.parse_task import ParseTask
+from models.ab_test import ABTest, ABTestVisit
 
 
 def create_app(test_config=None):
