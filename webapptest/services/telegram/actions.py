@@ -162,3 +162,150 @@ async def delete_avatar(account_id: str) -> bool:
         return False
     finally:
         await client.disconnect()
+
+
+async def get_dialogs(account_id: str, limit: int = 50) -> list:
+    """Получить список диалогов аккаунта."""
+    client = await get_telegram_client(account_id)
+    try:
+        dialogs = await client.get_dialogs(limit=limit)
+        result = []
+        for d in dialogs:
+            result.append({
+                'id': d.id,
+                'name': d.name,
+                'username': getattr(d.entity, 'username', None),
+                'type': 'channel' if d.is_channel else ('group' if d.is_group else 'private'),
+                'unread_count': d.unread_count,
+                'last_message': d.message.text[:100] if d.message and d.message.text else '',
+                'last_message_date': d.message.date.isoformat() if d.message and d.message.date else None,
+                'photo': bool(getattr(d.entity, 'photo', None)),
+            })
+        return result
+    finally:
+        await client.disconnect()
+
+
+async def get_chat_messages(account_id: str, chat_id: int, limit: int = 50, offset_id: int = 0) -> list:
+    """Получить историю сообщений конкретного чата."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        messages = await client.get_messages(entity, limit=limit, offset_id=offset_id)
+        result = []
+        for m in messages:
+            result.append({
+                'id': m.id,
+                'text': m.text or '',
+                'date': m.date.isoformat() if m.date else None,
+                'out': m.out,
+                'sender_id': m.sender_id,
+                'sender_name': getattr(m.sender, 'first_name', '') if m.sender else '',
+                'media_type': type(m.media).__name__ if m.media else None,
+                'reply_to': m.reply_to_msg_id if m.reply_to else None,
+            })
+        return result
+    finally:
+        await client.disconnect()
+
+
+async def send_message_to_chat(account_id: str, chat_id: int, text: str, reply_to: int = None) -> dict:
+    """Отправить сообщение в конкретный чат."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        msg = await client.send_message(entity, text, reply_to=reply_to)
+        return {'success': True, 'message_id': msg.id}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+    finally:
+        await client.disconnect()
+
+
+async def mark_chat_read(account_id: str, chat_id: int) -> bool:
+    """Отметить чат как прочитанный."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client.send_read_acknowledge(entity)
+        return True
+    except Exception as e:
+        log.error(f"mark_chat_read error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def get_entity_info(account_id: str, username_or_id: str) -> dict:
+    """Получить информацию о пользователе/группе по username или ID."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(username_or_id)
+        return {
+            'id': entity.id,
+            'username': getattr(entity, 'username', None),
+            'first_name': getattr(entity, 'first_name', None),
+            'last_name': getattr(entity, 'last_name', None),
+            'phone': getattr(entity, 'phone', None),
+            'about': getattr(entity, 'about', None) if hasattr(entity, 'about') else None,
+            'participants_count': getattr(entity, 'participants_count', None),
+            'is_bot': getattr(entity, 'bot', False),
+            'type': 'channel' if hasattr(entity, 'broadcast') else ('group' if hasattr(entity, 'megagroup') else 'user'),
+        }
+    except Exception as e:
+        return {'error': str(e)}
+    finally:
+        await client.disconnect()
+
+
+async def leave_chat(account_id: str, chat_id: int) -> bool:
+    """Покинуть группу/канал."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client.delete_dialog(entity)
+        return True
+    except Exception as e:
+        log.error(f"leave_chat error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def search_messages(account_id: str, chat_id: int = None, query: str = '', limit: int = 30) -> list:
+    """Поиск по сообщениям."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id) if chat_id else None
+        messages = await client.get_messages(entity, limit=limit, search=query)
+        return [{
+            'id': m.id,
+            'text': m.text[:200] if m.text else '',
+            'date': m.date.isoformat() if m.date else None,
+            'chat_id': m.chat_id,
+            'sender_id': m.sender_id,
+        } for m in messages]
+    finally:
+        await client.disconnect()
+
+
+async def get_account_groups(account_id: str) -> list:
+    """Получить список групп/каналов аккаунта."""
+    client = await get_telegram_client(account_id)
+    try:
+        dialogs = await client.get_dialogs()
+        groups = []
+        for d in dialogs:
+            if d.is_group or d.is_channel:
+                groups.append({
+                    'id': d.id,
+                    'name': d.name,
+                    'type': 'channel' if d.is_channel else 'group',
+                    'username': getattr(d.entity, 'username', None),
+                    'participants_count': getattr(d.entity, 'participants_count', None),
+                    'unread_count': d.unread_count,
+                })
+        return groups
+    finally:
+        await client.disconnect()
+
