@@ -2075,3 +2075,781 @@ def account_delete_avatar(account_id):
         return jsonify({'success': success})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# TELEGRAM EVENT FEED
+# ==========================================
+@admin_bp.route('/events')
+@login_required
+def events():
+    from models.account import Account as AccountModel
+    accounts = db.session.query(AccountModel).filter(AccountModel.status == 'active').order_by(AccountModel.phone).all()
+    return render_template('admin/events.html', accounts=accounts)
+
+
+@admin_bp.route('/api/events')
+@login_required
+def api_events():
+    from models.telegram_event import TelegramEvent
+    page = int(request.args.get('page', 1))
+    limit = min(int(request.args.get('limit', 50)), 200)
+    event_type = request.args.get('event_type', '')
+    account_id = request.args.get('account_id', '')
+    unread_only = request.args.get('unread_only', '') == '1'
+    q = db.session.query(TelegramEvent)
+    if event_type:
+        q = q.filter(TelegramEvent.event_type == event_type)
+    if account_id:
+        q = q.filter(TelegramEvent.account_id == account_id)
+    if unread_only:
+        q = q.filter(TelegramEvent.is_read == False)
+    q = q.order_by(desc(TelegramEvent.created_at))
+    total = q.count()
+    items = q.offset((page - 1) * limit).limit(limit).all()
+    return jsonify({'success': True, 'total': total, 'events': [{
+        'id': e.id,
+        'account_id': e.account_id,
+        'event_type': e.event_type,
+        'sender_username': e.sender_username,
+        'sender_name': e.sender_name,
+        'chat_title': e.chat_title,
+        'chat_type': e.chat_type,
+        'text_preview': e.text_preview,
+        'media_type': e.media_type,
+        'is_read': e.is_read,
+        'created_at': e.created_at.isoformat() if e.created_at else None,
+    } for e in items]})
+
+
+@admin_bp.route('/api/events/stream')
+@login_required
+def api_events_stream():
+    from flask import Response
+    from models.telegram_event import TelegramEvent
+    import time
+    last_id = request.args.get('last_id', 0, type=int)
+
+    def generate():
+        nonlocal last_id
+        while True:
+            try:
+                new_events = db.session.query(TelegramEvent).filter(
+                    TelegramEvent.id > last_id
+                ).order_by(TelegramEvent.id).limit(20).all()
+                db.session.expire_all()
+                for ev in new_events:
+                    last_id = ev.id
+                    data = {
+                        'id': ev.id,
+                        'account_id': ev.account_id,
+                        'event_type': ev.event_type,
+                        'sender_username': ev.sender_username,
+                        'sender_name': ev.sender_name,
+                        'chat_title': ev.chat_title,
+                        'text_preview': ev.text_preview,
+                        'is_read': ev.is_read,
+                        'created_at': ev.created_at.isoformat() if ev.created_at else None,
+                    }
+                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                if not new_events:
+                    yield ": keepalive\n\n"
+            except Exception as e:
+                log.error(f"SSE stream error: {e}")
+                yield ": error\n\n"
+            time.sleep(4)
+
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@admin_bp.route('/api/events/<int:event_id>/mark_read', methods=['POST'])
+@login_required
+def api_event_mark_read(event_id):
+    from models.telegram_event import TelegramEvent
+    ev = db.session.query(TelegramEvent).filter(TelegramEvent.id == event_id).first()
+    if not ev:
+        return jsonify({'success': False, 'error': 'Not found'})
+    ev.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/events/stats')
+@login_required
+def api_events_stats():
+    from models.telegram_event import TelegramEvent
+    import datetime as dt
+    today = dt.date.today()
+    today_start = dt.datetime.combine(today, dt.time.min)
+    by_type = db.session.query(TelegramEvent.event_type, func.count(TelegramEvent.id)).group_by(TelegramEvent.event_type).all()
+    total_today = db.session.query(func.count(TelegramEvent.id)).filter(TelegramEvent.created_at >= today_start).scalar() or 0
+    unread = db.session.query(func.count(TelegramEvent.id)).filter(TelegramEvent.is_read == False).scalar() or 0
+    return jsonify({'success': True, 'by_type': dict(by_type), 'today': total_today, 'unread': unread})
+
+
+# ==========================================
+# INBOX
+# ==========================================
+@admin_bp.route('/inbox')
+@login_required
+def inbox():
+    from models.account import Account as AccountModel
+    accounts = db.session.query(AccountModel).filter(AccountModel.status == 'active').order_by(AccountModel.phone).all()
+    return render_template('admin/inbox.html', accounts=accounts)
+
+
+@admin_bp.route('/api/inbox')
+@login_required
+def api_inbox():
+    from models.incoming_message import IncomingMessage
+    page = int(request.args.get('page', 1))
+    limit = min(int(request.args.get('limit', 50)), 200)
+    account_id = request.args.get('account_id', '')
+    sender = request.args.get('sender', '')
+    is_read = request.args.get('is_read', '')
+    q = db.session.query(IncomingMessage).filter(IncomingMessage.is_outgoing == False)
+    if account_id:
+        q = q.filter(IncomingMessage.account_id == account_id)
+    if sender:
+        q = q.filter(or_(IncomingMessage.sender_username.ilike(f'%{sender}%'), IncomingMessage.sender_name.ilike(f'%{sender}%')))
+    if is_read == '0':
+        q = q.filter(IncomingMessage.is_read == False)
+    elif is_read == '1':
+        q = q.filter(IncomingMessage.is_read == True)
+    q = q.order_by(desc(IncomingMessage.created_at))
+    total = q.count()
+    items = q.offset((page - 1) * limit).limit(limit).all()
+    return jsonify({'success': True, 'total': total, 'messages': [{
+        'id': m.id,
+        'account_id': m.account_id,
+        'sender_tg_id': m.sender_tg_id,
+        'sender_username': m.sender_username,
+        'sender_name': m.sender_name,
+        'chat_id': m.chat_id,
+        'chat_type': m.chat_type,
+        'chat_title': m.chat_title,
+        'text': m.text,
+        'media_type': m.media_type,
+        'is_read': m.is_read,
+        'created_at': m.created_at.isoformat() if m.created_at else None,
+    } for m in items]})
+
+
+@admin_bp.route('/api/inbox/<int:msg_id>/mark_read', methods=['POST'])
+@login_required
+def api_inbox_mark_read(msg_id):
+    from models.incoming_message import IncomingMessage
+    msg = db.session.query(IncomingMessage).filter(IncomingMessage.id == msg_id).first()
+    if not msg:
+        return jsonify({'success': False, 'error': 'Not found'})
+    msg.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/inbox/unread_count')
+@login_required
+def api_inbox_unread_count():
+    from models.incoming_message import IncomingMessage
+    count = db.session.query(func.count(IncomingMessage.id)).filter(
+        IncomingMessage.is_read == False,
+        IncomingMessage.is_outgoing == False
+    ).scalar() or 0
+    return jsonify({'success': True, 'count': count})
+
+
+# ==========================================
+# MINI-MESSENGER (per account)
+# ==========================================
+@admin_bp.route('/accounts/<account_id>/dialogs')
+@login_required
+@admin_required
+def account_dialogs(account_id):
+    try:
+        import asyncio
+        from services.telegram.actions import get_dialogs
+        result = asyncio.run(get_dialogs(account_id))
+        return jsonify({'success': True, 'dialogs': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/messages')
+@login_required
+@admin_required
+def account_chat_messages(account_id, chat_id):
+    try:
+        import asyncio
+        from services.telegram.actions import get_chat_messages
+        limit = int(request.args.get('limit', 50))
+        offset_id = int(request.args.get('offset_id', 0))
+        result = asyncio.run(get_chat_messages(account_id, chat_id, limit=limit, offset_id=offset_id))
+        return jsonify({'success': True, 'messages': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/send', methods=['POST'])
+@login_required
+@admin_required
+def account_chat_send(account_id, chat_id):
+    data = request.get_json()
+    text = data.get('text', '')
+    reply_to = data.get('reply_to')
+    if not text:
+        return jsonify({'success': False, 'error': 'text required'})
+    try:
+        import asyncio
+        from services.telegram.actions import send_message_to_chat
+        result = asyncio.run(send_message_to_chat(account_id, chat_id, text, reply_to=reply_to))
+        log_action('send_message', f'account={account_id} chat={chat_id}')
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/read', methods=['POST'])
+@login_required
+@admin_required
+def account_chat_read(account_id, chat_id):
+    try:
+        import asyncio
+        from services.telegram.actions import mark_chat_read
+        result = asyncio.run(mark_chat_read(account_id, chat_id))
+        log_action('mark_chat_read', f'account={account_id} chat={chat_id}')
+        return jsonify({'success': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/groups')
+@login_required
+@admin_required
+def account_groups(account_id):
+    try:
+        import asyncio
+        from services.telegram.actions import get_account_groups
+        result = asyncio.run(get_account_groups(account_id))
+        return jsonify({'success': True, 'groups': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/groups/<int:group_id>/leave', methods=['POST'])
+@login_required
+@admin_required
+def account_group_leave(account_id, group_id):
+    try:
+        import asyncio
+        from services.telegram.actions import leave_chat
+        result = asyncio.run(leave_chat(account_id, group_id))
+        log_action('leave_group', f'account={account_id} group={group_id}')
+        return jsonify({'success': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/search_messages')
+@login_required
+@admin_required
+def account_search_messages(account_id):
+    query = request.args.get('q', '')
+    chat_id = request.args.get('chat_id', None, type=int)
+    try:
+        import asyncio
+        from services.telegram.actions import search_messages
+        result = asyncio.run(search_messages(account_id, chat_id=chat_id, query=query))
+        return jsonify({'success': True, 'messages': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/entity/<username>')
+@login_required
+@admin_required
+def account_entity_info(account_id, username):
+    try:
+        import asyncio
+        from services.telegram.actions import get_entity_info
+        result = asyncio.run(get_entity_info(account_id, username))
+        return jsonify({'success': True, 'entity': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# ALERT RULES
+# ==========================================
+@admin_bp.route('/alerts')
+@login_required
+def alerts():
+    return render_template('admin/alerts.html')
+
+
+@admin_bp.route('/api/alerts')
+@login_required
+def api_alerts_list():
+    from models.alert_rule import AlertRule
+    rules = db.session.query(AlertRule).order_by(desc(AlertRule.created_at)).all()
+    return jsonify({'success': True, 'rules': [{
+        'id': r.id,
+        'name': r.name,
+        'event_type': r.event_type,
+        'condition': r.condition,
+        'action': r.action,
+        'action_params': r.action_params,
+        'is_active': r.is_active,
+        'created_at': r.created_at.isoformat() if r.created_at else None,
+    } for r in rules]})
+
+
+@admin_bp.route('/api/alerts', methods=['POST'])
+@login_required
+@admin_required
+def api_alerts_create():
+    from models.alert_rule import AlertRule
+    data = request.get_json()
+    rule = AlertRule(
+        name=data.get('name', ''),
+        event_type=data.get('event_type', 'any'),
+        condition=data.get('condition'),
+        action=data.get('action', 'notify_panel'),
+        action_params=data.get('action_params'),
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+    )
+    db.session.add(rule)
+    db.session.commit()
+    log_action('create_alert_rule', f'name={rule.name}')
+    return jsonify({'success': True, 'id': rule.id})
+
+
+@admin_bp.route('/api/alerts/<int:rule_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_alerts_update(rule_id):
+    from models.alert_rule import AlertRule
+    rule = db.session.query(AlertRule).filter(AlertRule.id == rule_id).first()
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'})
+    data = request.get_json()
+    for field in ('name', 'event_type', 'condition', 'action', 'action_params', 'is_active'):
+        if field in data:
+            setattr(rule, field, data[field])
+    db.session.commit()
+    log_action('update_alert_rule', f'id={rule_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/alerts/<int:rule_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_alerts_delete(rule_id):
+    from models.alert_rule import AlertRule
+    rule = db.session.query(AlertRule).filter(AlertRule.id == rule_id).first()
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(rule)
+    db.session.commit()
+    log_action('delete_alert_rule', f'id={rule_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/alerts/<int:rule_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def api_alerts_toggle(rule_id):
+    from models.alert_rule import AlertRule
+    rule = db.session.query(AlertRule).filter(AlertRule.id == rule_id).first()
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'})
+    rule.is_active = not rule.is_active
+    db.session.commit()
+    log_action('toggle_alert_rule', f'id={rule_id} active={rule.is_active}')
+    return jsonify({'success': True, 'is_active': rule.is_active})
+
+
+@admin_bp.route('/api/forward_rules')
+@login_required
+def api_forward_rules_list():
+    from models.forward_rule import ForwardRule
+    rules = db.session.query(ForwardRule).order_by(desc(ForwardRule.created_at)).all()
+    return jsonify({'success': True, 'rules': [{
+        'id': r.id,
+        'account_id': r.account_id,
+        'filter_type': r.filter_type,
+        'filter_value': r.filter_value,
+        'destination_type': r.destination_type,
+        'destination_value': r.destination_value,
+        'is_active': r.is_active,
+    } for r in rules]})
+
+
+@admin_bp.route('/api/forward_rules', methods=['POST'])
+@login_required
+@admin_required
+def api_forward_rules_create():
+    from models.forward_rule import ForwardRule
+    data = request.get_json()
+    rule = ForwardRule(
+        account_id=data.get('account_id'),
+        filter_type=data.get('filter_type', 'all'),
+        filter_value=data.get('filter_value'),
+        destination_type=data.get('destination_type', 'admin_panel'),
+        destination_value=data.get('destination_value'),
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+    )
+    db.session.add(rule)
+    db.session.commit()
+    log_action('create_forward_rule', f'dest={rule.destination_type}')
+    return jsonify({'success': True, 'id': rule.id})
+
+
+@admin_bp.route('/api/forward_rules/<int:rule_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_forward_rules_delete(rule_id):
+    from models.forward_rule import ForwardRule
+    rule = db.session.query(ForwardRule).filter(ForwardRule.id == rule_id).first()
+    if not rule:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(rule)
+    db.session.commit()
+    log_action('delete_forward_rule', f'id={rule_id}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# TEAM
+# ==========================================
+@admin_bp.route('/team')
+@login_required
+def team():
+    from models.user_session import UserSession
+    from models.team import Announcement
+    import datetime as dt
+    five_min_ago = dt.datetime.utcnow() - dt.timedelta(minutes=5)
+    online_sessions = db.session.query(UserSession).filter(UserSession.last_active >= five_min_ago).all()
+    online_user_ids = list({s.user_id for s in online_sessions})
+    online_users = db.session.query(User).filter(User.id.in_(online_user_ids)).all() if online_user_ids else []
+    now = dt.datetime.utcnow()
+    announcements = db.session.query(Announcement).filter(
+        or_(Announcement.expires_at.is_(None), Announcement.expires_at > now)
+    ).order_by(desc(Announcement.is_pinned), desc(Announcement.created_at)).limit(10).all()
+    recent_logs = db.session.query(AdminLog).order_by(desc(AdminLog.timestamp)).limit(20).all()
+    return render_template('admin/team.html', online_users=online_users, announcements=announcements, recent_logs=recent_logs)
+
+
+@admin_bp.route('/team/tasks')
+@login_required
+def team_tasks():
+    from models.team import TeamTask
+    users = db.session.query(User).filter(User.is_active == True).all()
+    tasks_todo = db.session.query(TeamTask).filter(TeamTask.status == 'todo').order_by(desc(TeamTask.created_at)).all()
+    tasks_inprog = db.session.query(TeamTask).filter(TeamTask.status == 'in_progress').order_by(desc(TeamTask.created_at)).all()
+    tasks_done = db.session.query(TeamTask).filter(TeamTask.status == 'done').order_by(desc(TeamTask.created_at)).all()
+    return render_template('admin/team_tasks.html', users=users, tasks_todo=tasks_todo, tasks_inprog=tasks_inprog, tasks_done=tasks_done)
+
+
+@admin_bp.route('/api/team/tasks', methods=['POST'])
+@login_required
+@admin_required
+def api_team_task_create():
+    from models.team import TeamTask
+    import datetime as dt
+    data = request.get_json()
+    due_date = None
+    if data.get('due_date'):
+        try:
+            due_date = dt.datetime.fromisoformat(data['due_date'])
+        except Exception:
+            pass
+    task = TeamTask(
+        title=data.get('title', ''),
+        description=data.get('description'),
+        assigned_to=data.get('assigned_to'),
+        created_by=current_user.id,
+        status=data.get('status', 'todo'),
+        priority=data.get('priority', 'medium'),
+        due_date=due_date,
+        related_entity_type=data.get('related_entity_type'),
+        related_entity_id=data.get('related_entity_id'),
+    )
+    db.session.add(task)
+    db.session.commit()
+    log_action('create_team_task', f'title={task.title}')
+    return jsonify({'success': True, 'id': task.id})
+
+
+@admin_bp.route('/api/team/tasks/<int:task_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_team_task_update(task_id):
+    from models.team import TeamTask
+    task = db.session.query(TeamTask).filter(TeamTask.id == task_id).first()
+    if not task:
+        return jsonify({'success': False, 'error': 'Not found'})
+    data = request.get_json()
+    for field in ('title', 'description', 'status', 'priority', 'assigned_to', 'related_entity_type', 'related_entity_id'):
+        if field in data:
+            setattr(task, field, data[field])
+    if 'due_date' in data and data['due_date']:
+        import datetime as dt
+        try:
+            task.due_date = dt.datetime.fromisoformat(data['due_date'])
+        except Exception:
+            pass
+    db.session.commit()
+    log_action('update_team_task', f'id={task_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/team/tasks/<int:task_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_team_task_delete(task_id):
+    from models.team import TeamTask
+    task = db.session.query(TeamTask).filter(TeamTask.id == task_id).first()
+    if not task:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(task)
+    db.session.commit()
+    log_action('delete_team_task', f'id={task_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/team/activity')
+@login_required
+def api_team_activity():
+    logs = db.session.query(AdminLog).order_by(desc(AdminLog.timestamp)).limit(50).all()
+    return jsonify({'success': True, 'activity': [{
+        'id': l.id,
+        'username': l.username,
+        'action': l.action,
+        'details': l.details,
+        'ip': l.ip,
+        'timestamp': l.timestamp.isoformat() if l.timestamp else None,
+    } for l in logs]})
+
+
+@admin_bp.route('/api/comments', methods=['POST'])
+@login_required
+@admin_required
+def api_comments_create():
+    from models.team import Comment
+    data = request.get_json()
+    comment = Comment(
+        user_id=current_user.id,
+        entity_type=data.get('entity_type', ''),
+        entity_id=str(data.get('entity_id', '')),
+        text=data.get('text', ''),
+    )
+    db.session.add(comment)
+    db.session.commit()
+    log_action('add_comment', f'{comment.entity_type}:{comment.entity_id}')
+    return jsonify({'success': True, 'id': comment.id})
+
+
+@admin_bp.route('/api/comments/<entity_type>/<entity_id>')
+@login_required
+def api_comments_get(entity_type, entity_id):
+    from models.team import Comment
+    comments = db.session.query(Comment).filter(
+        Comment.entity_type == entity_type,
+        Comment.entity_id == entity_id
+    ).order_by(Comment.created_at).all()
+    return jsonify({'success': True, 'comments': [{
+        'id': c.id,
+        'user_id': c.user_id,
+        'text': c.text,
+        'created_at': c.created_at.isoformat() if c.created_at else None,
+    } for c in comments]})
+
+
+@admin_bp.route('/api/announcements')
+@login_required
+def api_announcements_list():
+    from models.team import Announcement
+    import datetime as dt
+    now = dt.datetime.utcnow()
+    items = db.session.query(Announcement).filter(
+        or_(Announcement.expires_at.is_(None), Announcement.expires_at > now)
+    ).order_by(desc(Announcement.is_pinned), desc(Announcement.created_at)).all()
+    return jsonify({'success': True, 'announcements': [{
+        'id': a.id,
+        'title': a.title,
+        'text': a.text,
+        'priority': a.priority,
+        'is_pinned': a.is_pinned,
+        'expires_at': a.expires_at.isoformat() if a.expires_at else None,
+        'created_at': a.created_at.isoformat() if a.created_at else None,
+    } for a in items]})
+
+
+@admin_bp.route('/api/announcements', methods=['POST'])
+@login_required
+@admin_required
+def api_announcements_create():
+    from models.team import Announcement
+    import datetime as dt
+    if current_user.role not in ('superadmin', 'admin'):
+        return jsonify({'success': False, 'error': 'Forbidden'})
+    data = request.get_json()
+    expires_at = None
+    if data.get('expires_at'):
+        try:
+            expires_at = dt.datetime.fromisoformat(data['expires_at'])
+        except Exception:
+            pass
+    ann = Announcement(
+        title=data.get('title', ''),
+        text=data.get('text', ''),
+        author_id=current_user.id,
+        priority=data.get('priority', 'normal'),
+        is_pinned=data.get('is_pinned', False),
+        expires_at=expires_at,
+    )
+    db.session.add(ann)
+    db.session.commit()
+    log_action('create_announcement', f'title={ann.title}')
+    return jsonify({'success': True, 'id': ann.id})
+
+
+@admin_bp.route('/api/announcements/<int:ann_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_announcements_delete(ann_id):
+    from models.team import Announcement
+    ann = db.session.query(Announcement).filter(Announcement.id == ann_id).first()
+    if not ann:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(ann)
+    db.session.commit()
+    log_action('delete_announcement', f'id={ann_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/templates')
+@login_required
+def api_templates_list():
+    from models.team import SharedTemplate
+    items = db.session.query(SharedTemplate).order_by(desc(SharedTemplate.created_at)).all()
+    return jsonify({'success': True, 'templates': [{
+        'id': t.id,
+        'name': t.name,
+        'type': t.type,
+        'content': t.content,
+        'is_shared': t.is_shared,
+        'created_at': t.created_at.isoformat() if t.created_at else None,
+    } for t in items]})
+
+
+@admin_bp.route('/api/templates', methods=['POST'])
+@login_required
+@admin_required
+def api_templates_create():
+    from models.team import SharedTemplate
+    data = request.get_json()
+    tmpl = SharedTemplate(
+        name=data.get('name', ''),
+        type=data.get('type', 'message'),
+        content=data.get('content', {}),
+        created_by=current_user.id,
+        is_shared=data.get('is_shared', True),
+    )
+    db.session.add(tmpl)
+    db.session.commit()
+    log_action('create_template', f'name={tmpl.name}')
+    return jsonify({'success': True, 'id': tmpl.id})
+
+
+@admin_bp.route('/api/templates/<int:tmpl_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_templates_delete(tmpl_id):
+    from models.team import SharedTemplate
+    tmpl = db.session.query(SharedTemplate).filter(SharedTemplate.id == tmpl_id).first()
+    if not tmpl:
+        return jsonify({'success': False, 'error': 'Not found'})
+    db.session.delete(tmpl)
+    db.session.commit()
+    log_action('delete_template', f'id={tmpl_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/settings/notifications', methods=['GET', 'POST'])
+@login_required
+def notification_settings():
+    if request.method == 'POST':
+        data = request.get_json()
+        try:
+            current_user.notification_prefs = data
+            db.session.commit()
+            log_action('update_notification_settings', '')
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)})
+    prefs = getattr(current_user, 'notification_prefs', None) or {}
+    from models.account import Account as AccountModel
+    accounts = db.session.query(AccountModel).order_by(AccountModel.phone).all()
+    return render_template('admin/notification_settings.html', prefs=prefs, accounts=accounts)
+
+
+# ==========================================
+# EVENT LISTENER MANAGEMENT
+# ==========================================
+@admin_bp.route('/api/listener/status')
+@login_required
+def api_listener_status():
+    try:
+        from services.telegram.event_listener import get_listener_status
+        status = get_listener_status()
+        return jsonify({'success': True, **status})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'connected': 0, 'total_active': 0, 'running': False})
+
+
+@admin_bp.route('/api/listener/start', methods=['POST'])
+@login_required
+@admin_required
+def api_listener_start():
+    try:
+        from tasks.event_listener_task import run_event_listener
+        t = run_event_listener.delay()
+        log_action('listener_start', f'task_id={t.id}')
+        return jsonify({'success': True, 'task_id': t.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/api/listener/stop', methods=['POST'])
+@login_required
+@admin_required
+def api_listener_stop():
+    try:
+        import asyncio
+        from services.telegram.event_listener import stop_listener
+        asyncio.run(stop_listener())
+        log_action('listener_stop', '')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/api/listener/restart', methods=['POST'])
+@login_required
+@admin_required
+def api_listener_restart():
+    try:
+        import asyncio
+        from services.telegram.event_listener import stop_listener
+        from tasks.event_listener_task import run_event_listener
+        asyncio.run(stop_listener())
+        t = run_event_listener.delay()
+        log_action('listener_restart', f'task_id={t.id}')
+        return jsonify({'success': True, 'task_id': t.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})

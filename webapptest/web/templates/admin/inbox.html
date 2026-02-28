@@ -1,0 +1,170 @@
+{% extends 'admin/base.html' %}
+{% block title %}Входящие{% endblock %}
+{% block page_title %}Входящие сообщения{% endblock %}
+
+{% block content %}
+<div class="flex h-full gap-4" style="height: calc(100vh - 200px);">
+    <!-- Left panel: dialogs list -->
+    <div class="w-72 flex flex-col rounded-xl border overflow-hidden flex-shrink-0" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <div class="p-3 border-b flex-shrink-0" style="border-color: var(--panel-border);">
+            <select id="inbox-account" onchange="loadInbox()" class="w-full text-sm rounded-lg px-3 py-2 border" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);">
+                <option value="">Все аккаунты</option>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}">{{ acc.phone }}</option>
+                {% endfor %}
+            </select>
+            <div class="flex items-center gap-2 mt-2">
+                <button id="btn-unread-only" onclick="toggleInboxUnread()" class="flex-1 text-xs py-1.5 rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">
+                    Непрочитанные
+                </button>
+                <span id="unread-badge" class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 hidden">0</span>
+            </div>
+        </div>
+        <div id="dialogs-list" class="flex-1 overflow-y-auto divide-y" style="border-color: var(--panel-border);">
+            <div class="p-4 text-center text-sm" style="color: var(--panel-muted);">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Right panel: chat view -->
+    <div class="flex-1 flex flex-col rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <div id="chat-header" class="p-4 border-b flex-shrink-0" style="border-color: var(--panel-border);">
+            <p class="text-sm" style="color: var(--panel-muted);">Выберите диалог</p>
+        </div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+            <div class="text-center text-sm my-auto" style="color: var(--panel-muted);">Выберите диалог слева</div>
+        </div>
+        <div id="chat-input-area" class="p-3 border-t flex-shrink-0 hidden" style="border-color: var(--panel-border);">
+            <div class="flex gap-2">
+                <input id="chat-input" type="text" placeholder="Введите сообщение..." class="flex-1 text-sm rounded-lg px-3 py-2 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);" onkeydown="if(event.key==='Enter') sendChatMsg()">
+                <button onclick="sendChatMsg()" class="px-4 py-2 text-sm rounded-lg font-medium transition-colors btn-accent-glow text-white">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentAccountId = null;
+let currentChatId = null;
+let inboxUnreadOnly = false;
+
+function relativeTime(isoStr) {
+    if (!isoStr) return '';
+    const diff = Math.floor((Date.now() - new Date(isoStr + 'Z').getTime()) / 1000);
+    if (diff < 60) return `${diff}с`;
+    if (diff < 3600) return `${Math.floor(diff/60)}м`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}ч`;
+    return `${Math.floor(diff/86400)}д`;
+}
+
+async function loadInbox(reset=true) {
+    const accId = document.getElementById('inbox-account').value;
+    const params = new URLSearchParams({page: 1, limit: 100});
+    if (accId) params.set('account_id', accId);
+    if (inboxUnreadOnly) params.set('is_read', '0');
+    const r = await fetch('/admin/api/inbox?' + params);
+    const d = await r.json();
+    if (!d.success) return;
+
+    // Group by sender
+    const byKey = {};
+    d.messages.forEach(m => {
+        const key = `${m.account_id}:${m.sender_tg_id || m.chat_id}`;
+        if (!byKey[key] || new Date(m.created_at) > new Date(byKey[key].created_at)) byKey[key] = m;
+    });
+
+    const list = document.getElementById('dialogs-list');
+    const items = Object.values(byKey).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    if (!items.length) { list.innerHTML = '<div class="p-4 text-center text-sm" style="color: var(--panel-muted);">Нет сообщений</div>'; return; }
+    list.innerHTML = items.map(m => `
+        <div onclick="openChat('${m.account_id}','${m.sender_tg_id || m.chat_id}','${(m.sender_name||m.sender_username||m.chat_title||'').replace(/'/g,"\\'")}','${m.chat_id}')"
+             class="p-3 cursor-pointer hover:bg-panel-accent/5 transition-colors ${!m.is_read ? 'border-l-2' : ''}"
+             style="${!m.is_read ? 'border-left-color: var(--panel-accent);' : ''}">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-medium truncate" style="color: var(--panel-text);">${m.sender_name || m.sender_username || m.chat_title || m.chat_id}</span>
+                <span class="text-xs flex-shrink-0 ml-2" style="color: var(--panel-muted);">${relativeTime(m.created_at)}</span>
+            </div>
+            <p class="text-xs truncate mt-0.5" style="color: var(--panel-muted);">${m.text || '[медиа]'}</p>
+            <p class="text-xs mt-0.5" style="color: var(--panel-accent);">${m.account_id}</p>
+        </div>
+    `).join('');
+}
+
+async function openChat(accountId, senderId, name, chatId) {
+    currentAccountId = accountId;
+    currentChatId = chatId;
+    document.getElementById('chat-header').innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                ${(name||'?')[0].toUpperCase()}
+            </div>
+            <div>
+                <p class="text-sm font-semibold" style="color: var(--panel-text);">${name || 'Unknown'}</p>
+                <p class="text-xs" style="color: var(--panel-muted);">${accountId}</p>
+            </div>
+        </div>
+    `;
+    document.getElementById('chat-input-area').classList.remove('hidden');
+
+    // Load messages from DB
+    const r = await fetch(`/admin/api/inbox?account_id=${accountId}&is_read=`);
+    const d = await r.json();
+    const msgs = (d.messages || []).filter(m => m.chat_id == chatId || m.sender_tg_id == senderId);
+    renderChatMessages(msgs);
+    // Mark read
+    msgs.filter(m => !m.is_read).forEach(m => fetch(`/admin/api/inbox/${m.id}/mark_read`, {method: 'POST'}));
+}
+
+function renderChatMessages(msgs) {
+    const container = document.getElementById('chat-messages');
+    if (!msgs.length) { container.innerHTML = '<div class="text-center text-sm my-auto" style="color: var(--panel-muted);">Нет сообщений</div>'; return; }
+    container.innerHTML = msgs.map(m => `
+        <div class="flex ${m.is_outgoing ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl text-sm ${m.is_outgoing ? 'rounded-br-sm' : 'rounded-bl-sm'}"
+                 style="background: ${m.is_outgoing ? 'var(--panel-accent)' : 'var(--panel-card)'}; color: ${m.is_outgoing ? '#fff' : 'var(--panel-text)'};">
+                ${m.text || `[${m.media_type || 'медиа'}]`}
+                <div class="text-xs mt-1 opacity-60">${relativeTime(m.created_at)}</div>
+            </div>
+        </div>
+    `).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendChatMsg() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !currentAccountId || !currentChatId) return;
+    input.value = '';
+    const r = await fetch(`/admin/accounts/${currentAccountId}/chat/${currentChatId}/send`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text})
+    });
+    const d = await r.json();
+    if (d.success) { showToast('Отправлено', 'success'); openChat(currentAccountId, null, '', currentChatId); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+function toggleInboxUnread() {
+    inboxUnreadOnly = !inboxUnreadOnly;
+    const btn = document.getElementById('btn-unread-only');
+    btn.style.color = inboxUnreadOnly ? 'var(--panel-accent)' : 'var(--panel-muted)';
+    loadInbox();
+}
+
+async function loadUnreadCount() {
+    const r = await fetch('/admin/api/inbox/unread_count');
+    const d = await r.json();
+    const badge = document.getElementById('unread-badge');
+    if (d.count > 0) { badge.textContent = d.count; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+}
+
+loadInbox();
+loadUnreadCount();
+setInterval(() => { loadInbox(false); loadUnreadCount(); }, 15000);
+</script>
+{% endblock %}

@@ -12,6 +12,7 @@ celery_app = Celery(
         'tasks.cleanup',
         'tasks.session_checker',
         'tasks.proxy_autoloader',
+        'tasks.event_listener_task',
     ]
 )
 

@@ -1,0 +1,216 @@
+{% extends 'admin/base.html' %}
+{% block title %}Задачи команды{% endblock %}
+{% block page_title %}Задачи команды{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('createTaskModal')" class="btn-accent-glow text-white text-sm font-medium px-4 py-2 rounded-lg">
+    <i class="fa-solid fa-plus mr-2"></i>Создать задачу
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-4">
+    <button id="btn-my-tasks" onclick="filterTasks('my')" class="text-sm px-3 py-1.5 rounded-lg border font-medium" style="background: rgba(14,165,233,0.15); border-color: var(--panel-accent); color: var(--panel-accent);">Мои задачи</button>
+    <button id="btn-all-tasks" onclick="filterTasks('all')" class="text-sm px-3 py-1.5 rounded-lg border font-medium" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">Все задачи</button>
+</div>
+
+<!-- Kanban board -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- To Do -->
+    <div class="rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <div class="px-4 py-3 border-b flex items-center gap-2" style="border-color: var(--panel-border); background: rgba(107,114,128,0.1);">
+            <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+            <h3 class="text-sm font-semibold" style="color: var(--panel-text);">To Do</h3>
+            <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background: rgba(107,114,128,0.2); color: var(--panel-muted);">{{ tasks_todo|length }}</span>
+        </div>
+        <div id="col-todo" class="p-3 space-y-2 min-h-32" ondragover="event.preventDefault()" ondrop="dropTask(event, 'todo')">
+            {% for task in tasks_todo %}
+            {{ task_card(task) }}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- In Progress -->
+    <div class="rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <div class="px-4 py-3 border-b flex items-center gap-2" style="border-color: var(--panel-border); background: rgba(14,165,233,0.1);">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+            <h3 class="text-sm font-semibold" style="color: var(--panel-text);">In Progress</h3>
+            <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background: rgba(14,165,233,0.2); color: var(--panel-accent);">{{ tasks_inprog|length }}</span>
+        </div>
+        <div id="col-in_progress" class="p-3 space-y-2 min-h-32" ondragover="event.preventDefault()" ondrop="dropTask(event, 'in_progress')">
+            {% for task in tasks_inprog %}
+            {{ task_card(task) }}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Done -->
+    <div class="rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <div class="px-4 py-3 border-b flex items-center gap-2" style="border-color: var(--panel-border); background: rgba(52,211,153,0.1);">
+            <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+            <h3 class="text-sm font-semibold" style="color: var(--panel-text);">Done</h3>
+            <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background: rgba(52,211,153,0.2); color: #34d399;">{{ tasks_done|length }}</span>
+        </div>
+        <div id="col-done" class="p-3 space-y-2 min-h-32" ondragover="event.preventDefault()" ondrop="dropTask(event, 'done')">
+            {% for task in tasks_done %}
+            {{ task_card(task) }}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Task Modal -->
+<div id="createTaskModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.7);">
+    <div class="w-full max-w-lg rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-base font-semibold" style="color: var(--panel-text);">Создать задачу</h3>
+            <button onclick="closeModal('createTaskModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-4">
+            <input id="task-title" type="text" placeholder="Заголовок задачи *" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+            <textarea id="task-desc" rows="2" placeholder="Описание (опционально)" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none resize-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);"></textarea>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Приоритет</label>
+                    <select id="task-priority" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+                        <option value="low">Низкий</option>
+                        <option value="medium" selected>Средний</option>
+                        <option value="high">Высокий</option>
+                        <option value="urgent">Срочный</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Назначить</label>
+                    <select id="task-assignee" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+                        <option value="">Никому</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}">{{ u.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Дедлайн</label>
+                <input id="task-due" type="datetime-local" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6 justify-end">
+            <button onclick="closeModal('createTaskModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color: var(--panel-border); color: var(--panel-muted);">Отмена</button>
+            <button onclick="createTask()" class="px-4 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white">Создать</button>
+        </div>
+    </div>
+</div>
+
+<!-- Task detail modal -->
+<div id="taskDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.7);">
+    <div class="w-full max-w-md rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="detail-title" class="text-base font-semibold" style="color: var(--panel-text);">Задача</h3>
+            <button onclick="closeModal('taskDetailModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <p id="detail-desc" class="text-sm mb-4" style="color: var(--panel-muted);"></p>
+        <div id="detail-meta" class="space-y-1 mb-4 text-sm"></div>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="changeTaskStatus('in_progress')" class="text-xs px-3 py-1.5 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">В работу</button>
+            <button onclick="changeTaskStatus('done')" class="text-xs px-3 py-1.5 rounded-lg border" style="background: rgba(52,211,153,0.1); border-color: #34d399; color: #34d399;">Готово</button>
+            <button onclick="changeTaskStatus('todo')" class="text-xs px-3 py-1.5 rounded-lg border" style="background: rgba(107,114,128,0.1); border-color: var(--panel-border); color: var(--panel-muted);">В очередь</button>
+            <button onclick="deleteCurrentTask()" class="text-xs px-3 py-1.5 rounded-lg border ml-auto" style="background: rgba(248,113,113,0.1); border-color: #f87171; color: #f87171;">Удалить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% macro task_card(task) %}
+{% set priority_colors = {'low': '#34d399', 'medium': '#fbbf24', 'high': '#fb923c', 'urgent': '#f87171'} %}
+<div class="task-card p-3 rounded-lg border cursor-pointer hover:border-sky-500/40 transition-all"
+     style="background: var(--panel-card); border-color: var(--panel-border); border-left: 3px solid {{ priority_colors.get(task.priority, '#6b7280') }};"
+     draggable="true"
+     ondragstart="dragStart(event, {{ task.id }})"
+     onclick="showTaskDetail({{ task.id }}, '{{ task.title|replace("'", "\\'") }}', '{{ (task.description or '')|replace("'", "\\'") }}', '{{ task.priority }}', '{{ task.status }}')">
+    <p class="text-sm font-medium mb-2" style="color: var(--panel-text);">{{ task.title }}</p>
+    <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs px-1.5 py-0.5 rounded" style="background: rgba(107,114,128,0.2); color: var(--panel-muted);">{{ task.priority }}</span>
+        {% if task.due_date %}
+        <span class="text-xs" style="color: var(--panel-muted);"><i class="fa-regular fa-calendar mr-1"></i>{{ task.due_date.strftime('%d.%m') }}</span>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% block scripts %}
+<script>
+let draggedTaskId = null;
+let currentDetailTaskId = null;
+
+function dragStart(e, taskId) {
+    draggedTaskId = taskId;
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+async function dropTask(e, newStatus) {
+    e.preventDefault();
+    if (!draggedTaskId) return;
+    const r = await fetch(`/admin/api/team/tasks/${draggedTaskId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: newStatus})
+    });
+    const d = await r.json();
+    if (d.success) location.reload();
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+async function createTask() {
+    const body = {
+        title: document.getElementById('task-title').value,
+        description: document.getElementById('task-desc').value || null,
+        priority: document.getElementById('task-priority').value,
+        assigned_to: document.getElementById('task-assignee').value || null,
+        due_date: document.getElementById('task-due').value || null,
+    };
+    if (!body.title) { showToast('Введите заголовок', 'warning'); return; }
+    const r = await fetch('/admin/api/team/tasks', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.success) { showToast('Задача создана', 'success'); closeModal('createTaskModal'); location.reload(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+function showTaskDetail(id, title, desc, priority, status) {
+    currentDetailTaskId = id;
+    document.getElementById('detail-title').textContent = title;
+    document.getElementById('detail-desc').textContent = desc || 'Нет описания';
+    document.getElementById('detail-meta').innerHTML = `
+        <div style="color: var(--panel-muted);">Приоритет: <strong style="color: var(--panel-text);">${priority}</strong></div>
+        <div style="color: var(--panel-muted);">Статус: <strong style="color: var(--panel-text);">${status}</strong></div>
+    `;
+    openModal('taskDetailModal');
+}
+
+async function changeTaskStatus(status) {
+    if (!currentDetailTaskId) return;
+    const r = await fetch(`/admin/api/team/tasks/${currentDetailTaskId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status})
+    });
+    const d = await r.json();
+    if (d.success) { closeModal('taskDetailModal'); location.reload(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+async function deleteCurrentTask() {
+    if (!currentDetailTaskId || !confirm('Удалить задачу?')) return;
+    const r = await fetch(`/admin/api/team/tasks/${currentDetailTaskId}`, {method:'DELETE'});
+    const d = await r.json();
+    if (d.success) { closeModal('taskDetailModal'); location.reload(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+function filterTasks(mode) {
+    document.getElementById('btn-my-tasks').style.background = mode==='my' ? 'rgba(14,165,233,0.15)' : 'var(--panel-card)';
+    document.getElementById('btn-my-tasks').style.color = mode==='my' ? 'var(--panel-accent)' : 'var(--panel-muted)';
+    document.getElementById('btn-all-tasks').style.background = mode==='all' ? 'rgba(14,165,233,0.15)' : 'var(--panel-card)';
+    document.getElementById('btn-all-tasks').style.color = mode==='all' ? 'var(--panel-accent)' : 'var(--panel-muted)';
+}
+</script>
+{% endblock %}

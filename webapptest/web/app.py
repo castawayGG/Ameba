@@ -16,6 +16,11 @@ from models.admin_log import AdminLog
 from models.task import Task
 from models.account_log import AccountLog
 from models.api_credential import ApiCredential
+from models.telegram_event import TelegramEvent
+from models.incoming_message import IncomingMessage
+from models.alert_rule import AlertRule
+from models.forward_rule import ForwardRule
+from models.team import Comment, TeamTask, Announcement, SharedTemplate, UserQuota
 
 
 def create_app(test_config=None):

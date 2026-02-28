@@ -1,0 +1,216 @@
+{% extends 'admin/base.html' %}
+{% block title %}Команда{% endblock %}
+{% block page_title %}Команда{% endblock %}
+
+{% block header_actions %}
+{% if current_user.role in ('superadmin', 'admin') %}
+<button onclick="openModal('createAnnouncementModal')" class="btn-accent-glow text-white text-sm font-medium px-4 py-2 rounded-lg">
+    <i class="fa-solid fa-megaphone mr-2"></i>Объявление
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left column -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Online users -->
+        <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+                <i class="fa-solid fa-circle text-green-400 text-xs"></i> Сейчас онлайн ({{ online_users|length }})
+            </h3>
+            {% if online_users %}
+            <div class="flex flex-wrap gap-3">
+                {% for u in online_users %}
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border" style="background: var(--panel-card); border-color: var(--panel-border);">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">{{ u.username[0]|upper }}</div>
+                    <span class="text-sm" style="color: var(--panel-text);">{{ u.username }}</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm" style="color: var(--panel-muted);">Никто не онлайн</p>
+            {% endif %}
+        </div>
+
+        <!-- Announcements -->
+        <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+                <i class="fa-solid fa-megaphone" style="color: var(--panel-accent);"></i> Объявления
+            </h3>
+            {% if announcements %}
+            <div class="space-y-3">
+                {% for ann in announcements %}
+                <div class="p-4 rounded-lg border-l-4 {% if ann.priority == 'critical' %}border-red-500{% elif ann.priority == 'important' %}border-yellow-500{% else %}border-sky-500{% endif %}" style="background: var(--panel-card);">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-semibold" style="color: var(--panel-text);">{{ ann.title }}</p>
+                            <p class="text-sm mt-1" style="color: var(--panel-muted);">{{ ann.text }}</p>
+                        </div>
+                        {% if ann.is_pinned %}<i class="fa-solid fa-thumbtack text-xs ml-2 flex-shrink-0" style="color: var(--panel-accent);"></i>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm" style="color: var(--panel-muted);">Нет объявлений</p>
+            {% endif %}
+        </div>
+
+        <!-- Recent activity -->
+        <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--panel-accent);"></i> Последняя активность
+            </h3>
+            <div class="space-y-2">
+                {% for entry in recent_logs %}
+                <div class="flex items-center gap-3 py-1.5">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">{{ entry.username[0]|upper if entry.username else '?' }}</div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm font-medium" style="color: var(--panel-text);">{{ entry.username }}</span>
+                        <span class="text-sm ml-1" style="color: var(--panel-muted);">{{ entry.action }}</span>
+                        {% if entry.details %}<span class="text-xs ml-1" style="color: var(--panel-muted);">— {{ entry.details[:50] }}</span>{% endif %}
+                    </div>
+                    <span class="text-xs flex-shrink-0" style="color: var(--panel-muted);">{{ entry.timestamp.strftime('%H:%M') if entry.timestamp else '' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: templates -->
+    <div class="space-y-6">
+        <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold" style="color: var(--panel-text);">
+                    <i class="fa-solid fa-file-lines mr-2" style="color: var(--panel-accent);"></i>Шаблоны
+                </h3>
+                <button onclick="openModal('createTemplateModal')" class="text-xs px-2 py-1 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">+ Создать</button>
+            </div>
+            <div id="templates-list" class="space-y-2">
+                <div class="text-sm" style="color: var(--panel-muted);">Загрузка...</div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold" style="color: var(--panel-text);">
+                    <i class="fa-solid fa-clipboard-list mr-2" style="color: var(--panel-accent);"></i>Задачи
+                </h3>
+                <a href="{{ url_for('admin.team_tasks') }}" class="text-xs" style="color: var(--panel-accent);">Все →</a>
+            </div>
+            <p class="text-sm" style="color: var(--panel-muted);">Перейдите на страницу задач для управления канбан-доской.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Create Announcement Modal -->
+<div id="createAnnouncementModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.7);">
+    <div class="w-full max-w-md rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-base font-semibold" style="color: var(--panel-text);">Создать объявление</h3>
+            <button onclick="closeModal('createAnnouncementModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-4">
+            <input id="ann-title" type="text" placeholder="Заголовок" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+            <textarea id="ann-text" rows="3" placeholder="Текст объявления" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none resize-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);"></textarea>
+            <div class="grid grid-cols-2 gap-3">
+                <select id="ann-priority" class="text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+                    <option value="normal">Обычное</option>
+                    <option value="important">Важное</option>
+                    <option value="critical">Критическое</option>
+                </select>
+                <label class="flex items-center gap-2 text-sm cursor-pointer" style="color: var(--panel-muted);">
+                    <input id="ann-pinned" type="checkbox" class="rounded"> Закрепить
+                </label>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6 justify-end">
+            <button onclick="closeModal('createAnnouncementModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color: var(--panel-border); color: var(--panel-muted);">Отмена</button>
+            <button onclick="createAnnouncement()" class="px-4 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white">Создать</button>
+        </div>
+    </div>
+</div>
+
+<!-- Create Template Modal -->
+<div id="createTemplateModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.7);">
+    <div class="w-full max-w-md rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-base font-semibold" style="color: var(--panel-text);">Создать шаблон</h3>
+            <button onclick="closeModal('createTemplateModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-4">
+            <input id="tmpl-name" type="text" placeholder="Название шаблона" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+            <select id="tmpl-type" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
+                <option value="message">Сообщение</option>
+                <option value="campaign">Кампания</option>
+                <option value="proxy_list">Список прокси</option>
+            </select>
+            <textarea id="tmpl-content" rows="4" placeholder="Содержимое (текст или JSON)" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none resize-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);"></textarea>
+        </div>
+        <div class="flex gap-3 mt-6 justify-end">
+            <button onclick="closeModal('createTemplateModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color: var(--panel-border); color: var(--panel-muted);">Отмена</button>
+            <button onclick="createTemplate()" class="px-4 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white">Создать</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadTemplates() {
+    const r = await fetch('/admin/api/templates');
+    const d = await r.json();
+    const el = document.getElementById('templates-list');
+    if (!d.templates || !d.templates.length) { el.innerHTML = '<p class="text-sm" style="color: var(--panel-muted);">Нет шаблонов</p>'; return; }
+    el.innerHTML = d.templates.map(t => `
+        <div class="flex items-center justify-between py-2 border-b" style="border-color: var(--panel-border);">
+            <div>
+                <p class="text-sm font-medium" style="color: var(--panel-text);">${t.name}</p>
+                <p class="text-xs" style="color: var(--panel-muted);">${t.type}</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="useTemplate(${t.id})" class="text-xs px-2 py-1 rounded" style="color: var(--panel-accent); background: rgba(14,165,233,0.1);">Использовать</button>
+                <button onclick="deleteTemplate(${t.id})" class="text-xs px-2 py-1 rounded" style="color: #f87171; background: rgba(248,113,113,0.1);">✕</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function createAnnouncement() {
+    const body = {
+        title: document.getElementById('ann-title').value,
+        text: document.getElementById('ann-text').value,
+        priority: document.getElementById('ann-priority').value,
+        is_pinned: document.getElementById('ann-pinned').checked,
+    };
+    const r = await fetch('/admin/api/announcements', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.success) { showToast('Объявление создано', 'success'); closeModal('createAnnouncementModal'); location.reload(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+async function createTemplate() {
+    let content;
+    const raw = document.getElementById('tmpl-content').value;
+    try { content = JSON.parse(raw); } catch(e) { content = {text: raw}; }
+    const body = {name: document.getElementById('tmpl-name').value, type: document.getElementById('tmpl-type').value, content};
+    const r = await fetch('/admin/api/templates', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.success) { showToast('Шаблон создан', 'success'); closeModal('createTemplateModal'); loadTemplates(); }
+    else showToast(d.error || 'Ошибка', 'error');
+}
+
+async function deleteTemplate(id) {
+    if (!confirm('Удалить шаблон?')) return;
+    const r = await fetch(`/admin/api/templates/${id}`, {method:'DELETE'});
+    const d = await r.json();
+    if (d.success) { showToast('Удалено', 'success'); loadTemplates(); }
+}
+
+function useTemplate(id) { showToast('Шаблон скопирован', 'info'); }
+
+loadTemplates();
+</script>
+{% endblock %}
