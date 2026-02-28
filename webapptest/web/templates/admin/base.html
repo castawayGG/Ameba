@@ -18,14 +18,14 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         panel: {
-                            bg:      '#070f1a',
-                            surface: '#0a1628',
-                            card:    '#0f1f38',
-                            border:  '#1a3353',
-                            accent:  '#0ea5e9',
-                            accent2: '#38bdf8',
-                            text:    '#ddeeff',
-                            muted:   '#5f85aa',
+                            bg:      '#0f1923',
+                            surface: '#1a2332',
+                            card:    '#1e2d3d',
+                            border:  '#1e3352',
+                            accent:  '#10b981',
+                            accent2: '#06b6d4',
+                            text:    '#e2e8f0',
+                            muted:   '#94a3b8',
                         }
                     }
                 }
@@ -35,16 +35,16 @@
         document.documentElement.classList.add('dark');
     </script>
     <style>
-        /* Тёмно-голубые CSS-переменные для панели */
+        /* Dark navy/charcoal CSS variables */
         :root {
-            --panel-bg:      #070f1a;
-            --panel-surface: #0a1628;
-            --panel-card:    #0f1f38;
-            --panel-border:  #1a3353;
-            --panel-accent:  #0ea5e9;
-            --panel-accent2: #38bdf8;
-            --panel-text:    #ddeeff;
-            --panel-muted:   #5f85aa;
+            --panel-bg:      #0f1923;
+            --panel-surface: #1a2332;
+            --panel-card:    #1e2d3d;
+            --panel-border:  #1e3352;
+            --panel-accent:  #10b981;
+            --panel-accent2: #06b6d4;
+            --panel-text:    #e2e8f0;
+            --panel-muted:   #94a3b8;
         }
         /* Force dark-blue palette on the entire admin panel */
         body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
@@ -96,7 +96,7 @@
 
         /* Nav */
         .dark .nav-accent-active {
-            background: linear-gradient(90deg, var(--panel-accent), #2563eb) !important;
+            background: linear-gradient(90deg, var(--panel-accent), #059669) !important;
             color: #fff !important;
             box-shadow: 0 2px 10px rgba(14,165,233,0.35);
         }
@@ -248,13 +248,39 @@
                     <i class="fa-solid fa-clipboard-list w-5 mr-3 text-center"></i>
                     Задачи команды
                 </a>
+
+                <div class="mt-2 mb-1 px-3">
+                    <span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--panel-muted);">Аналитика</span>
+                </div>
+                <a href="{{ url_for('admin.victims') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.victims' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-crosshairs w-5 mr-3 text-center"></i>
+                    Жертвы
+                </a>
+                <a href="{{ url_for('admin.links') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.links' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-link w-5 mr-3 text-center"></i>
+                    Трекинг-ссылки
+                </a>
+
+                <div class="mt-2 mb-1 px-3">
+                    <span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--panel-muted);">Инструменты</span>
+                </div>
+                <a href="{{ url_for('admin.landings') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.landings' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-globe w-5 mr-3 text-center"></i>
+                    Лендинги
+                    <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;">NEW</span>
+                </a>
+                <a href="{{ url_for('admin.automations') }}" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors {% if request.endpoint == 'admin.automations' %}nav-accent-active{% else %}text-gray-600 dark:text-gray-300 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-robot w-5 mr-3 text-center"></i>
+                    Автоматизации
+                    <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;">NEW</span>
+                </a>
             </nav>
 
             <!-- User + actions footer -->
             <div class="p-4 border-t flex-shrink-0" style="border-color: var(--panel-border);">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center min-w-0">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0" style="background: linear-gradient(135deg, #10b981, #06b6d4);">
                             {{ current_user.username[0]|upper if current_user else 'A' }}
                         </div>
                         <div class="ml-2 min-w-0">
