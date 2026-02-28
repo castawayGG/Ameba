@@ -1,0 +1,244 @@
+{% extends 'admin/base.html' %}
+{% block title %}Автоматизации{% endblock %}
+{% block page_title %}Автоматизации{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('createAutoModal')"
+        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+    <i class="fa-solid fa-plus"></i> Создать автоматизацию
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Create Modal -->
+<div id="createAutoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
+  <div class="rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto modal-panel" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 class="text-base font-semibold" style="color:var(--panel-text);">Создать автоматизацию</h3>
+      <button onclick="closeModal('createAutoModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1" style="color:var(--panel-muted);">Название</label>
+          <input type="text" id="ca_name" required class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" style="color:var(--panel-muted);">Триггер</label>
+          <select id="ca_trigger" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="new_account">new_account</option>
+            <option value="session_checked">session_checked</option>
+            <option value="account_banned">account_banned</option>
+            <option value="message_received">message_received</option>
+            <option value="campaign_complete">campaign_complete</option>
+            <option value="schedule">schedule</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Steps builder -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium" style="color:var(--panel-muted);">Шаги</label>
+          <button type="button" onclick="addStep()" class="text-xs px-2 py-1 rounded-lg" style="background:rgba(16,185,129,0.15);color:var(--panel-accent);border:1px solid rgba(16,185,129,0.3);">
+            <i class="fa-solid fa-plus mr-1"></i>Добавить шаг
+          </button>
+        </div>
+        <div id="stepsContainer" class="space-y-3">
+          <!-- Steps added dynamically -->
+        </div>
+        <div id="noStepsMsg" class="text-center py-4 text-xs rounded-lg" style="color:var(--panel-muted);background:rgba(255,255,255,0.02);border:1px dashed var(--panel-border);">
+          Нет шагов. Нажмите «Добавить шаг»
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeModal('createAutoModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Отмена</button>
+        <button type="button" onclick="createAutomation()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">Создать</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cards grid -->
+{% if automations %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+  {% for a in automations %}
+  <div class="rounded-xl p-5 flex flex-col gap-3" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="flex items-start justify-between">
+      <div class="flex-1 min-w-0">
+        <h3 class="font-semibold truncate" style="color:var(--panel-text);">{{ a.name }}</h3>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(6,182,212,0.15);color:var(--panel-accent2);">{{ a.trigger_type }}</span>
+        </div>
+      </div>
+      <!-- Active toggle -->
+      <label class="relative inline-flex items-center cursor-pointer ml-3 flex-shrink-0">
+        <input type="checkbox" class="sr-only peer" {% if a.is_active %}checked{% endif %}
+               onchange="toggleAutomation({{ a.id }}, this.checked)">
+        <div class="w-9 h-5 rounded-full transition-colors peer-checked:bg-emerald-500 bg-gray-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+      </label>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-lg p-2" style="background:rgba(255,255,255,0.03);">
+        <div class="text-sm font-bold" style="color:var(--panel-text);">{{ a.steps|length if a.steps else 0 }}</div>
+        <div class="text-xs" style="color:var(--panel-muted);">шагов</div>
+      </div>
+      <div class="rounded-lg p-2" style="background:rgba(255,255,255,0.03);">
+        <div class="text-sm font-bold" style="color:var(--panel-text);">{{ a.runs_count or 0 }}</div>
+        <div class="text-xs" style="color:var(--panel-muted);">запусков</div>
+      </div>
+      <div class="rounded-lg p-2" style="background:rgba(255,255,255,0.03);">
+        <div class="text-xs font-medium truncate" style="color:var(--panel-accent);">
+          {% if a.is_active %}<span style="color:#10b981;">Активна</span>{% else %}<span style="color:var(--panel-muted);">Стоп</span>{% endif %}
+        </div>
+        <div class="text-xs" style="color:var(--panel-muted);">статус</div>
+      </div>
+    </div>
+
+    {% if a.last_run %}
+    <div class="text-xs" style="color:var(--panel-muted);">
+      <i class="fa-solid fa-clock mr-1"></i>Последний запуск: {{ a.last_run | timestamp_to_date }}
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-2 pt-1 border-t" style="border-color:var(--panel-border);">
+      <button onclick="deleteAutomation({{ a.id }}, {{ a.name|tojson }})" class="flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.4)'" onmouseout="this.style.color='var(--panel-muted)';this.style.borderColor='var(--panel-border)'">
+        <i class="fa-solid fa-trash mr-1"></i>Удалить
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="rounded-xl p-12 text-center" style="background:var(--panel-card);border:1px dashed var(--panel-border);">
+  <i class="fa-solid fa-robot text-4xl mb-4" style="color:var(--panel-border);"></i>
+  <p class="text-sm" style="color:var(--panel-muted);">Нет автоматизаций. Создайте первую!</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF = '{{ csrf_token() if csrf_token is defined else "" }}';
+let stepCount = 0;
+
+const ACTION_PARAMS = {
+  wait:          [{name:'delay_seconds',label:'Задержка (сек)',type:'number',placeholder:'60'}],
+  start_warming: [{name:'intensity',label:'Интенсивность',type:'select',options:['low','medium','high']}],
+  add_tag:       [{name:'tag',label:'Тег',type:'text',placeholder:'vip'}],
+  join_group:    [{name:'group',label:'Группа/канал',type:'text',placeholder:'@group'}],
+  send_message:  [{name:'message',label:'Сообщение',type:'text',placeholder:'Текст...'},{name:'target',label:'Цель',type:'text',placeholder:'@user'}],
+  notify:        [{name:'message',label:'Уведомление',type:'text',placeholder:'Текст...'}]
+};
+
+function addStep() {
+  const idx = stepCount++;
+  const container = document.getElementById('stepsContainer');
+  document.getElementById('noStepsMsg').style.display = 'none';
+  const div = document.createElement('div');
+  div.id = 'step_' + idx;
+  div.className = 'rounded-lg p-4';
+  div.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);';
+  div.innerHTML = `
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-xs font-bold px-1.5 py-0.5 rounded" style="background:rgba(6,182,212,0.15);color:var(--panel-accent2);">Шаг ${idx+1}</span>
+      <select onchange="updateStepParams(${idx})" id="step_action_${idx}" class="flex-1 px-2 py-1.5 rounded-lg text-xs border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        <option value="wait">wait — ожидание</option>
+        <option value="start_warming">start_warming — прогрев</option>
+        <option value="add_tag">add_tag — добавить тег</option>
+        <option value="join_group">join_group — вступить</option>
+        <option value="send_message">send_message — отправить сообщение</option>
+        <option value="notify">notify — уведомление</option>
+      </select>
+      <input type="number" id="step_delay_${idx}" placeholder="delay (s)" min="0"
+             class="w-24 px-2 py-1.5 rounded-lg text-xs border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+      <button type="button" onclick="removeStep(${idx})" style="color:var(--panel-muted);" class="hover:text-red-400 text-sm"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="step_params_${idx}" class="grid grid-cols-2 gap-2"></div>`;
+  container.appendChild(div);
+  updateStepParams(idx);
+}
+
+function updateStepParams(idx) {
+  const action = document.getElementById('step_action_' + idx).value;
+  const params = ACTION_PARAMS[action] || [];
+  const container = document.getElementById('step_params_' + idx);
+  container.innerHTML = params.map(p => {
+    if (p.type === 'select') {
+      return `<div><label class="text-xs mb-1 block" style="color:var(--panel-muted);">${p.label}</label>
+        <select id="step_p_${idx}_${p.name}" class="w-full px-2 py-1.5 rounded-lg text-xs border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          ${p.options.map(o => `<option value="${o}">${o}</option>`).join('')}
+        </select></div>`;
+    }
+    return `<div><label class="text-xs mb-1 block" style="color:var(--panel-muted);">${p.label}</label>
+      <input type="${p.type}" id="step_p_${idx}_${p.name}" placeholder="${p.placeholder||''}"
+             class="w-full px-2 py-1.5 rounded-lg text-xs border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);"></div>`;
+  }).join('');
+}
+
+function removeStep(idx) {
+  document.getElementById('step_' + idx)?.remove();
+  if (!document.getElementById('stepsContainer').children.length) {
+    document.getElementById('noStepsMsg').style.display = '';
+  }
+}
+
+function collectSteps() {
+  const steps = [];
+  document.querySelectorAll('[id^="step_action_"]').forEach(el => {
+    const idx = el.id.replace('step_action_', '');
+    const action = el.value;
+    const params = {};
+    const paramDefs = ACTION_PARAMS[action] || [];
+    paramDefs.forEach(p => {
+      const input = document.getElementById('step_p_' + idx + '_' + p.name);
+      if (input) params[p.name] = input.value;
+    });
+    const delayEl = document.getElementById('step_delay_' + idx);
+    steps.push({action, params, delay_seconds: delayEl ? parseInt(delayEl.value) || 0 : 0});
+  });
+  return steps;
+}
+
+async function createAutomation() {
+  const name = document.getElementById('ca_name').value.trim();
+  if (!name) { showToast('Введите название', 'warning'); return; }
+  const steps = collectSteps();
+  try {
+    const r = await fetch('/admin/api/automations', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({name, trigger_type: document.getElementById('ca_trigger').value, steps})
+    });
+    const d = await r.json();
+    if (d.success || r.ok) { showToast('Автоматизация создана', 'success'); closeModal('createAutoModal'); setTimeout(() => location.reload(), 800); }
+    else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
+  } catch(err) { showToast('Ошибка сети', 'error'); }
+}
+
+async function toggleAutomation(id, isActive) {
+  try {
+    const r = await fetch('/admin/api/automations/' + id, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({is_active: isActive})
+    });
+    const d = await r.json();
+    if (d.success || r.ok) showToast(isActive ? 'Включено' : 'Выключено', 'success');
+    else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
+  } catch(err) { showToast('Ошибка сети', 'error'); }
+}
+
+async function deleteAutomation(id, name) {
+  if (!confirm('Удалить автоматизацию "' + name + '"?')) return;
+  try {
+    const r = await fetch('/admin/api/automations/' + id, {method: 'DELETE', headers: {'X-CSRFToken': CSRF}});
+    const d = await r.json();
+    if (d.success || r.ok) { showToast('Удалено', 'success'); setTimeout(() => location.reload(), 800); }
+    else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
+  } catch(err) { showToast('Ошибка сети', 'error'); }
+}
+</script>
+{% endblock %}

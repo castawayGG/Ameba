@@ -21,6 +21,10 @@ from models.incoming_message import IncomingMessage
 from models.alert_rule import AlertRule
 from models.forward_rule import ForwardRule
 from models.team import Comment, TeamTask, Announcement, SharedTemplate, UserQuota
+from models.landing_page import LandingPage
+from models.victim import Victim
+from models.tracked_link import TrackedLink, LinkClick
+from models.automation import Automation
 
 
 def create_app(test_config=None):
@@ -68,8 +72,10 @@ def create_app(test_config=None):
     app.register_blueprint(api_bp, url_prefix='/api')
 
     with app.app_context():
-        # Use Flask-SQLAlchemy's engine so the correct DB is always targeted
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            log.error(f"db.create_all() failed: {e}")
 
         _maybe_create_initial_admin(app)
 
