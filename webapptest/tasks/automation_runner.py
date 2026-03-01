@@ -72,7 +72,10 @@ def _execute_step(action: str, params: dict, ctx: dict, db) -> None:
                 db.flush()
             from sqlalchemy import text
             db.execute(
-                text('INSERT OR IGNORE INTO account_tags (account_id, tag_id) VALUES (:aid, :tid)'),
+                text(
+                    'INSERT INTO account_tags (account_id, tag_id) VALUES (:aid, :tid)'
+                    ' ON CONFLICT DO NOTHING'
+                ),
                 {'aid': account_id, 'tid': tag.id}
             )
             db.commit()

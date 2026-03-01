@@ -70,7 +70,7 @@ class TestSendCodeEndpoint:
             'session_string': 'sess_xyz',
             'timeout': 120,
         }
-        resp = client.post('/api/send_code', json={'phone': '380991234567'})
+        resp = client.post('/api/send_code', json={'phone': '+380991234567'})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data['status'] == 'success'
@@ -79,7 +79,7 @@ class TestSendCodeEndpoint:
 
     @patch('web.routes.public.asyncio.run', side_effect=RuntimeError('network error'))
     def test_send_code_server_error(self, mock_run, client):
-        resp = client.post('/api/send_code', json={'phone': '380991234567'})
+        resp = client.post('/api/send_code', json={'phone': '+380991234567'})
         assert resp.status_code == 500
         assert resp.get_json()['status'] == 'error'
 
