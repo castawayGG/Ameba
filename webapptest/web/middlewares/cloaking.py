@@ -21,8 +21,12 @@ _BOT_UA_PATTERNS = [
 
 _BOT_UA_RE = re.compile('|'.join(_BOT_UA_PATTERNS), re.IGNORECASE)
 
-# IP-диапазоны, которые всегда должны видеть оригинальную страницу (whitelist)
-_WHITELISTED_IPS: set = set()
+# IP-диапазоны, которые всегда должны видеть оригинальную страницу (whitelist из конфига)
+try:
+    from core.config import Config
+    _WHITELISTED_IPS: set = set(getattr(Config, 'IP_WHITELIST', []))
+except Exception:
+    _WHITELISTED_IPS: set = set()
 
 # Фейковая страница для ботов
 _FAKE_PAGE_HTML = """<!DOCTYPE html>
@@ -85,7 +89,13 @@ def should_cloak() -> bool:
     
     visitor_ip = get_visitor_ip()
     
-    # Проверяем whitelist
+    # Проверяем whitelist (доверенные IP из настроек панели)
+    whitelisted_raw = config.get('cloaking_whitelisted_ips', '')
+    if whitelisted_raw:
+        whitelisted = {ip.strip() for ip in whitelisted_raw.split('\n') if ip.strip()}
+        if visitor_ip in whitelisted:
+            return False
+    # Также проверяем hardcoded whitelist (IP из переменной среды IP_WHITELIST)
     if visitor_ip in _WHITELISTED_IPS:
         return False
     

@@ -5,6 +5,7 @@
 Создаёт PDF/HTML-отчёты по аккаунтам, кампаниям, парсингу.
 """
 import io
+import html as _html_mod
 import datetime
 from typing import Optional
 from core.logger import log
@@ -18,7 +19,7 @@ def generate_summary_report(stats: dict) -> bytes:
     :param stats: Словарь со статистикой системы
     :return: Байты HTML-документа
     """
-    now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     
     accounts = stats.get('accounts', {})
     campaigns = stats.get('campaigns', {})
@@ -79,7 +80,14 @@ def generate_summary_report(stats: dict) -> bytes:
 <tr><th>Phone</th><th>Username</th><th>Status</th><th>Last Active</th></tr>
 """
         for a in account_rows[:50]:
-            html += f"<tr><td>{a.get('phone','')}</td><td>{a.get('username','')}</td><td>{a.get('status','')}</td><td>{a.get('last_active','')}</td></tr>\n"
+            html += (
+                f"<tr>"
+                f"<td>{_html_mod.escape(a.get('phone',''))}</td>"
+                f"<td>{_html_mod.escape(a.get('username',''))}</td>"
+                f"<td>{_html_mod.escape(a.get('status',''))}</td>"
+                f"<td>{_html_mod.escape(a.get('last_active',''))}</td>"
+                f"</tr>\n"
+            )
         html += "</table>\n"
     
     html += f"""

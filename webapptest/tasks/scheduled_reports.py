@@ -32,7 +32,7 @@ def generate_and_send_report(self, report_type: str = 'summary', recipient_chat_
         acc = stats.get('accounts', {})
         msg = (
             f"📊 <b>Плановый отчёт Ameba</b>\n"
-            f"Дата: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC\n\n"
+            f"Дата: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC\n\n"
             f"👤 Аккаунты: {acc.get('total', 0)} всего, {acc.get('active', 0)} активных\n"
             f"🚫 Заблокированных: {acc.get('banned', 0)}\n"
             f"📢 Кампании: {stats.get('campaigns', {}).get('total', 0)} всего\n"
@@ -44,7 +44,7 @@ def generate_and_send_report(self, report_type: str = 'summary', recipient_chat_
         bot_token = getattr(Config, 'NOTIFICATION_BOT_TOKEN', None)
         chat_id = recipient_chat_id or getattr(Config, 'NOTIFICATION_CHAT_ID', None)
         if bot_token and chat_id:
-            now_str = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M')
+            now_str = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M')
             filename = f"report_{now_str}.html"
             try:
                 resp = requests.post(
@@ -91,7 +91,7 @@ def send_excel_report(recipient_chat_id: str = None):
         chat_id = recipient_chat_id or getattr(Config, 'NOTIFICATION_CHAT_ID', None)
         
         if bot_token and chat_id:
-            now_str = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M')
+            now_str = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M')
             filename = f"accounts_{now_str}.xlsx"
             try:
                 resp = requests.post(

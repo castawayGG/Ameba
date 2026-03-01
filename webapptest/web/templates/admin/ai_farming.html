@@ -256,7 +256,7 @@ async function applyPersonality() {
   if (data.success) {
     showToast('Личность применена успешно!', 'success');
   } else {
-    showToast('Ошибка: ' + (data.errors || [data.error]).join(', '), 'danger');
+    showToast('Ошибка: ' + (data.errors || [data.error || 'Unknown error']).join(', '), 'danger');
   }
 }
 

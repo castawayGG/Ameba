@@ -4743,9 +4743,22 @@ def api_proxy_rotate_mobile(proxy_id):
     rotation_url = getattr(proxy, 'rotation_url', None)
     if not rotation_url:
         return jsonify({'success': False, 'error': 'Proxy has no rotation_url configured'}), 400
+    # Защита от SSRF: разрешаем только HTTP/HTTPS, блокируем внутренние адреса
+    import urllib.parse
+    try:
+        parsed = urllib.parse.urlparse(rotation_url)
+        if parsed.scheme not in ('http', 'https'):
+            return jsonify({'success': False, 'error': 'Invalid rotation URL scheme'}), 400
+        hostname = parsed.hostname or ''
+        # Блокируем обращения к внутренним адресам
+        blocked_hosts = ('localhost', '127.0.0.1', '0.0.0.0', '::1')
+        if hostname in blocked_hosts or hostname.startswith('192.168.') or hostname.startswith('10.') or hostname.startswith('172.'):
+            return jsonify({'success': False, 'error': 'Internal addresses are not allowed'}), 400
+    except Exception:
+        return jsonify({'success': False, 'error': 'Invalid rotation URL'}), 400
     try:
         import requests as req
-        resp = req.get(rotation_url, timeout=15)
+        resp = req.get(rotation_url, timeout=15, allow_redirects=False)
         if resp.status_code == 200:
             log_action('proxy_rotate_mobile', f'proxy_id={proxy_id}')
             return jsonify({'success': True, 'response': resp.text[:500]})

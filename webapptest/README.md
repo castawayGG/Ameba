@@ -168,3 +168,112 @@ Set `NOTIFICATION_BOT_TOKEN` and `NOTIFICATION_CHAT_ID` in `.env` to receive a T
 - Admin login events are logged to the database and optionally sent as Telegram bot alerts.
 - API credentials (API ID/Hash) are stored in the database and never written to environment files.
 - Never commit `.env` or any file with real secrets.
+
+---
+
+## Новый функционал: 7 тематических блоков
+
+### Блок 1: Автоматизация аккаунтов (Фарминг и Прогрев)
+
+**Страница:** `/admin/ai_farming`
+
+- **AI Генерация комментариев** (`services/ai/comment_generator.py`)  
+  Интеграция с OpenAI (GPT-3.5/4) и Claude (Anthropic) для генерации реалистичных комментариев на основе текста поста.  
+  Настраивается через `/admin/api/ai/settings`. Поддерживает стили: позитивный, нейтральный, вопрос, с эмодзи.  
+  При отключённом AI или ошибке сети — автоматически использует встроенные fallback-шаблоны.
+
+- **Генератор личностей** (`services/accounts/personality.py`)  
+  Создаёт реалистичные профили: случайное имя из пула (RU/EN), биография из шаблонов, аватар с сервиса ThisPersonDoesNotExist.  
+  Применяется к аккаунту через кнопку в интерфейсе — обновляет имя, биографию и фото профиля.
+
+- **Имитация набора текста** (`simulate_typing` в `services/telegram/actions.py`)  
+  Отправляет `typing...` action в указанный чат на заданное количество секунд.
+
+- **Реакции на посты** (`react_to_message` в `services/telegram/actions.py`)  
+  Ставит эмодзи-реакцию на любое сообщение в канале/группе.
+
+### Блок 2: Массовые спам-кампании
+
+**API эндпоинты:** `/admin/api/campaigns/`
+
+- **Рассылка голосовых сообщений** (`send_voice_message`)  
+  Отправляет OGG/OPUS аудиофайл как голосовое сообщение через указанный аккаунт.
+
+- **Рассылка кружков (video notes)** (`send_video_note`)  
+  Отправляет квадратный MP4 как Telegram-кружок через указанный аккаунт.
+
+- **Инвайтинг пользователей в группу** (`invite_users_to_group`)  
+  Пакетный инвайт списка пользователей в группу/канал с задержками для обхода флуд-контроля.
+
+### Блок 3: Парсинг аудитории
+
+**Расширения к существующему парсеру:**
+
+- **Парсер комментаторов каналов** (`parse_channel_commenters`)  
+  POST `/admin/api/parser/channel_commenters` — парсит уникальных авторов комментариев из Discussion-группы канала.
+
+- **Гео-парсер** (`parse_geo_users`)  
+  POST `/admin/api/parser/geo` — ищет пользователей по координатам (GetLocated API Telegram).
+
+- **Lookalike алгоритм** (`apply_lookalike_filter`)  
+  POST `/admin/api/parser/<id>/lookalike` — находит пересечение двух баз, выявляя "горячих лидов".
+
+- **Скраббинг базы** (`scrub_user_base`)  
+  POST `/admin/api/parser/<id>/scrub` — удаляет ботов, пользователей без username/фото по заданным критериям.
+
+### Блок 4: Фишинг, Лендинги и Перехват
+
+- **Cloudflare Turnstile** (`web/routes/public.py::_verify_turnstile_token`)  
+  Функция верификации токена через Cloudflare Turnstile API.  
+  Публичный ключ отдаётся лендингам через `/api/captcha_config`.  
+  Настройка: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` в `.env`.
+
+- **Клоакинг** (`web/middlewares/cloaking.py`, страница `/admin/cloaking`)  
+  Определяет ботов/сканеров по User-Agent и заблокированным IP.  
+  Управление через `/admin/api/cloaking/settings`. Включается через настройки панели.
+
+- **DNS Ротация доменов** (`services/dns/manager.py`, страница `/admin/dns`)  
+  Автоматически меняет A-запись домена через Cloudflare DNS API.  
+  Настройка: `cloudflare_token`, `cloudflare_zone_id` в настройках панели.
+
+- **Проверка баланса крипто-ботов** (`services/crypto/balance.py`)  
+  POST `/admin/api/crypto/balance` — отправляет `/balance` крипто-боту и парсит ответ.  
+  Поддерживает @CryptoBot, @send, @wallet.
+
+### Блок 5: Безопасность и инфраструктура
+
+- **Ротация мобильных прокси через API** (`models/proxy.py::rotation_url`)  
+  Новое поле `rotation_url` в модели Proxy — URL для смены IP у мобильного прокси-провайдера.  
+  POST `/admin/api/proxies/<id>/rotate_mobile` — вызывает URL ротации одним кликом.
+
+### Блок 6: Telegram-управление
+
+- **Сброс всех сессий** (`reset_all_sessions` в `services/telegram/actions.py`)  
+  POST `/admin/api/accounts/<id>/reset_sessions` — завершает все авторизованные сессии кроме текущей.
+
+- **Дамп чатов** (`dump_all_chats` в `services/telegram/actions.py`)  
+  POST `/admin/api/accounts/<id>/dump_chats` — создаёт ZIP-архив со всеми чатами аккаунта в текстовом формате.
+
+### Блок 7: Интеграции и уведомления
+
+**Страница:** `/admin/reports`
+
+- **HTML/PDF отчёты** (`services/export/pdf_report.py`)  
+  GET `/admin/api/reports/generate` — генерирует HTML-отчёт со статистикой системы (аккаунты, кампании, прокси).
+
+- **Отправка отчётов в Telegram** (`tasks/scheduled_reports.py`)  
+  POST `/admin/api/reports/send_now` — немедленная отправка отчёта через Telegram-бот.  
+  POST `/admin/api/reports/send_excel` — отправка Excel-таблицы аккаунтов.  
+  Задача Celery `tasks.generate_and_send_report` для расписания через Celery Beat.
+
+### Конфигурация новых функций
+
+Все новые функции деактивируемы через переменные окружения или настройки панели (`/admin/settings`):
+
+| Функция | Env / PanelSettings ключ |
+|---------|--------------------------|
+| AI генерация | `AI_ENABLED`, `ai_provider`, `openai_api_key`, `claude_api_key` |
+| Клоакинг | `CLOAKING_ENABLED`, `cloaking_enabled` |
+| DNS ротация | `DNS_ROTATION_ENABLED`, `dns_enabled` |
+| Turnstile | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` |
+| Уведомления | `NOTIFICATION_BOT_TOKEN`, `NOTIFICATION_CHAT_ID` |
