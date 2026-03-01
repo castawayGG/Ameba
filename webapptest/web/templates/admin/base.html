@@ -287,6 +287,14 @@
                     Лендинги
                     <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
                 </a>
+                <a href="{{ url_for('admin.cloaking') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cloaking' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-mask w-5 mr-3 text-center text-sm"></i>
+                    Клоакинг
+                </a>
+                <a href="{{ url_for('admin.dns_management') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dns_management' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
+                    DNS ротация
+                </a>
                 <a href="{{ url_for('admin.spintax') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.spintax' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-shuffle w-5 mr-3 text-center text-sm"></i>
                     Spintax
@@ -294,6 +302,15 @@
                 <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-list-ul w-5 mr-3 text-center text-sm"></i>
                     Парсинг
+                </a>
+                <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
+                    AI Фарминг
+                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
+                </a>
+                <a href="{{ url_for('admin.reports') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.reports' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                    <i class="fa-solid fa-chart-bar w-5 mr-3 text-center text-sm"></i>
+                    Отчёты
                 </a>
 
                 <!-- Команда -->

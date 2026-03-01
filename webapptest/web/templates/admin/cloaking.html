@@ -1,0 +1,93 @@
+{% extends 'admin/base.html' %}
+{% block title %}Клоакинг{% endblock %}
+{% block page_title %}Клоакинг лендингов{% endblock %}
+
+{% block header_actions %}
+<span class="text-xs px-2 py-1 rounded-lg font-semibold" style="background:rgba(59,130,246,0.15);color:var(--panel-accent);">Блок 4</span>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-mask mr-2" style="color:var(--panel-accent);"></i>
+      Настройки клоакинга
+    </h2>
+    <div class="space-y-4">
+      <div class="flex items-center gap-3 p-3 rounded-lg" style="background:#071220;">
+        <input type="checkbox" id="cloak_enabled" class="w-4 h-4">
+        <div>
+          <div class="text-sm font-medium" style="color:var(--panel-text);">Клоакинг включён</div>
+          <div class="text-xs" style="color:var(--panel-muted);">Боты и сканеры будут видеть фейковую страницу</div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Заблокированные IP (один на строку)</label>
+        <textarea id="cloak_blocked_ips" rows="5" class="w-full px-3 py-2 rounded-lg text-sm border font-mono" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="1.2.3.4&#10;5.6.7.8"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Фейковая HTML-страница</label>
+        <textarea id="cloak_fake_page" rows="8" class="w-full px-3 py-2 rounded-lg text-sm border font-mono" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="<!DOCTYPE html>..."></textarea>
+        <p class="text-xs mt-1" style="color:var(--panel-muted);">Оставьте пустым для страницы по умолчанию ("Under Construction")</p>
+      </div>
+      <button onclick="saveCloakSettings()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-solid fa-save mr-2"></i>Сохранить настройки
+      </button>
+    </div>
+  </div>
+
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-shield-halved mr-2" style="color:var(--panel-accent);"></i>
+      Информация о клоакинге
+    </h2>
+    <div class="space-y-3 text-sm" style="color:var(--panel-muted);">
+      <p>Клоакинг автоматически определяет запросы от:</p>
+      <ul class="list-disc list-inside space-y-1 ml-2">
+        <li>Поисковых ботов (Googlebot, Yandexbot и др.)</li>
+        <li>Парсеров (python-requests, curl, wget)</li>
+        <li>SEO-инструментов (Ahrefs, SEMrush и др.)</li>
+        <li>Соцсетей (Facebook, Twitter, LinkedIn preview)</li>
+        <li>Явно заблокированных IP-адресов</li>
+      </ul>
+      <div class="p-3 rounded-lg mt-4" style="background:#071220;border:1px solid #f59e0b44;">
+        <div class="flex items-start gap-2">
+          <i class="fa-solid fa-triangle-exclamation mt-0.5" style="color:#f59e0b;"></i>
+          <p class="text-xs" style="color:#f59e0b;">Используйте клоакинг ответственно. Настоящие пользователи всегда видят основной контент.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function loadSettings() {
+  const res = await fetch('/admin/api/cloaking/settings');
+  const data = await res.json();
+  if (data.success) {
+    const s = data.settings;
+    document.getElementById('cloak_enabled').checked = s.cloaking_enabled === 'true';
+    document.getElementById('cloak_blocked_ips').value = s.cloaking_blocked_ips || '';
+    document.getElementById('cloak_fake_page').value = s.cloaking_fake_page || '';
+  }
+}
+
+async function saveCloakSettings() {
+  const res = await fetch('/admin/api/cloaking/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      cloaking_enabled: document.getElementById('cloak_enabled').checked ? 'true' : 'false',
+      cloaking_blocked_ips: document.getElementById('cloak_blocked_ips').value,
+      cloaking_fake_page: document.getElementById('cloak_fake_page').value,
+    })
+  });
+  const data = await res.json();
+  showToast(data.success ? 'Настройки сохранены!' : 'Ошибка: ' + data.error, data.success ? 'success' : 'danger');
+}
+
+loadSettings();
+</script>
+{% endblock %}

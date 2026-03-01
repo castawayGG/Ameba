@@ -31,6 +31,8 @@ class Proxy(Base):
     fail_count = Column(Integer, default=0)
 
     created_at = Column(DateTime, server_default=func.now())
+    # URL для ротации мобильного прокси (смена IP через API провайдера)
+    rotation_url = Column(String(500), nullable=True)
 
     # Связь с аккаунтами, которые используют этот прокси
     accounts = relationship('Account', back_populates='proxy')

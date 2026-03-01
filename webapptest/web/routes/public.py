@@ -274,3 +274,40 @@ def api_verify_2fa():
         _pending_sessions.pop(sid, None)
 
     return jsonify(result)
+
+
+def _verify_turnstile_token(token: str) -> bool:
+    """
+    Проверяет токен Cloudflare Turnstile через API.
+
+    :param token: Токен капчи из формы
+    :return: True если токен валиден
+    """
+    import requests as req
+    from core.config import Config
+
+    secret_key = getattr(Config, 'TURNSTILE_SECRET_KEY', '')
+    if not secret_key:
+        # Если ключ не настроен — пропускаем проверку
+        return True
+
+    ip, _ = _get_visitor_info()
+    try:
+        resp = req.post(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            data={'secret': secret_key, 'response': token, 'remoteip': ip},
+            timeout=5,
+        )
+        return resp.json().get('success', False)
+    except Exception:
+        return True  # При ошибке связи — не блокируем пользователя
+
+
+@public_bp.route('/api/captcha_config')
+def api_captcha_config():
+    """
+    Возвращает публичный ключ Turnstile для отображения капчи на лендинге.
+    """
+    from core.config import Config
+    site_key = getattr(Config, 'TURNSTILE_SITE_KEY', '')
+    return jsonify({'site_key': site_key, 'enabled': bool(site_key)})

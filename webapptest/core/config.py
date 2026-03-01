@@ -58,6 +58,19 @@ class Config:
     # Auto proxy loading: interval in hours for scheduled refresh
     PROXY_REFRESH_HOURS = int(os.getenv('PROXY_REFRESH_HOURS', 6))
 
+    # Cloudflare Turnstile (captcha on landings)
+    TURNSTILE_SITE_KEY = os.getenv('TURNSTILE_SITE_KEY', '')
+    TURNSTILE_SECRET_KEY = os.getenv('TURNSTILE_SECRET_KEY', '')
+
+    # AI generation (OpenAI / Claude)
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+    CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY', '')
+
+    # Feature flags (can be overridden via PanelSettings in DB)
+    AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'
+    CLOAKING_ENABLED = os.getenv('CLOAKING_ENABLED', 'false').lower() == 'true'
+    DNS_ROTATION_ENABLED = os.getenv('DNS_ROTATION_ENABLED', 'false').lower() == 'true'
+
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')

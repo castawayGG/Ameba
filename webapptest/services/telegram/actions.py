@@ -309,3 +309,219 @@ async def get_account_groups(account_id: str) -> list:
     finally:
         await client.disconnect()
 
+
+
+async def simulate_typing(account_id: str, chat_id: int, duration_seconds: int = 5) -> bool:
+    """
+    Имитирует набор текста ('typing...') в чате указанное количество секунд.
+    
+    :param account_id: ID аккаунта
+    :param chat_id: ID чата
+    :param duration_seconds: Длительность имитации набора
+    :return: True при успехе
+    """
+    import asyncio
+    from telethon.tl.functions.messages import SetTypingRequest
+    from telethon.tl.types import SendMessageTypingAction, SendMessageCancelAction
+    
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client(SetTypingRequest(peer=entity, action=SendMessageTypingAction()))
+        await asyncio.sleep(max(1, duration_seconds))
+        await client(SetTypingRequest(peer=entity, action=SendMessageCancelAction()))
+        return True
+    except Exception as e:
+        log.error(f"simulate_typing error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def react_to_message(account_id: str, chat_id: int, message_id: int, reaction: str = '👍') -> bool:
+    """
+    Ставит реакцию на сообщение/пост.
+    
+    :param account_id: ID аккаунта
+    :param chat_id: ID чата/канала
+    :param message_id: ID сообщения
+    :param reaction: Эмодзи реакции
+    :return: True при успехе
+    """
+    from telethon.tl.functions.messages import SendReactionRequest
+    from telethon.tl.types import ReactionEmoji
+    
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client(SendReactionRequest(
+            peer=entity,
+            msg_id=message_id,
+            reaction=[ReactionEmoji(emoticon=reaction)],
+        ))
+        return True
+    except Exception as e:
+        log.error(f"react_to_message error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def send_voice_message(account_id: str, chat_id: int, audio_bytes: bytes, duration: int = 5) -> bool:
+    """
+    Отправляет голосовое сообщение в чат.
+    
+    :param account_id: ID аккаунта
+    :param chat_id: ID чата
+    :param audio_bytes: Байты аудио-файла (OGG/OPUS)
+    :param duration: Длительность в секундах
+    :return: True при успехе
+    """
+    import io
+    from telethon.tl.types import DocumentAttributeAudio
+    
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client.send_file(
+            entity,
+            io.BytesIO(audio_bytes),
+            voice_note=True,
+            attributes=[DocumentAttributeAudio(duration=duration, voice=True)],
+        )
+        return True
+    except Exception as e:
+        log.error(f"send_voice_message error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def send_video_note(account_id: str, chat_id: int, video_bytes: bytes, duration: int = 10) -> bool:
+    """
+    Отправляет кружок (video note) в чат.
+    
+    :param account_id: ID аккаунта
+    :param chat_id: ID чата
+    :param video_bytes: Байты видео (MP4, квадратный)
+    :param duration: Длительность в секундах
+    :return: True при успехе
+    """
+    import io
+    from telethon.tl.types import DocumentAttributeVideo
+    
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(chat_id)
+        await client.send_file(
+            entity,
+            io.BytesIO(video_bytes),
+            video_note=True,
+            attributes=[DocumentAttributeVideo(duration=duration, w=240, h=240, round_message=True)],
+        )
+        return True
+    except Exception as e:
+        log.error(f"send_video_note error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def invite_users_to_group(account_id: str, group_id: int, user_ids: list) -> dict:
+    """
+    Инвайтит пользователей в группу/канал.
+    
+    :param account_id: ID аккаунта-инвайтера
+    :param group_id: ID группы
+    :param user_ids: Список ID пользователей
+    :return: {'invited': int, 'failed': int, 'errors': list}
+    """
+    import asyncio
+    from telethon.tl.functions.channels import InviteToChannelRequest
+    
+    client = await get_telegram_client(account_id)
+    results = {'invited': 0, 'failed': 0, 'errors': []}
+    try:
+        entity = await client.get_entity(group_id)
+        for uid in user_ids:
+            try:
+                user_entity = await client.get_entity(uid)
+                await client(InviteToChannelRequest(channel=entity, users=[user_entity]))
+                results['invited'] += 1
+                await asyncio.sleep(random.uniform(3, 8))
+            except Exception as e:
+                results['failed'] += 1
+                results['errors'].append(str(e))
+    except Exception as e:
+        results['errors'].append(f"Group error: {e}")
+    finally:
+        await client.disconnect()
+    return results
+
+
+async def reset_all_sessions(account_id: str) -> bool:
+    """
+    Сбрасывает все авторизованные сессии аккаунта, кроме текущей.
+    
+    :param account_id: ID аккаунта
+    :return: True при успехе
+    """
+    from telethon.tl.functions.auth import ResetAuthorizationsRequest
+    
+    client = await get_telegram_client(account_id)
+    try:
+        await client(ResetAuthorizationsRequest())
+        return True
+    except Exception as e:
+        log.error(f"reset_all_sessions error: {e}")
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def dump_all_chats(account_id: str, limit_per_chat: int = 100) -> dict:
+    """
+    Дампит все чаты аккаунта в текстовый архив.
+    
+    :param account_id: ID аккаунта
+    :param limit_per_chat: Лимит сообщений на чат
+    :return: {'archive': bytes, 'chat_count': int} или {'error': str}
+    """
+    import io
+    import zipfile
+    import asyncio
+    
+    client = await get_telegram_client(account_id)
+    try:
+        dialogs = await client.get_dialogs(limit=50)
+        zip_buf = io.BytesIO()
+        chat_count = 0
+        
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for dialog in dialogs:
+                if not dialog.is_user and not dialog.is_group and not dialog.is_channel:
+                    continue
+                try:
+                    messages = await client.get_messages(dialog.entity, limit=limit_per_chat)
+                    lines = [f"=== {dialog.name} (ID: {dialog.id}) ===\n"]
+                    for msg in reversed(messages):
+                        sender = getattr(msg.sender, 'first_name', '') or ''
+                        text = msg.text or '[media]'
+                        date_str = msg.date.strftime('%Y-%m-%d %H:%M') if msg.date else ''
+                        lines.append(f"[{date_str}] {sender}: {text}\n")
+                    
+                    safe_name = ''.join(c for c in dialog.name if c.isalnum() or c in ' _-')[:50]
+                    filename = f"{safe_name}_{dialog.id}.txt"
+                    zf.writestr(filename, ''.join(lines))
+                    chat_count += 1
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    log.warning(f"dump_all_chats: skip chat {dialog.id}: {e}")
+        
+        zip_buf.seek(0)
+        return {'archive': zip_buf.read(), 'chat_count': chat_count}
+    except Exception as e:
+        log.error(f"dump_all_chats error: {e}")
+        return {'error': str(e)}
+    finally:
+        await client.disconnect()
