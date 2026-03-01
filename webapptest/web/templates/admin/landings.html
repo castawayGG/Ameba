@@ -5,7 +5,7 @@
 {% block header_actions %}
 <button onclick="openModal('createLandingModal')"
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Создать лендинг
+    <i data-lucide="plus" class="w-4 h-4"></i> Создать лендинг
 </button>
 {% endblock %}
 
@@ -168,11 +168,11 @@
           <td class="px-5 py-3 text-xs" style="color:var(--panel-muted);">{{ l.created_at | timestamp_to_date }}</td>
           <td class="px-5 py-3 text-right">
             <div class="inline-flex items-center gap-1">
-              <a href="/admin/api/landings/{{ l.id }}/preview" target="_blank" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Превью" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-eye"></i></a>
-              <button onclick="editLanding({{ l.id }}, {{ l.name|tojson }}, {{ l.slug|tojson }}, {{ l.language|tojson }}, {{ l.theme|tojson }}, {{ (l.html_content or '')|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Редактировать" onmouseover="this.style.color='var(--panel-accent)'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-pen"></i></button>
-              <button onclick="cloneLanding({{ l.id }}, {{ l.name|tojson }}, {{ l.slug|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Клонировать" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-copy"></i></button>
-              <button onclick="copyLandingUrl({{ l.slug|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Скопировать URL" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-link"></i></button>
-              <button onclick="deleteLanding({{ l.id }}, {{ l.name|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Удалить" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-trash"></i></button>
+              <a href="/admin/api/landings/{{ l.id }}/preview" target="_blank" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Превью" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="eye" class="w-4 h-4"></i></a>
+              <button onclick="editLanding({{ l.id }}, {{ l.name|tojson }}, {{ l.slug|tojson }}, {{ l.language|tojson }}, {{ l.theme|tojson }}, {{ (l.html_content or '')|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Редактировать" onmouseover="this.style.color='var(--panel-accent)'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="pen" class="w-4 h-4"></i></button>
+              <button onclick="cloneLanding({{ l.id }}, {{ l.name|tojson }}, {{ l.slug|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Клонировать" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="copy" class="w-4 h-4"></i></button>
+              <button onclick="copyLandingUrl({{ l.slug|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Скопировать URL" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="link" class="w-4 h-4"></i></button>
+              <button onclick="deleteLanding({{ l.id }}, {{ l.name|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Удалить" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>
           </td>
         </tr>

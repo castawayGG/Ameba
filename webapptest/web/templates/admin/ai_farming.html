@@ -12,7 +12,7 @@
   <!-- AI Генерация комментариев -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-solid fa-comment-dots mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="message-circle" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       AI Генерация комментариев
     </h2>
     <div class="space-y-3">
@@ -40,7 +40,7 @@
         </div>
       </div>
       <button onclick="generateComment()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Сгенерировать
+        <i data-lucide="sparkles" class="w-4 h-4 mr-2"></i>Сгенерировать
       </button>
       <div id="ai_result" class="hidden mt-3 p-3 rounded-lg text-sm" style="background:#071220;border:1px solid var(--panel-border);color:var(--panel-text);"></div>
     </div>
@@ -49,7 +49,7 @@
   <!-- Генератор личности -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-solid fa-user-astronaut mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="user" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Генератор личности
     </h2>
     <div class="space-y-3">
@@ -71,10 +71,10 @@
       </div>
       <div class="grid grid-cols-2 gap-2">
         <button onclick="previewPersonality()" class="px-4 py-2 text-sm font-medium rounded-lg border" style="border-color:var(--panel-accent);color:var(--panel-accent);">
-          <i class="fa-solid fa-eye mr-1"></i>Предпросмотр
+          <i data-lucide="eye" class="w-4 h-4 mr-1"></i>Предпросмотр
         </button>
         <button onclick="applyPersonality()" id="pers_apply_btn" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow" disabled>
-          <i class="fa-solid fa-check mr-1"></i>Применить
+          <i data-lucide="check" class="w-4 h-4 mr-1"></i>Применить
         </button>
       </div>
       <div id="pers_preview" class="hidden p-3 rounded-lg text-sm space-y-1" style="background:#071220;border:1px solid var(--panel-border);">
@@ -88,7 +88,7 @@
   <!-- Имитация действий -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-solid fa-keyboard mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="keyboard" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Имитация действий
     </h2>
     <div class="space-y-3">
@@ -111,7 +111,7 @@
         </div>
       </div>
       <button onclick="simulateTyping()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-        <i class="fa-solid fa-keyboard mr-2"></i>Имитировать набор
+        <i data-lucide="keyboard" class="w-4 h-4 mr-2"></i>Имитировать набор
       </button>
     </div>
   </div>
@@ -119,7 +119,7 @@
   <!-- Реакции на посты -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-solid fa-thumbs-up mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="thumbs-up" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Реакции на посты
     </h2>
     <div class="space-y-3">
@@ -153,7 +153,7 @@
         </div>
       </div>
       <button onclick="reactToPost()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-        <i class="fa-solid fa-bolt mr-2"></i>Поставить реакцию
+        <i data-lucide="zap" class="w-4 h-4 mr-2"></i>Поставить реакцию
       </button>
     </div>
   </div>
@@ -161,7 +161,7 @@
   <!-- AI настройки -->
   <div class="rounded-xl p-6 lg:col-span-2" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-solid fa-gear mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="settings" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Настройки AI провайдера
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -188,7 +188,7 @@
         <label class="text-sm" style="color:var(--panel-text);">AI включён</label>
       </div>
       <button onclick="saveAISettings()" class="ml-auto px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-        <i class="fa-solid fa-save mr-2"></i>Сохранить настройки
+        <i data-lucide="save" class="w-4 h-4 mr-2"></i>Сохранить настройки
       </button>
     </div>
   </div>

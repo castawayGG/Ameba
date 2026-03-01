@@ -4,13 +4,13 @@
 
 {% block header_actions %}
 <button onclick="bulkCheckProxies()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" id="bulk-check-btn">
-    <i class="fa-solid fa-magnifying-glass mr-1.5 text-yellow-400"></i>Проверить все
+    <i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все
 </button>
 <button onclick="openModal('autoLoadModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-    <i class="fa-solid fa-cloud-arrow-down mr-1.5 text-blue-400"></i>Авто-загрузка
+    <i data-lucide="cloud-download" class="w-4 h-4 mr-1.5 text-blue-400"></i>Авто-загрузка
 </button>
 <button onclick="openModal('addProxyModal')" class="flex items-center text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-    <i class="fa-solid fa-plus mr-1.5"></i>Добавить прокси
+    <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i>Добавить прокси
 </button>
 {% endblock %}
 
@@ -131,7 +131,7 @@
     <div class="fixed inset-0 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md modal-panel border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i class="fa-solid fa-cloud-arrow-down mr-2 text-blue-400"></i>Автозагрузка прокси</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i data-lucide="cloud-download" class="w-4 h-4 mr-2 text-blue-400"></i>Автозагрузка прокси</h3>
                 <button onclick="closeModal('autoLoadModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -167,7 +167,7 @@
                 </div>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="closeModal('autoLoadModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
-                    <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"><i class="fa-solid fa-cloud-arrow-down mr-1"></i>Загрузить</button>
+                    <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"><i data-lucide="cloud-download" class="w-4 h-4 mr-1"></i>Загрузить</button>
                 </div>
             </form>
         </div>
@@ -234,7 +234,7 @@ async function saveDesc(input) {
 async function bulkCheckProxies() {
     const btn = document.getElementById('bulk-check-btn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Запуск...';
+    btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 fa-spin mr-1.5"></i>Запуск...';
     try {
         const res = await fetch('/admin/proxies/bulk_check', {method: 'POST'});
         const data = await res.json();
@@ -247,7 +247,7 @@ async function bulkCheckProxies() {
         showToast('Ошибка запроса', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1.5 text-yellow-400"></i>Проверить все';
+        btn.innerHTML = '<i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все';
     }
 }
 </script>

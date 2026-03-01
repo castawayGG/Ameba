@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createRuleModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Нове правило
+    <i data-lucide="plus" class="w-4 h-4"></i> Нове правило
 </button>
 {% endblock %}
 
@@ -97,7 +97,7 @@
               </td>
               <td class="px-4 py-3">
                 <button onclick="deleteRule({{ rule.id }})" class="text-xs px-2 py-1 rounded border hover:border-red-500 hover:text-red-400 transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);">
-                  <i class="fa-solid fa-trash"></i>
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
               </td>
             </tr>
@@ -107,7 +107,7 @@
       </div>
       {% else %}
       <div class="px-6 py-12 text-center">
-        <i class="fa-solid fa-clock text-4xl mb-4" style="color:var(--panel-border);"></i>
+        <i data-lucide="clock" class="w-8 h-8 mb-4" style="color:var(--panel-border);"></i>
         <p class="text-sm" style="color:var(--panel-muted);">Немає правил кулдаунів</p>
       </div>
       {% endif %}

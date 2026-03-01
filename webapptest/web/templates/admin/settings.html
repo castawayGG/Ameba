@@ -169,7 +169,7 @@
     <!-- Rate Limiting Settings -->
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider"><i class="fa-solid fa-gauge mr-1.5"></i>Rate Limiting</h2>
+            <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider"><i data-lucide="gauge" class="w-4 h-4 mr-1.5"></i>Rate Limiting</h2>
         </div>
         <form method="POST" action="{{ url_for('admin.save_rate_limits') }}" class="px-6 py-5 space-y-4">
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Настройка лимитов запросов. Формат: «число per минута/час» (напр. <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">10 per minute</code>).</p>

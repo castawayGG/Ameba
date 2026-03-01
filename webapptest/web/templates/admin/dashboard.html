@@ -259,7 +259,7 @@ loadChart('week');
         banner.innerHTML = pinned.map(a => `
             <div class="mb-2 p-4 rounded-lg border-l-4 ${priorityColors[a.priority] || priorityColors.normal}">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-thumbtack text-xs"></i>
+                    <i data-lucide="pin" class="w-3 h-3"></i>
                     <strong class="text-sm">${a.title}</strong>
                 </div>
                 <p class="text-sm mt-1 opacity-80">${a.text}</p>

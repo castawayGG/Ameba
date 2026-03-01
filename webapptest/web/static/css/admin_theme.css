@@ -1,20 +1,20 @@
 /* ─────────────────────────────────────────────────────────────────
- * admin_theme.css — Fintech dark-navy theme for the admin panel
+ * admin_theme.css — Minimalist black-and-blue theme for the admin panel
  * Loaded by web/templates/admin/base.html via url_for('static', …)
  * ───────────────────────────────────────────────────────────────── */
 
-/* Fintech dark-navy CSS variables */
+/* Minimalist black-and-blue CSS variables */
 :root {
-    --panel-bg:        #0d1421;
-    --panel-surface:   #131c2e;
-    --panel-card:      #192238;
-    --panel-border:    #1d3150;
+    --panel-bg:        #080808;
+    --panel-surface:   #0f0f0f;
+    --panel-card:      #141414;
+    --panel-border:    #1e2636;
     --panel-accent:    #3b82f6;
     --panel-accent2:   #2563eb;
     --panel-accent-g1: #3b82f6;
     --panel-accent-g2: #06b6d4;
-    --panel-text:      #e1e8f5;
-    --panel-muted:     #607d99;
+    --panel-text:      #e2e8f0;
+    --panel-muted:     #556070;
 }
 
 /* Dark palette applied to the entire admin panel */
@@ -143,10 +143,12 @@ input::placeholder { color: var(--panel-muted) !important; }
     color: var(--panel-text);
     background: rgba(255,255,255,0.04);
 }
-.nav-group-header i.nav-group-icon { width: 1.125rem; margin-right: 0.5rem; text-align: center; }
+.nav-group-header .nav-group-icon { width: 1.125rem; height: 1.125rem; margin-right: 0.5rem; flex-shrink: 0; }
 .nav-chevron {
+    width: 0.75rem;
+    height: 0.75rem;
     margin-left: auto;
-    font-size: 9px;
+    flex-shrink: 0;
     transition: transform 0.2s ease;
 }
 .nav-group-items {
@@ -157,6 +159,10 @@ input::placeholder { color: var(--panel-muted) !important; }
 .nav-group.is-open .nav-group-items { max-height: 1000px; }
 .nav-group.is-open .nav-chevron { transform: rotate(90deg); }
 .nav-group-items a { margin-left: 0.375rem; }
+
+/* Spin animation (replaces fa-spin for Lucide SVGs) */
+.fa-spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }

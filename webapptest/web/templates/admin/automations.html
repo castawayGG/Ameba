@@ -5,7 +5,7 @@
 {% block header_actions %}
 <button onclick="openModal('createAutoModal')"
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Создать автоматизацию
+    <i data-lucide="plus" class="w-4 h-4"></i> Создать автоматизацию
 </button>
 {% endblock %}
 
@@ -41,7 +41,7 @@
         <div class="flex items-center justify-between mb-2">
           <label class="text-sm font-medium" style="color:var(--panel-muted);">Шаги</label>
           <button type="button" onclick="addStep()" class="text-xs px-2 py-1 rounded-lg" style="background:rgba(16,185,129,0.15);color:var(--panel-accent);border:1px solid rgba(16,185,129,0.3);">
-            <i class="fa-solid fa-plus mr-1"></i>Добавить шаг
+            <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Добавить шаг
           </button>
         </div>
         <div id="stepsContainer" class="space-y-3">
@@ -99,13 +99,13 @@
 
     {% if a.last_run %}
     <div class="text-xs" style="color:var(--panel-muted);">
-      <i class="fa-solid fa-clock mr-1"></i>Последний запуск: {{ a.last_run | timestamp_to_date }}
+      <i data-lucide="clock" class="w-4 h-4 mr-1"></i>Последний запуск: {{ a.last_run | timestamp_to_date }}
     </div>
     {% endif %}
 
     <div class="flex items-center gap-2 pt-1 border-t" style="border-color:var(--panel-border);">
       <button onclick="deleteAutomation({{ a.id }}, {{ a.name|tojson }})" class="flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.4)'" onmouseout="this.style.color='var(--panel-muted)';this.style.borderColor='var(--panel-border)'">
-        <i class="fa-solid fa-trash mr-1"></i>Удалить
+        <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i>Удалить
       </button>
     </div>
   </div>
@@ -113,7 +113,7 @@
 </div>
 {% else %}
 <div class="rounded-xl p-12 text-center" style="background:var(--panel-card);border:1px dashed var(--panel-border);">
-  <i class="fa-solid fa-robot text-4xl mb-4" style="color:var(--panel-border);"></i>
+  <i data-lucide="bot" class="w-8 h-8 mb-4" style="color:var(--panel-border);"></i>
   <p class="text-sm" style="color:var(--panel-muted);">Нет автоматизаций. Создайте первую!</p>
 </div>
 {% endif %}
@@ -154,7 +154,7 @@ function addStep() {
       </select>
       <input type="number" id="step_delay_${idx}" placeholder="delay (s)" min="0"
              class="w-24 px-2 py-1.5 rounded-lg text-xs border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
-      <button type="button" onclick="removeStep(${idx})" style="color:var(--panel-muted);" class="hover:text-red-400 text-sm"><i class="fa-solid fa-xmark"></i></button>
+      <button type="button" onclick="removeStep(${idx})" style="color:var(--panel-muted);" class="hover:text-red-400 text-sm"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     <div id="step_params_${idx}" class="grid grid-cols-2 gap-2"></div>`;
   container.appendChild(div);

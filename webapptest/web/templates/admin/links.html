@@ -5,7 +5,7 @@
 {% block header_actions %}
 <button onclick="openModal('createLinkModal')"
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Создать ссылку
+    <i data-lucide="plus" class="w-4 h-4"></i> Создать ссылку
 </button>
 {% endblock %}
 
@@ -90,9 +90,9 @@
           <td class="px-5 py-3 text-xs" style="color:var(--panel-muted);">{{ link.expires_at | timestamp_to_date if link.expires_at else '—' }}</td>
           <td class="px-5 py-3 text-right">
             <div class="inline-flex items-center gap-1">
-              <button onclick="copyLinkUrl({{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Копировать URL" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-link"></i></button>
-              <button onclick="showStats({{ link.id }}, {{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Статистика" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-chart-bar"></i></button>
-              <button onclick="deleteLink({{ link.id }}, {{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Удалить" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'"><i class="fa-solid fa-trash"></i></button>
+              <button onclick="copyLinkUrl({{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Копировать URL" onmouseover="this.style.color='var(--panel-accent2)'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="link" class="w-4 h-4"></i></button>
+              <button onclick="showStats({{ link.id }}, {{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Статистика" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="bar-chart-2" class="w-4 h-4"></i></button>
+              <button onclick="deleteLink({{ link.id }}, {{ link.short_code|tojson }})" class="p-1.5 rounded-lg transition-colors text-xs" style="color:var(--panel-muted);" title="Удалить" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>
           </td>
         </tr>

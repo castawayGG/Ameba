@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createTaskModal')" class="btn-accent-glow text-white text-sm font-medium px-4 py-2 rounded-lg">
-    <i class="fa-solid fa-plus mr-2"></i>Создать задачу
+    <i data-lucide="plus" class="w-4 h-4 mr-2"></i>Создать задачу
 </button>
 {% endblock %}
 
@@ -64,7 +64,7 @@
     <div class="w-full max-w-lg rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
         <div class="flex items-center justify-between mb-5">
             <h3 class="text-base font-semibold" style="color: var(--panel-text);">Создать задачу</h3>
-            <button onclick="closeModal('createTaskModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <button onclick="closeModal('createTaskModal')" style="color: var(--panel-muted);"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="space-y-4">
             <input id="task-title" type="text" placeholder="Заголовок задачи *" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);">
@@ -106,7 +106,7 @@
     <div class="w-full max-w-md rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
         <div class="flex items-center justify-between mb-4">
             <h3 id="detail-title" class="text-base font-semibold" style="color: var(--panel-text);">Задача</h3>
-            <button onclick="closeModal('taskDetailModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <button onclick="closeModal('taskDetailModal')" style="color: var(--panel-muted);"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <p id="detail-desc" class="text-sm mb-4" style="color: var(--panel-muted);"></p>
         <div id="detail-meta" class="space-y-1 mb-4 text-sm"></div>
@@ -131,7 +131,7 @@
     <div class="flex items-center gap-2 flex-wrap">
         <span class="text-xs px-1.5 py-0.5 rounded" style="background: rgba(107,114,128,0.2); color: var(--panel-muted);">{{ task.priority }}</span>
         {% if task.due_date %}
-        <span class="text-xs" style="color: var(--panel-muted);"><i class="fa-regular fa-calendar mr-1"></i>{{ task.due_date.strftime('%d.%m') }}</span>
+        <span class="text-xs" style="color: var(--panel-muted);"><i data-lucide="calendar" class="w-4 h-4 mr-1"></i>{{ task.due_date.strftime('%d.%m') }}</span>
         {% endif %}
     </div>
 </div>
