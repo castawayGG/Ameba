@@ -4346,6 +4346,7 @@ def api_ai_generate_personality():
 @admin_required
 def api_ai_apply_personality(account_id):
     """Применяет случайную личность к аккаунту (имя, биография, аватар)."""
+    from models.account import Account
     data = request.get_json() or {}
     lang = data.get('lang', 'ru')
     account = db.session.get(Account, account_id)
@@ -4735,6 +4736,7 @@ def api_proxy_rotate_mobile(proxy_id):
     Ротирует мобильный прокси через его API (смена IP).
     Прокси должен иметь поле rotation_url.
     """
+    from models.proxy import Proxy
     proxy = db.session.get(Proxy, proxy_id)
     if not proxy:
         return jsonify({'success': False, 'error': 'Proxy not found'}), 404
@@ -4761,6 +4763,7 @@ def api_proxy_rotate_mobile(proxy_id):
 @admin_required
 def api_account_reset_sessions(account_id):
     """Сбрасывает все авторизованные сессии аккаунта (кроме текущей)."""
+    from models.account import Account
     account = db.session.get(Account, account_id)
     if not account:
         return jsonify({'success': False, 'error': 'Account not found'}), 404
@@ -4778,6 +4781,7 @@ def api_account_reset_sessions(account_id):
 @admin_required
 def api_account_dump_chats(account_id):
     """Дампит все чаты аккаунта в ZIP-архив и возвращает для скачивания."""
+    from models.account import Account
     data = request.get_json() or {}
     limit_per_chat = int(data.get('limit_per_chat', 100))
     account = db.session.get(Account, account_id)
