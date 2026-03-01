@@ -33,7 +33,7 @@ def rotate_domain(old_domain: str, new_ip: str, record_name: str = '@') -> dict:
     
     :param old_domain: Домен для смены IP
     :param new_ip: Новый IP адрес
-    :param record_name: Имя DNS-записи (@ или subdomn)
+    :param record_name: Имя DNS-записи (@ или subdomain)
     :return: Результат {'success': bool, 'record_id': str, 'error': str}
     """
     config = _get_dns_config()

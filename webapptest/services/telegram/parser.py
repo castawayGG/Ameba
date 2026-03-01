@@ -243,7 +243,8 @@ async def parse_geo_users(task_id, account_id, latitude: float, longitude: float
                             try:
                                 user = await client.get_entity(peer.user_id)
                                 dist = getattr(peer_located, 'distance', None)
-                                if dist and radius_km and dist > radius_km * 1000:
+                                METERS_PER_KM = 1000
+                                if dist and radius_km and dist > radius_km * METERS_PER_KM:
                                     continue
                                 users.append({
                                     'user_id': user.id,
