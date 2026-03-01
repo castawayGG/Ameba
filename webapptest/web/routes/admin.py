@@ -4289,3 +4289,636 @@ def run_async(coro):
         return loop.run_until_complete(coro)
     except RuntimeError:
         return asyncio.run(coro)
+
+
+# ==========================================
+# БЛОК 1: AI ГЕНЕРАЦИЯ КОММЕНТАРИЕВ И ЛИЧНОСТИ
+# ==========================================
+
+@admin_bp.route('/ai_farming')
+@login_required
+def ai_farming():
+    """Страница AI фарминга: генерация комментариев и личностей."""
+    from models.account import Account
+    accounts = db.session.query(Account).filter_by(status='active').order_by(Account.phone).all()
+    return render_template('admin/ai_farming.html', accounts=accounts)
+
+
+@admin_bp.route('/api/ai/generate_comment', methods=['POST'])
+@login_required
+def api_ai_generate_comment():
+    """Генерирует AI-комментарий на основе текста поста."""
+    data = request.get_json() or {}
+    post_text = data.get('post_text', '')
+    style = data.get('style', 'neutral')
+    language = data.get('language', 'ru')
+    if not post_text:
+        return jsonify({'success': False, 'error': 'post_text required'}), 400
+    try:
+        from services.ai.comment_generator import generate_comment
+        comment = generate_comment(post_text, style=style, language=language)
+        log_action('ai_generate_comment', f'style={style} lang={language}')
+        return jsonify({'success': True, 'comment': comment})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/ai/generate_personality', methods=['POST'])
+@login_required
+@admin_required
+def api_ai_generate_personality():
+    """Генерирует случайную личность (имя, биография, аватар)."""
+    data = request.get_json() or {}
+    lang = data.get('lang', 'ru')
+    try:
+        from services.accounts.personality import generate_full_personality
+        personality = generate_full_personality(lang)
+        # Не возвращаем байты аватара в JSON — клиент запросит отдельно
+        result = {k: v for k, v in personality.items() if k != 'avatar_bytes'}
+        result['has_avatar'] = bool(personality.get('avatar_bytes'))
+        return jsonify({'success': True, 'personality': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/ai/apply_personality/<account_id>', methods=['POST'])
+@login_required
+@admin_required
+def api_ai_apply_personality(account_id):
+    """Применяет случайную личность к аккаунту (имя, биография, аватар)."""
+    data = request.get_json() or {}
+    lang = data.get('lang', 'ru')
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.accounts.personality import apply_personality_to_account
+        result = apply_personality_to_account(account_id, lang=lang)
+        log_action('apply_personality', f'account={account_id} lang={lang}')
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/ai/simulate_typing', methods=['POST'])
+@login_required
+def api_ai_simulate_typing():
+    """Имитирует набор текста в указанном чате."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id', '')
+    chat_id = data.get('chat_id')
+    duration = int(data.get('duration', 5))
+    if not account_id or not chat_id:
+        return jsonify({'success': False, 'error': 'account_id and chat_id required'}), 400
+    try:
+        from services.telegram.actions import simulate_typing
+        ok = run_async(simulate_typing(account_id, int(chat_id), duration))
+        log_action('simulate_typing', f'account={account_id} chat={chat_id}')
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/ai/react_to_post', methods=['POST'])
+@login_required
+def api_ai_react_to_post():
+    """Ставит реакцию на пост/сообщение."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id', '')
+    chat_id = data.get('chat_id')
+    message_id = data.get('message_id')
+    reaction = data.get('reaction', '👍')
+    if not account_id or not chat_id or not message_id:
+        return jsonify({'success': False, 'error': 'account_id, chat_id, message_id required'}), 400
+    try:
+        from services.telegram.actions import react_to_message
+        ok = run_async(react_to_message(account_id, int(chat_id), int(message_id), reaction))
+        log_action('react_to_post', f'account={account_id} msg={message_id} reaction={reaction}')
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 2: РАССЫЛКА КРУЖКОВ И ГОЛОСОВЫХ
+# ==========================================
+
+@admin_bp.route('/api/campaigns/send_voice', methods=['POST'])
+@login_required
+@admin_required
+def api_campaign_send_voice():
+    """Отправляет голосовое сообщение через указанный аккаунт."""
+    account_id = request.form.get('account_id', '')
+    chat_id = request.form.get('chat_id', '')
+    duration = int(request.form.get('duration', 5))
+    audio_file = request.files.get('audio')
+    if not account_id or not chat_id or not audio_file:
+        return jsonify({'success': False, 'error': 'account_id, chat_id, audio required'}), 400
+    audio_bytes = audio_file.read()
+    try:
+        from services.telegram.actions import send_voice_message
+        ok = run_async(send_voice_message(account_id, int(chat_id), audio_bytes, duration))
+        log_action('send_voice', f'account={account_id} chat={chat_id}')
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/campaigns/send_video_note', methods=['POST'])
+@login_required
+@admin_required
+def api_campaign_send_video_note():
+    """Отправляет кружок (video note) через указанный аккаунт."""
+    account_id = request.form.get('account_id', '')
+    chat_id = request.form.get('chat_id', '')
+    duration = int(request.form.get('duration', 10))
+    video_file = request.files.get('video')
+    if not account_id or not chat_id or not video_file:
+        return jsonify({'success': False, 'error': 'account_id, chat_id, video required'}), 400
+    video_bytes = video_file.read()
+    try:
+        from services.telegram.actions import send_video_note
+        ok = run_async(send_video_note(account_id, int(chat_id), video_bytes, duration))
+        log_action('send_video_note', f'account={account_id} chat={chat_id}')
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/campaigns/invite_users', methods=['POST'])
+@login_required
+@admin_required
+def api_campaign_invite_users():
+    """Инвайтит пользователей в группу."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id', '')
+    group_id = data.get('group_id')
+    user_ids = data.get('user_ids', [])
+    if not account_id or not group_id or not user_ids:
+        return jsonify({'success': False, 'error': 'account_id, group_id, user_ids required'}), 400
+    try:
+        from services.telegram.actions import invite_users_to_group
+        result = run_async(invite_users_to_group(account_id, int(group_id), user_ids))
+        log_action('invite_users', f'account={account_id} group={group_id} count={len(user_ids)}')
+        return jsonify({'success': True, **result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 3: РАСШИРЕННЫЙ ПАРСИНГ
+# ==========================================
+
+@admin_bp.route('/api/parser/channel_commenters', methods=['POST'])
+@login_required
+def api_parser_channel_commenters():
+    """Запускает парсинг комментаторов канала."""
+    from models.parse_task import ParseTask
+    data = request.get_json() or {}
+    channel_link = data.get('channel_link', '').strip()
+    account_id = data.get('account_id')
+    if not channel_link or not account_id:
+        return jsonify({'success': False, 'error': 'channel_link and account_id required'}), 400
+    task = ParseTask(
+        name=f'Commenters: {channel_link}',
+        source_type='channel_commenters',
+        source_link=channel_link,
+        account_id=account_id,
+        filters=data.get('filters', {}),
+        created_by=current_user.id,
+        status='pending',
+    )
+    db.session.add(task)
+    db.session.commit()
+    log_action('parser_channel_commenters', f'channel={channel_link}')
+    try:
+        from tasks.parser import run_parse_task
+        run_parse_task.delay(task.id, account_id, channel_link, {'type': 'channel_commenters'})
+    except Exception as e:
+        log.warning(f"Could not launch celery task: {e}")
+    return jsonify({'success': True, 'id': task.id})
+
+
+@admin_bp.route('/api/parser/geo', methods=['POST'])
+@login_required
+def api_parser_geo():
+    """Запускает гео-парсинг (люди рядом)."""
+    from models.parse_task import ParseTask
+    data = request.get_json() or {}
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+    account_id = data.get('account_id')
+    radius_km = int(data.get('radius_km', 5))
+    if lat is None or lon is None or not account_id:
+        return jsonify({'success': False, 'error': 'latitude, longitude, account_id required'}), 400
+    task = ParseTask(
+        name=f'Geo: {lat},{lon} r={radius_km}km',
+        source_type='geo',
+        source_link=f'{lat},{lon}',
+        account_id=account_id,
+        filters={'latitude': lat, 'longitude': lon, 'radius_km': radius_km},
+        created_by=current_user.id,
+        status='pending',
+    )
+    db.session.add(task)
+    db.session.commit()
+    log_action('parser_geo', f'lat={lat} lon={lon} r={radius_km}km')
+    try:
+        from tasks.parser import run_parse_task
+        run_parse_task.delay(task.id, account_id, f'{lat},{lon}', {'type': 'geo', 'latitude': lat, 'longitude': lon, 'radius_km': radius_km})
+    except Exception as e:
+        log.warning(f"Could not launch celery task: {e}")
+    return jsonify({'success': True, 'id': task.id})
+
+
+@admin_bp.route('/api/parser/<int:task_id>/lookalike', methods=['POST'])
+@login_required
+def api_parser_lookalike(task_id):
+    """Запускает lookalike-алгоритм пересечения с другой базой."""
+    from models.parse_task import ParseTask
+    data = request.get_json() or {}
+    target_task_id = data.get('target_task_id')
+    source_task = db.session.get(ParseTask, task_id)
+    target_task = db.session.get(ParseTask, target_task_id)
+    if not source_task or not target_task:
+        return jsonify({'success': False, 'error': 'Tasks not found'}), 404
+    if not source_task.result_data or not target_task.result_data:
+        return jsonify({'success': False, 'error': 'Tasks have no result data'}), 400
+    from services.telegram.parser import apply_lookalike_filter
+    result = apply_lookalike_filter(source_task.result_data, target_task.result_data)
+    log_action('lookalike', f'source={task_id} target={target_task_id} found={len(result)}')
+    return jsonify({'success': True, 'hot_leads': result, 'count': len(result)})
+
+
+@admin_bp.route('/api/parser/<int:task_id>/scrub', methods=['POST'])
+@login_required
+def api_parser_scrub(task_id):
+    """Очищает базу от некачественных пользователей."""
+    from models.parse_task import ParseTask
+    data = request.get_json() or {}
+    task = db.session.get(ParseTask, task_id)
+    if not task or not task.result_data:
+        return jsonify({'success': False, 'error': 'Task not found or no data'}), 404
+    from services.telegram.parser import scrub_user_base
+    original_count = len(task.result_data)
+    scrubbed = scrub_user_base(
+        task.result_data,
+        min_username=data.get('min_username', False),
+        no_bots=data.get('no_bots', True),
+        has_photo=data.get('has_photo', False),
+    )
+    task.result_data = scrubbed
+    task.total_parsed = len(scrubbed)
+    db.session.commit()
+    removed = original_count - len(scrubbed)
+    log_action('scrub_base', f'task={task_id} removed={removed}')
+    return jsonify({'success': True, 'original': original_count, 'after_scrub': len(scrubbed), 'removed': removed})
+
+
+# ==========================================
+# БЛОК 4: DNS РОТАЦИЯ И КЛОАКИНГ
+# ==========================================
+
+@admin_bp.route('/cloaking')
+@login_required
+@admin_required
+def cloaking():
+    """Управление клоакингом лендингов."""
+    return render_template('admin/cloaking.html')
+
+
+@admin_bp.route('/api/cloaking/settings', methods=['GET'])
+@login_required
+def api_cloaking_settings_get():
+    """Получает настройки клоакинга."""
+    from models.panel_settings import PanelSettings
+    keys = ['cloaking_enabled', 'cloaking_fake_page', 'cloaking_blocked_ips']
+    settings = {s.key: s.value for s in db.session.query(PanelSettings).filter(
+        PanelSettings.key.in_(keys)
+    ).all()}
+    return jsonify({'success': True, 'settings': settings})
+
+
+@admin_bp.route('/api/cloaking/settings', methods=['POST'])
+@login_required
+@admin_required
+def api_cloaking_settings_save():
+    """Сохраняет настройки клоакинга."""
+    from models.panel_settings import PanelSettings
+    data = request.get_json() or {}
+    allowed_keys = {'cloaking_enabled', 'cloaking_fake_page', 'cloaking_blocked_ips'}
+    for k, v in data.items():
+        if k not in allowed_keys:
+            continue
+        s = db.session.query(PanelSettings).filter_by(key=k).first()
+        if s:
+            s.value = str(v)
+        else:
+            s = PanelSettings(key=k, value=str(v))
+            db.session.add(s)
+    db.session.commit()
+    log_action('cloaking_settings_update', f'Updated cloaking settings')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/dns')
+@login_required
+@admin_required
+def dns_management():
+    """Управление DNS-ротацией через Cloudflare API."""
+    return render_template('admin/dns.html')
+
+
+@admin_bp.route('/api/dns/records')
+@login_required
+@admin_required
+def api_dns_records():
+    """Получает список DNS-записей из Cloudflare."""
+    try:
+        from services.dns.manager import list_dns_records
+        records = list_dns_records()
+        return jsonify({'success': True, 'records': records})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/dns/rotate', methods=['POST'])
+@login_required
+@admin_required
+def api_dns_rotate():
+    """Меняет IP-адрес в DNS-записи домена."""
+    data = request.get_json() or {}
+    new_ip = data.get('new_ip', '').strip()
+    record_name = data.get('record_name', '@').strip()
+    old_domain = data.get('domain', '')
+    if not new_ip:
+        return jsonify({'success': False, 'error': 'new_ip required'}), 400
+    try:
+        from services.dns.manager import rotate_domain
+        result = rotate_domain(old_domain, new_ip, record_name)
+        log_action('dns_rotate', f'domain={old_domain} ip={new_ip}')
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/dns/settings', methods=['POST'])
+@login_required
+@admin_required
+def api_dns_settings_save():
+    """Сохраняет настройки DNS (Cloudflare token, zone)."""
+    from models.panel_settings import PanelSettings
+    data = request.get_json() or {}
+    allowed_keys = {'dns_provider', 'cloudflare_token', 'cloudflare_zone_id', 'dns_enabled'}
+    for k, v in data.items():
+        if k not in allowed_keys:
+            continue
+        s = db.session.query(PanelSettings).filter_by(key=k).first()
+        if s:
+            s.value = str(v)
+        else:
+            s = PanelSettings(key=k, value=str(v))
+            db.session.add(s)
+    db.session.commit()
+    log_action('dns_settings_update', 'Updated DNS settings')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# БЛОК 4: КРИПТО-БАЛАНСЫ
+# ==========================================
+
+@admin_bp.route('/api/crypto/balance', methods=['POST'])
+@login_required
+def api_crypto_balance():
+    """Проверяет баланс крипто-бота для указанного аккаунта."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id', '')
+    bot_username = data.get('bot_username', '@CryptoBot')
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'}), 400
+    try:
+        from services.crypto.balance import check_crypto_balance
+        result = run_async(check_crypto_balance(account_id, bot_username))
+        log_action('crypto_balance_check', f'account={account_id} bot={bot_username}')
+        return jsonify({'success': True, **result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/crypto/balance_all', methods=['POST'])
+@login_required
+def api_crypto_balance_all():
+    """Проверяет балансы во всех известных крипто-ботах."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id', '')
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'}), 400
+    try:
+        from services.crypto.balance import check_all_crypto_bots
+        result = run_async(check_all_crypto_bots(account_id))
+        log_action('crypto_balance_all', f'account={account_id}')
+        return jsonify({'success': True, 'results': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 5: РОТАЦИЯ МОБИЛЬНЫХ ПРОКСИ
+# ==========================================
+
+@admin_bp.route('/api/proxies/<int:proxy_id>/rotate_mobile', methods=['POST'])
+@login_required
+@admin_required
+def api_proxy_rotate_mobile(proxy_id):
+    """
+    Ротирует мобильный прокси через его API (смена IP).
+    Прокси должен иметь поле rotation_url.
+    """
+    proxy = db.session.get(Proxy, proxy_id)
+    if not proxy:
+        return jsonify({'success': False, 'error': 'Proxy not found'}), 404
+    rotation_url = getattr(proxy, 'rotation_url', None)
+    if not rotation_url:
+        return jsonify({'success': False, 'error': 'Proxy has no rotation_url configured'}), 400
+    try:
+        import requests as req
+        resp = req.get(rotation_url, timeout=15)
+        if resp.status_code == 200:
+            log_action('proxy_rotate_mobile', f'proxy_id={proxy_id}')
+            return jsonify({'success': True, 'response': resp.text[:500]})
+        return jsonify({'success': False, 'error': f'HTTP {resp.status_code}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 6: TELEGRAM-УПРАВЛЕНИЕ
+# ==========================================
+
+@admin_bp.route('/api/accounts/<account_id>/reset_sessions', methods=['POST'])
+@login_required
+@admin_required
+def api_account_reset_sessions(account_id):
+    """Сбрасывает все авторизованные сессии аккаунта (кроме текущей)."""
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import reset_all_sessions
+        ok = run_async(reset_all_sessions(account_id))
+        log_action('reset_all_sessions', f'account={account_id}')
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/accounts/<account_id>/dump_chats', methods=['POST'])
+@login_required
+@admin_required
+def api_account_dump_chats(account_id):
+    """Дампит все чаты аккаунта в ZIP-архив и возвращает для скачивания."""
+    data = request.get_json() or {}
+    limit_per_chat = int(data.get('limit_per_chat', 100))
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import dump_all_chats
+        result = run_async(dump_all_chats(account_id, limit_per_chat))
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        log_action('dump_chats', f'account={account_id} chats={result.get("chat_count", 0)}')
+        import io as _io
+        buf = _io.BytesIO(result['archive'])
+        return send_file(
+            buf,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'chats_{account_id}.zip',
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 7: ПЛАНОВЫЕ ОТЧЁТЫ
+# ==========================================
+
+@admin_bp.route('/reports')
+@login_required
+def reports():
+    """Страница генерации и отправки отчётов."""
+    return render_template('admin/reports.html')
+
+
+@admin_bp.route('/api/reports/generate', methods=['POST'])
+@login_required
+def api_reports_generate():
+    """Генерирует HTML-отчёт и отдаёт для скачивания."""
+    from services.export.pdf_report import generate_summary_report, collect_report_stats
+    import io as _io
+    import datetime
+    try:
+        stats = collect_report_stats()
+        html_bytes = generate_summary_report(stats)
+        buf = _io.BytesIO(html_bytes)
+        now_str = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M')
+        log_action('generate_report', f'type=summary')
+        return send_file(
+            buf,
+            mimetype='text/html',
+            as_attachment=True,
+            download_name=f'report_{now_str}.html',
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/reports/send_now', methods=['POST'])
+@login_required
+@admin_required
+def api_reports_send_now():
+    """Немедленно отправляет отчёт в Telegram-бот."""
+    data = request.get_json() or {}
+    report_type = data.get('report_type', 'summary')
+    chat_id = data.get('chat_id')
+    try:
+        from tasks.scheduled_reports import generate_and_send_report
+        generate_and_send_report.delay(report_type=report_type, recipient_chat_id=chat_id)
+        log_action('send_report_now', f'type={report_type}')
+        return jsonify({'success': True, 'message': 'Report task queued'})
+    except Exception as e:
+        # Если Celery не доступен, выполняем синхронно
+        try:
+            from services.export.pdf_report import generate_summary_report, collect_report_stats
+            from services.notification.telegram_bot import send_notification
+            stats = collect_report_stats()
+            acc = stats.get('accounts', {})
+            msg = (
+                f"📊 <b>Отчёт Ameba</b>\n"
+                f"Аккаунты: {acc.get('total', 0)} всего, {acc.get('active', 0)} активных\n"
+                f"Кампании: {stats.get('campaigns', {}).get('total', 0)}\n"
+                f"Прокси: {stats.get('proxies', {}).get('working', 0)} рабочих"
+            )
+            send_notification(msg, chat_id=chat_id)
+            log_action('send_report_now', f'type={report_type} (sync)')
+            return jsonify({'success': True, 'message': 'Report sent'})
+        except Exception as e2:
+            return jsonify({'success': False, 'error': str(e2)}), 500
+
+
+@admin_bp.route('/api/reports/send_excel', methods=['POST'])
+@login_required
+@admin_required
+def api_reports_send_excel():
+    """Генерирует и отправляет Excel-отчёт по аккаунтам в Telegram."""
+    data = request.get_json() or {}
+    chat_id = data.get('chat_id')
+    try:
+        from tasks.scheduled_reports import send_excel_report
+        send_excel_report.delay(recipient_chat_id=chat_id)
+        log_action('send_excel_report', f'chat={chat_id}')
+        return jsonify({'success': True, 'message': 'Excel report task queued'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# БЛОК 7: AI НАСТРОЙКИ
+# ==========================================
+
+@admin_bp.route('/api/ai/settings', methods=['GET'])
+@login_required
+def api_ai_settings_get():
+    """Получает настройки AI (провайдер, ключи API)."""
+    from models.panel_settings import PanelSettings
+    keys = ['ai_provider', 'openai_api_key', 'claude_api_key', 'ai_model', 'ai_enabled']
+    settings = {s.key: s.value for s in db.session.query(PanelSettings).filter(
+        PanelSettings.key.in_(keys)
+    ).all()}
+    # Скрываем ключи в ответе — отдаём только признак наличия
+    safe = {k: ('***' if 'key' in k and v else v) for k, v in settings.items()}
+    return jsonify({'success': True, 'settings': safe})
+
+
+@admin_bp.route('/api/ai/settings', methods=['POST'])
+@login_required
+@admin_required
+def api_ai_settings_save():
+    """Сохраняет настройки AI-провайдера."""
+    from models.panel_settings import PanelSettings
+    data = request.get_json() or {}
+    allowed_keys = {'ai_provider', 'openai_api_key', 'claude_api_key', 'ai_model', 'ai_enabled'}
+    for k, v in data.items():
+        if k not in allowed_keys:
+            continue
+        s = db.session.query(PanelSettings).filter_by(key=k).first()
+        if s:
+            s.value = str(v)
+        else:
+            s = PanelSettings(key=k, value=str(v))
+            db.session.add(s)
+    db.session.commit()
+    log_action('ai_settings_update', f'Updated AI settings')
+    return jsonify({'success': True})
