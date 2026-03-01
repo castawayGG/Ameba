@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    # Application version (used for cache-busting static assets)
+    APP_VERSION = os.getenv('APP_VERSION', '1.0.0')
+
     # Flask
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-123')
     FLASK_ENV = os.getenv('FLASK_ENV', 'production')
