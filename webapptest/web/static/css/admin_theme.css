@@ -13,8 +13,8 @@
     --panel-accent2:   #2563eb;
     --panel-accent-g1: #3b82f6;
     --panel-accent-g2: #06b6d4;
-    --panel-text:      #f8fafc;
-    --panel-muted:     #94a3b8;
+    --panel-text:      #ffffff;
+    --panel-muted:     #e2e8f0;
 }
 
 /* Dark palette applied to the entire admin panel */

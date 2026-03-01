@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script type="module">import * as turbo from 'https://cdn.skypack.dev/@hotwired/turbo';</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -24,8 +23,8 @@
                             border:  '#1e2636',
                             accent:  '#3b82f6',
                             accent2: '#2563eb',
-                            text:    '#f8fafc',
-                            muted:   '#94a3b8',
+                            text:    '#ffffff',
+                            muted:   '#e2e8f0',
                         }
                     }
                 }
@@ -39,9 +38,9 @@
     <!-- Mobile overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden" onclick="closeSidebar()"></div>
 
-    <!-- Sidebar — data-turbo-permanent preserves scroll state across Turbo Drive navigations
-         (removing this attribute would reset the sidebar position on every page change) -->
-    <aside id="sidebar" data-turbo-permanent class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 sidebar-transition -translate-x-full md:translate-x-0">
+    <!-- Sidebar — kept outside <main id="main-area"> so PJAX navigation never
+         re-renders it, strictly preserving its scroll position across page changes -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 sidebar-transition -translate-x-full md:translate-x-0">
         <div class="flex flex-col h-full">
             <!-- Logo -->
             <div class="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0">
@@ -313,7 +312,7 @@
     </aside>
 
     <!-- Main -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
+    <main id="main-area" class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
         <header class="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-6 z-10 flex-shrink-0">
             <div class="flex items-center gap-3">
                 <!-- Hamburger (mobile) -->
@@ -355,6 +354,7 @@
             {% endwith %}
             {% block content %}{% endblock %}
         </div>
+        {% block scripts %}{% endblock %}
     </main>
 
     <!-- Toast container -->
@@ -452,12 +452,102 @@
             initGroupState();
             if (window.lucide) lucide.createIcons();
         });
-        document.addEventListener('turbo:load', function() {
-            initGroupState();
-            if (window.lucide) lucide.createIcons();
-        });
     </script>
-    {% block scripts %}{% endblock %}
+    <script>
+    // ── Lightweight PJAX for sidebar navigation ──
+    // Fetches new pages and replaces <main id="main-area"> without a full reload,
+    // strictly preserving the sidebar scroll position.
+    (function() {
+        'use strict';
+
+        function pjaxNavigate(url) {
+            fetch(url, { credentials: 'same-origin' })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.text();
+                })
+                .then(function(html) {
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var newMain = doc.getElementById('main-area');
+                    if (!newMain) { window.location.href = url; return; }
+                    var oldMain = document.getElementById('main-area');
+                    if (!oldMain) { window.location.href = url; return; }
+
+                    // Update document title
+                    document.title = doc.title;
+
+                    // Replace main content (without executing scripts yet)
+                    oldMain.innerHTML = newMain.innerHTML;
+
+                    // Re-execute inline scripts from the new main
+                    // (innerHTML assignment does not execute scripts; we must clone them)
+                    oldMain.querySelectorAll('script').forEach(function(s) {
+                        var el = document.createElement('script');
+                        if (s.src) {
+                            el.src = s.src;
+                            el.async = false;
+                        } else {
+                            el.textContent = s.textContent;
+                        }
+                        document.body.appendChild(el);
+                        document.body.removeChild(el);
+                    });
+
+                    // Re-init Lucide icons
+                    if (window.lucide) lucide.createIcons();
+
+                    // Update sidebar active states based on new URL path
+                    var newPath = new URL(url, window.location.origin).pathname;
+                    document.querySelectorAll('#sidebar a[href]').forEach(function(a) {
+                        var href = a.getAttribute('href');
+                        if (!href || href === '#') return;
+                        if (href === newPath) {
+                            a.classList.add('nav-accent-active');
+                            a.classList.remove('text-gray-500', 'nav-accent-hover');
+                        } else {
+                            a.classList.remove('nav-accent-active');
+                            a.classList.add('text-gray-500', 'nav-accent-hover');
+                        }
+                    });
+
+                    // Re-init accordion (opens groups containing active link)
+                    if (typeof initGroupState === 'function') initGroupState();
+
+                    // Close mobile sidebar overlay
+                    if (typeof closeSidebar === 'function') closeSidebar();
+                })
+                .catch(function() { window.location.href = url; });
+        }
+
+        // Record initial state so back button works from the first page
+        history.replaceState({ pjax: true, url: window.location.href }, document.title);
+
+        // Intercept sidebar link clicks
+        document.addEventListener('click', function(e) {
+            var a = e.target.closest('#sidebar a[href]');
+            if (!a) return;
+            var url = a.href;
+            if (!url || a.target === '_blank' ||
+                e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            try {
+                var parsed = new URL(url);
+                if (parsed.origin !== window.location.origin) return;
+                // Skip logout and other destructive actions
+                if (parsed.pathname.indexOf('/logout') !== -1) return;
+            } catch (ex) { return; }
+            e.preventDefault();
+            history.pushState({ pjax: true, url: url }, '', url);
+            pjaxNavigate(url);
+        });
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function(e) {
+            if (e.state && e.state.pjax) {
+                pjaxNavigate(e.state.url || window.location.href);
+            }
+        });
+    })();
+    </script>
 <script>
 // Notification center
 async function loadNotifications() {
