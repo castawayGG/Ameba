@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_theme.css') }}?v={{ app_version }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -32,6 +31,7 @@
             }
         }
     </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_theme.css') }}?v={{ app_version }}">
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased flex h-screen overflow-hidden transition-colors duration-200">
 
