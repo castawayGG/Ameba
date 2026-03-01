@@ -5,16 +5,18 @@
 
 /* Fintech dark-navy CSS variables */
 :root {
-    --panel-bg:        #0d1421;
-    --panel-surface:   #131c2e;
-    --panel-card:      #192238;
-    --panel-border:    #1d3150;
-    --panel-accent:    #3b82f6;
-    --panel-accent2:   #2563eb;
-    --panel-accent-g1: #3b82f6;
-    --panel-accent-g2: #06b6d4;
-    --panel-text:      #e1e8f5;
-    --panel-muted:     #607d99;
+    --panel-bg:          #0d1421;
+    --panel-surface:     #131c2e;
+    --panel-card:        #192238;
+    --panel-border:      #1d3150;
+    --panel-accent:      #3b82f6;
+    --panel-accent2:     #2563eb;
+    --panel-accent-g1:   #3b82f6;
+    --panel-accent-g2:   #06b6d4;
+    --panel-accent-hover: #60a5fa;
+    --panel-accent-glow: rgba(59,130,246,0.15);
+    --panel-text:        #e1e8f5;
+    --panel-muted:       #607d99;
 }
 
 /* Dark palette applied to the entire admin panel */

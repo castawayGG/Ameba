@@ -1,14 +1,30 @@
 import os
+import subprocess
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из .env файла
 load_dotenv()
+
+
+def _get_git_sha():
+    """Return the short git commit SHA, or '1' if unavailable."""
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            text=True,
+        ).strip()
+    except Exception:
+        return '1'
+
 
 class Config:
     # Flask
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-123')
     FLASK_ENV = os.getenv('FLASK_ENV', 'production')
     DEBUG = os.getenv('FLASK_DEBUG', '0').lower() in ('true', '1', 't')
+    APP_VERSION = os.getenv('APP_VERSION', _get_git_sha())
 
     # Database
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///data.db')
