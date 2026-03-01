@@ -5,16 +5,16 @@
 
 /* Minimalist black-and-blue CSS variables */
 :root {
-    --panel-bg:        #080808;
-    --panel-surface:   #0f0f0f;
-    --panel-card:      #141414;
+    --panel-bg:        #050505;
+    --panel-surface:   #0a0a0a;
+    --panel-card:      #111111;
     --panel-border:    #1e2636;
     --panel-accent:    #3b82f6;
     --panel-accent2:   #2563eb;
     --panel-accent-g1: #3b82f6;
     --panel-accent-g2: #06b6d4;
-    --panel-text:      #e2e8f0;
-    --panel-muted:     #556070;
+    --panel-text:      #f8fafc;
+    --panel-muted:     #94a3b8;
 }
 
 /* Dark palette applied to the entire admin panel */
@@ -49,13 +49,13 @@ main { background: var(--panel-bg) !important; }
 /* Text */
 .text-gray-800,
 .text-gray-900 { color: var(--panel-text) !important; }
-.text-gray-700 { color: #aac3e0 !important; }
-.text-gray-600 { color: #aac3e0 !important; }
+.text-gray-700 { color: #cbd5e1 !important; }
+.text-gray-600 { color: #cbd5e1 !important; }
 .text-gray-500 { color: var(--panel-muted) !important; }
 .text-gray-400 { color: var(--panel-muted) !important; }
 [class*="text-gray-100"],
 [class*="text-white"] { color: var(--panel-text) !important; }
-[class*="text-gray-300"] { color: #aac3e0 !important; }
+[class*="text-gray-300"] { color: #cbd5e1 !important; }
 [class*="text-gray-400"] { color: var(--panel-muted) !important; }
 [class*="text-gray-500"] { color: var(--panel-muted) !important; }
 
@@ -215,8 +215,8 @@ input::placeholder { color: var(--panel-muted) !important; }
 
 #html-root .text-gray-900 { color: var(--panel-text) !important; }
 #html-root .text-gray-800 { color: var(--panel-text) !important; }
-#html-root .text-gray-700 { color: #aac3e0 !important; }
-#html-root .text-gray-600 { color: #aac3e0 !important; }
+#html-root .text-gray-700 { color: #cbd5e1 !important; }
+#html-root .text-gray-600 { color: #cbd5e1 !important; }
 #html-root .text-gray-500 { color: var(--panel-muted) !important; }
 #html-root .text-gray-400 { color: var(--panel-muted) !important; }
 
