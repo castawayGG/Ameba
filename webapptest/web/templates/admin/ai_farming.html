@@ -1,0 +1,316 @@
+{% extends 'admin/base.html' %}
+{% block title %}AI Фарминг{% endblock %}
+{% block page_title %}AI Фарминг и Прогрев{% endblock %}
+
+{% block header_actions %}
+<span class="text-xs px-2 py-1 rounded-lg font-semibold" style="background:rgba(59,130,246,0.15);color:var(--panel-accent);">Блок 1</span>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- AI Генерация комментариев -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-comment-dots mr-2" style="color:var(--panel-accent);"></i>
+      AI Генерация комментариев
+    </h2>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Текст поста</label>
+        <textarea id="ai_post_text" rows="4" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="Вставьте текст поста для комментирования..."></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Стиль</label>
+          <select id="ai_style" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="positive">Позитивный 👍</option>
+            <option value="neutral" selected>Нейтральный</option>
+            <option value="question">Вопрос ❓</option>
+            <option value="emoji">С эмодзи 🔥</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Язык</label>
+          <select id="ai_language" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="ru" selected>🇷🇺 Русский</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="uk">🇺🇦 Українська</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="generateComment()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Сгенерировать
+      </button>
+      <div id="ai_result" class="hidden mt-3 p-3 rounded-lg text-sm" style="background:#071220;border:1px solid var(--panel-border);color:var(--panel-text);"></div>
+    </div>
+  </div>
+
+  <!-- Генератор личности -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-user-astronaut mr-2" style="color:var(--panel-accent);"></i>
+      Генератор личности
+    </h2>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Аккаунт</label>
+        <select id="pers_account_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          <option value="">— Только предпросмотр —</option>
+          {% for acc in accounts %}
+          <option value="{{ acc.id }}">{{ acc.phone }}{% if acc.username %} (@{{ acc.username }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Язык имени</label>
+        <select id="pers_lang" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          <option value="ru" selected>🇷🇺 Русский</option>
+          <option value="en">🇬🇧 English</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="previewPersonality()" class="px-4 py-2 text-sm font-medium rounded-lg border" style="border-color:var(--panel-accent);color:var(--panel-accent);">
+          <i class="fa-solid fa-eye mr-1"></i>Предпросмотр
+        </button>
+        <button onclick="applyPersonality()" id="pers_apply_btn" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow" disabled>
+          <i class="fa-solid fa-check mr-1"></i>Применить
+        </button>
+      </div>
+      <div id="pers_preview" class="hidden p-3 rounded-lg text-sm space-y-1" style="background:#071220;border:1px solid var(--panel-border);">
+        <div><span style="color:var(--panel-muted);">Имя:</span> <span id="pers_name" style="color:var(--panel-text);"></span></div>
+        <div><span style="color:var(--panel-muted);">Биография:</span> <span id="pers_bio" style="color:var(--panel-text);"></span></div>
+        <div><span style="color:var(--panel-muted);">Аватар:</span> <span id="pers_avatar" style="color:var(--panel-text);"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Имитация действий -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-keyboard mr-2" style="color:var(--panel-accent);"></i>
+      Имитация действий
+    </h2>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Аккаунт</label>
+        <select id="act_account_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          {% for acc in accounts %}
+          <option value="{{ acc.id }}">{{ acc.phone }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">ID чата</label>
+          <input type="number" id="act_chat_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="-100...">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Длительность (сек)</label>
+          <input type="number" id="act_duration" value="5" min="1" max="30" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+      </div>
+      <button onclick="simulateTyping()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-solid fa-keyboard mr-2"></i>Имитировать набор
+      </button>
+    </div>
+  </div>
+
+  <!-- Реакции на посты -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-thumbs-up mr-2" style="color:var(--panel-accent);"></i>
+      Реакции на посты
+    </h2>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Аккаунт</label>
+        <select id="react_account_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          {% for acc in accounts %}
+          <option value="{{ acc.id }}">{{ acc.phone }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">ID чата</label>
+          <input type="number" id="react_chat_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">ID сообщения</label>
+          <input type="number" id="react_msg_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Реакция</label>
+          <select id="react_emoji" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="👍">👍 Лайк</option>
+            <option value="❤️">❤️ Сердце</option>
+            <option value="🔥">🔥 Огонь</option>
+            <option value="👏">👏 Аплодисменты</option>
+            <option value="😂">😂 Смех</option>
+            <option value="😮">😮 Вау</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="reactToPost()" class="w-full px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-solid fa-bolt mr-2"></i>Поставить реакцию
+      </button>
+    </div>
+  </div>
+
+  <!-- AI настройки -->
+  <div class="rounded-xl p-6 lg:col-span-2" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-solid fa-gear mr-2" style="color:var(--panel-accent);"></i>
+      Настройки AI провайдера
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">AI Провайдер</label>
+        <select id="ai_provider" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="claude">Anthropic Claude</option>
+          <option value="disabled">Отключен (fallback)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">OpenAI API Key</label>
+        <input type="password" id="ai_openai_key" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="sk-...">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Claude API Key</label>
+        <input type="password" id="ai_claude_key" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="sk-ant-...">
+      </div>
+    </div>
+    <div class="mt-3 flex gap-3 items-center">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="ai_enabled" class="w-4 h-4">
+        <label class="text-sm" style="color:var(--panel-text);">AI включён</label>
+      </div>
+      <button onclick="saveAISettings()" class="ml-auto px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-solid fa-save mr-2"></i>Сохранить настройки
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function generateComment() {
+  const text = document.getElementById('ai_post_text').value.trim();
+  if (!text) { showToast('Введите текст поста', 'warning'); return; }
+  const res = await fetch('/admin/api/ai/generate_comment', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      post_text: text,
+      style: document.getElementById('ai_style').value,
+      language: document.getElementById('ai_language').value,
+    })
+  });
+  const data = await res.json();
+  const el = document.getElementById('ai_result');
+  el.classList.remove('hidden');
+  if (data.success) {
+    el.textContent = data.comment;
+    el.style.borderColor = 'var(--panel-accent)';
+  } else {
+    el.textContent = 'Ошибка: ' + data.error;
+    el.style.borderColor = '#ef4444';
+  }
+}
+
+let _pendingPersonality = null;
+
+async function previewPersonality() {
+  const lang = document.getElementById('pers_lang').value;
+  const res = await fetch('/admin/api/ai/generate_personality', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({lang})
+  });
+  const data = await res.json();
+  if (data.success) {
+    _pendingPersonality = data.personality;
+    document.getElementById('pers_name').textContent = data.personality.first_name + ' ' + data.personality.last_name;
+    document.getElementById('pers_bio').textContent = data.personality.bio;
+    document.getElementById('pers_avatar').textContent = data.personality.has_avatar ? '✅ Будет скачан' : '⚠️ Недоступен';
+    document.getElementById('pers_preview').classList.remove('hidden');
+    const applyBtn = document.getElementById('pers_apply_btn');
+    applyBtn.disabled = !document.getElementById('pers_account_id').value;
+  } else {
+    showToast('Ошибка: ' + data.error, 'danger');
+  }
+}
+
+async function applyPersonality() {
+  const accountId = document.getElementById('pers_account_id').value;
+  if (!accountId) { showToast('Выберите аккаунт', 'warning'); return; }
+  const lang = document.getElementById('pers_lang').value;
+  const res = await fetch(`/admin/api/ai/apply_personality/${accountId}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({lang})
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Личность применена успешно!', 'success');
+  } else {
+    showToast('Ошибка: ' + (data.errors || [data.error]).join(', '), 'danger');
+  }
+}
+
+async function simulateTyping() {
+  const accountId = document.getElementById('act_account_id').value;
+  const chatId = document.getElementById('act_chat_id').value;
+  const duration = document.getElementById('act_duration').value;
+  if (!accountId || !chatId) { showToast('Заполните все поля', 'warning'); return; }
+  const res = await fetch('/admin/api/ai/simulate_typing', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({account_id: accountId, chat_id: parseInt(chatId), duration: parseInt(duration)})
+  });
+  const data = await res.json();
+  showToast(data.success ? 'Набор текста имитирован!' : 'Ошибка: ' + data.error, data.success ? 'success' : 'danger');
+}
+
+async function reactToPost() {
+  const accountId = document.getElementById('react_account_id').value;
+  const chatId = document.getElementById('react_chat_id').value;
+  const msgId = document.getElementById('react_msg_id').value;
+  const reaction = document.getElementById('react_emoji').value;
+  if (!accountId || !chatId || !msgId) { showToast('Заполните все поля', 'warning'); return; }
+  const res = await fetch('/admin/api/ai/react_to_post', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({account_id: accountId, chat_id: parseInt(chatId), message_id: parseInt(msgId), reaction})
+  });
+  const data = await res.json();
+  showToast(data.success ? 'Реакция поставлена!' : 'Ошибка: ' + data.error, data.success ? 'success' : 'danger');
+}
+
+async function saveAISettings() {
+  const res = await fetch('/admin/api/ai/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      ai_provider: document.getElementById('ai_provider').value,
+      openai_api_key: document.getElementById('ai_openai_key').value,
+      claude_api_key: document.getElementById('ai_claude_key').value,
+      ai_enabled: document.getElementById('ai_enabled').checked ? 'true' : 'false',
+    })
+  });
+  const data = await res.json();
+  showToast(data.success ? 'Настройки сохранены!' : 'Ошибка: ' + data.error, data.success ? 'success' : 'danger');
+}
+
+// Загрузка текущих настроек
+fetch('/admin/api/ai/settings').then(r=>r.json()).then(data => {
+  if (data.success) {
+    const s = data.settings;
+    if (s.ai_provider) document.getElementById('ai_provider').value = s.ai_provider;
+    if (s.ai_enabled === 'true') document.getElementById('ai_enabled').checked = true;
+  }
+});
+</script>
+{% endblock %}

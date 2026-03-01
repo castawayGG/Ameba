@@ -1,0 +1,103 @@
+{% extends 'admin/base.html' %}
+{% block title %}Отчёты{% endblock %}
+{% block page_title %}Генерация и отправка отчётов{% endblock %}
+
+{% block header_actions %}
+<span class="text-xs px-2 py-1 rounded-lg font-semibold" style="background:rgba(59,130,246,0.15);color:var(--panel-accent);">Блок 7</span>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- HTML Отчёт -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
+      <i class="fa-solid fa-file-code mr-2" style="color:var(--panel-accent);"></i>
+      HTML Отчёт
+    </h2>
+    <p class="text-xs mb-4" style="color:var(--panel-muted);">Полный отчёт системы в формате HTML с таблицами</p>
+    <a href="/admin/api/reports/generate" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
+      <i class="fa-solid fa-download mr-2"></i>Скачать отчёт
+    </a>
+  </div>
+
+  <!-- Excel Отчёт -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
+      <i class="fa-solid fa-file-excel mr-2 text-green-500"></i>
+      Excel Отчёт
+    </h2>
+    <p class="text-xs mb-4" style="color:var(--panel-muted);">Список аккаунтов в формате Excel (.xlsx)</p>
+    <a href="/admin/export/accounts_excel" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
+      <i class="fa-solid fa-download mr-2"></i>Скачать Excel
+    </a>
+  </div>
+
+  <!-- CSV Аккаунты -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
+      <i class="fa-solid fa-file-csv mr-2 text-yellow-400"></i>
+      CSV Аккаунты
+    </h2>
+    <p class="text-xs mb-4" style="color:var(--panel-muted);">Таблица аккаунтов в формате CSV</p>
+    <a href="/admin/export/accounts_csv" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
+      <i class="fa-solid fa-download mr-2"></i>Скачать CSV
+    </a>
+  </div>
+
+  <!-- Отправка в Telegram -->
+  <div class="rounded-xl p-6 lg:col-span-2" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
+      <i class="fa-brands fa-telegram mr-2" style="color:var(--panel-accent);"></i>
+      Отправить отчёт в Telegram
+    </h2>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Тип отчёта</label>
+          <select id="rpt_type" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="summary">Сводный отчёт (HTML)</option>
+            <option value="excel">Аккаунты (Excel)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Chat ID (опционально)</label>
+          <input type="text" id="rpt_chat_id" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="Из настроек бота по умолчанию">
+        </div>
+      </div>
+      <button onclick="sendReport()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+        <i class="fa-brands fa-telegram mr-2"></i>Отправить в Telegram
+      </button>
+    </div>
+  </div>
+
+  <!-- Инфо -->
+  <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <h2 class="text-base font-semibold mb-3" style="color:var(--panel-text);">
+      <i class="fa-solid fa-clock mr-2" style="color:var(--panel-accent);"></i>
+      Автоотправка
+    </h2>
+    <p class="text-xs" style="color:var(--panel-muted);">Для настройки автоматической отправки отчётов по расписанию используйте Celery Beat. Добавьте в расписание задачу:</p>
+    <code class="block mt-2 p-2 rounded text-xs font-mono" style="background:#071220;color:var(--panel-accent);">tasks.generate_and_send_report</code>
+  </div>
+
+</div>
+
+<script>
+async function sendReport() {
+  const type = document.getElementById('rpt_type').value;
+  const chatId = document.getElementById('rpt_chat_id').value.trim() || null;
+  
+  const endpoint = type === 'excel' ? '/admin/api/reports/send_excel' : '/admin/api/reports/send_now';
+  const body = type === 'excel' ? {chat_id: chatId} : {report_type: 'summary', chat_id: chatId};
+  
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  showToast(data.success ? 'Отчёт отправлен!' : 'Ошибка: ' + data.error, data.success ? 'success' : 'danger');
+}
+</script>
+{% endblock %}
