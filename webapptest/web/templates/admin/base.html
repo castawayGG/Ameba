@@ -39,7 +39,8 @@
     <!-- Mobile overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden" onclick="closeSidebar()"></div>
 
-    <!-- Sidebar -->
+    <!-- Sidebar — data-turbo-permanent preserves scroll state across Turbo Drive navigations
+         (removing this attribute would reset the sidebar position on every page change) -->
     <aside id="sidebar" data-turbo-permanent class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 sidebar-transition -translate-x-full md:translate-x-0">
         <div class="flex flex-col h-full">
             <!-- Logo -->

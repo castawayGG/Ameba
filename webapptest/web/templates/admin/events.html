@@ -120,10 +120,10 @@ function renderEvent(e, prepend=false) {
     if (prepend) {
         div.style.animation = 'toastIn 0.3s ease forwards';
         feed.prepend(div);
+        if (window.lucide) lucide.createIcons({ el: div });
     } else {
         feed.appendChild(div);
     }
-    if (window.lucide) lucide.createIcons({ el: div });
 }
 
 async function loadEvents(reset=true) {
@@ -142,6 +142,8 @@ async function loadEvents(reset=true) {
     if (d.events.length === 0 && reset) {
         document.getElementById('events-feed').innerHTML = '<div class="text-center py-8" style="color: var(--panel-muted);">Нет событий</div>';
     }
+    // Batch-initialize Lucide icons for all newly appended events
+    if (window.lucide && d.events.length > 0) lucide.createIcons({ el: document.getElementById('events-feed') });
     document.getElementById('btn-load-more').classList.toggle('hidden', d.events.length < 30);
 }
 
