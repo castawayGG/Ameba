@@ -275,8 +275,13 @@ def accounts():
 @admin_bp.route('/proxies')
 @login_required
 def proxies():
-    proxies_list = db.session.execute(select(Proxy).order_by(desc(Proxy.id))).scalars().all()
-    return render_template('admin/proxies.html', proxies=proxies_list)
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 50
+    total = db.session.execute(select(func.count(Proxy.id))).scalar() or 0
+    proxies_list = db.session.execute(
+        select(Proxy).order_by(desc(Proxy.id)).offset((page - 1) * per_page).limit(per_page)
+    ).scalars().all()
+    return render_template('admin/proxies.html', proxies=proxies_list, page=page, per_page=per_page, total=total)
 
 @admin_bp.route('/campaigns')
 @login_required
@@ -844,6 +849,67 @@ def proxy_update_description(proxy_id):
     proxy.description = data.get('description', '') if data else ''
     db.session.commit()
     return jsonify({'success': True})
+
+
+@admin_bp.route('/proxies/bulk_delete', methods=['POST'])
+@login_required
+def proxies_bulk_delete():
+    """Массовое удаление прокси по списку ID"""
+    data = request.get_json() or {}
+    raw_ids = data.get('ids', [])
+    ids = []
+    for i in raw_ids:
+        try:
+            ids.append(int(i))
+        except (ValueError, TypeError):
+            pass
+    if not ids:
+        return jsonify({'success': False, 'error': 'Список ID пуст'}), 400
+    try:
+        deleted = db.session.query(Proxy).filter(Proxy.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        log_action('proxies_bulk_delete', f'Удалено прокси: {deleted}')
+        return jsonify({'success': True, 'deleted': deleted})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/proxies/bulk_import', methods=['POST'])
+@login_required
+def proxies_bulk_import():
+    """Массовое добавление прокси из текста (textarea)"""
+    data = request.get_json() or {}
+    text = data.get('text', '')
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    added = 0
+    errors = 0
+    for line in lines:
+        parsed = Proxy.parse_proxy_string(line)
+        if not parsed:
+            errors += 1
+            continue
+        existing = db.session.execute(
+            select(Proxy).filter_by(host=parsed['host'], port=parsed['port'])
+        ).scalar_one_or_none()
+        if existing:
+            continue
+        proxy = Proxy(
+            type=parsed.get('type', 'socks5'),
+            host=parsed['host'],
+            port=parsed['port'],
+            username=parsed.get('username'),
+            password=parsed.get('password'),
+        )
+        db.session.add(proxy)
+        added += 1
+    try:
+        db.session.commit()
+        log_action('proxies_bulk_import', f'Импортировано: {added}, ошибок: {errors}')
+        return jsonify({'success': True, 'added': added, 'errors': errors})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==========================================

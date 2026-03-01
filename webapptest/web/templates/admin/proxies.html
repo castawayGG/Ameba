@@ -6,6 +6,9 @@
 <button onclick="bulkCheckProxies()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" id="bulk-check-btn">
     <i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все
 </button>
+<button onclick="openModal('bulkImportModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i data-lucide="list" class="w-4 h-4 mr-1.5 text-green-400"></i>Массовый импорт
+</button>
 <button onclick="openModal('autoLoadModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i data-lucide="cloud-download" class="w-4 h-4 mr-1.5 text-blue-400"></i>Авто-загрузка
 </button>
@@ -25,15 +28,28 @@
     </form>
 </div>
 
+<!-- Bulk actions bar (shown when items selected) -->
+<div id="bulk-actions-bar" class="hidden mb-3 flex items-center gap-3 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+    <span id="bulk-selected-count" class="text-sm font-medium text-blue-700 dark:text-blue-300">0 выбрано</span>
+    <button onclick="bulkDeleteSelected()" class="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors border border-red-200 dark:border-red-700">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>Удалить выбранные
+    </button>
+    <button onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-1 rounded transition-colors">Снять выделение</button>
+</div>
+
 <!-- Table -->
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Прокси ({{ proxies|length }})</h2>
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Прокси ({{ total }})</h2>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Страница {{ page }} из {{ ((total - 1) // per_page + 1) if total > 0 else 1 }}</span>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
                 <tr>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 w-8">
+                        <input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                    </th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP:Порт</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Тип</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Страна</th>
@@ -48,6 +64,9 @@
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for p in proxies %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors" data-id="{{ p.id }}">
+                    <td class="px-4 py-3">
+                        <input type="checkbox" class="proxy-cb w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" value="{{ p.id }}" onchange="updateBulkBar()">
+                    </td>
                     <td class="px-5 py-3 font-mono text-sm font-medium text-gray-900 dark:text-white">{{ p.host }}:{{ p.port }}</td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 uppercase">{{ p.type }}</span>
@@ -80,11 +99,29 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="9" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
+                <tr><td colspan="10" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <!-- Pagination -->
+    {% set total_pages = ((total - 1) // per_page + 1) if total > 0 else 1 %}
+    {% if total_pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <span class="text-sm text-gray-500 dark:text-gray-400">Показано {{ proxies|length }} из {{ total }}</span>
+        <div class="flex items-center gap-1">
+            {% if page > 1 %}
+            <a href="?page={{ page - 1 }}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">← Назад</a>
+            {% endif %}
+            {% for p_num in range([1, page - 2]|max, [total_pages + 1, page + 3]|min) %}
+            <a href="?page={{ p_num }}" class="px-3 py-1.5 text-sm rounded-lg border transition-colors {{ 'bg-blue-600 border-blue-600 text-white' if p_num == page else 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300' }}">{{ p_num }}</a>
+            {% endfor %}
+            {% if page < total_pages %}
+            <a href="?page={{ page + 1 }}" class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Вперёд →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Add Proxy Modal -->
@@ -121,6 +158,30 @@
                     <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Добавить</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Import Modal -->
+<div id="bulkImportModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm modal-backdrop" onclick="closeModal('bulkImportModal')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg modal-panel border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i data-lucide="list" class="w-4 h-4 mr-2 text-green-400 inline"></i>Массовый импорт прокси</h3>
+                <button onclick="closeModal('bulkImportModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">Вставьте прокси — по одному на строку. Поддерживаемые форматы: <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">socks5://user:pass@host:port</code>, <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">host:port</code></p>
+                <textarea id="bulk-import-text" rows="10" placeholder="socks5://user:pass@1.2.3.4:1080&#10;http://5.6.7.8:8080&#10;9.10.11.12:3128" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"></textarea>
+                <div id="bulk-import-result" class="hidden text-sm"></div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('bulkImportModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
+                    <button type="button" onclick="submitBulkImport()" class="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"><i data-lucide="upload" class="w-4 h-4 mr-1 inline"></i>Импортировать</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -248,6 +309,90 @@ async function bulkCheckProxies() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все';
+    }
+}
+
+// --- Bulk select ---
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.proxy-cb:checked')).map(cb => parseInt(cb.value));
+}
+
+function updateBulkBar() {
+    const ids = getSelectedIds();
+    const bar = document.getElementById('bulk-actions-bar');
+    const count = document.getElementById('bulk-selected-count');
+    const allCb = document.getElementById('select-all-cb');
+    const total = document.querySelectorAll('.proxy-cb').length;
+    count.textContent = ids.length + ' выбрано';
+    bar.classList.toggle('hidden', ids.length === 0);
+    allCb.indeterminate = ids.length > 0 && ids.length < total;
+    allCb.checked = ids.length === total && total > 0;
+}
+
+function toggleSelectAll(masterCb) {
+    document.querySelectorAll('.proxy-cb').forEach(cb => cb.checked = masterCb.checked);
+    updateBulkBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.proxy-cb').forEach(cb => cb.checked = false);
+    document.getElementById('select-all-cb').checked = false;
+    updateBulkBar();
+}
+
+async function bulkDeleteSelected() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    if (!confirm(`Удалить ${ids.length} прокси?`)) return;
+    try {
+        const res = await fetch('/admin/proxies/bulk_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ids})
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Удалено ${data.deleted} прокси`, 'success');
+            ids.forEach(id => {
+                const row = document.querySelector(`tr[data-id="${id}"]`);
+                if (row) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); }
+            });
+            clearSelection();
+        } else {
+            showToast('Ошибка: ' + (data.error || 'Unknown'), 'error');
+        }
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    }
+}
+
+// --- Bulk import ---
+async function submitBulkImport() {
+    const text = document.getElementById('bulk-import-text').value.trim();
+    if (!text) { showToast('Введите прокси', 'warning'); return; }
+    const resultDiv = document.getElementById('bulk-import-result');
+    resultDiv.className = 'text-sm text-gray-500';
+    resultDiv.textContent = 'Импортирование...';
+    resultDiv.classList.remove('hidden');
+    try {
+        const res = await fetch('/admin/proxies/bulk_import', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text})
+        });
+        const data = await res.json();
+        if (data.success) {
+            resultDiv.className = 'text-sm text-green-600 dark:text-green-400';
+            resultDiv.textContent = `Добавлено: ${data.added}, пропущено (дубли): ${(text.split('\n').filter(l=>l.trim()).length - data.added - data.errors)}, ошибок парсинга: ${data.errors}`;
+            showToast(`Импортировано ${data.added} прокси`, 'success');
+            if (data.added > 0) setTimeout(() => location.reload(), 1200);
+        } else {
+            resultDiv.className = 'text-sm text-red-600 dark:text-red-400';
+            resultDiv.textContent = 'Ошибка: ' + (data.error || 'Unknown');
+        }
+    } catch(e) {
+        resultDiv.className = 'text-sm text-red-600 dark:text-red-400';
+        resultDiv.textContent = 'Ошибка запроса';
     }
 }
 </script>
