@@ -1,4 +1,4 @@
-# MainFish – Telegram Phishing Panel
+# Main – Telegram Panel
 
 > **⚠️ For authorized security research only. Do not use on real users without consent.**
 
