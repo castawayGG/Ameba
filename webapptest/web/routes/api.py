@@ -91,7 +91,7 @@ def test_proxy_async(proxy_id):
 @admin_required
 def bulk_test_proxies():
     """Массовая проверка прокси."""
-    ids = request.json.get('ids', [])
+    ids = (request.get_json() or {}).get('ids', [])
     from tasks.proxy_checker import bulk_check_proxies
     task = bulk_check_proxies.delay(ids)
     return jsonify({'success': True, 'task_id': task.id})

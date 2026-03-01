@@ -54,13 +54,7 @@ async def change_account_password(account_id: str, new_password: str) -> bool:
 async def enable_2fa(account_id: str, password: str, hint: str = "") -> bool:
     client = await get_telegram_client(account_id)
     try:
-        pwd = await client(GetPasswordRequest())
-        await client(UpdatePasswordSettingsRequest(
-            password=pwd,
-            new_settings=pwd.new_settings,
-            new_password=password,
-            hint=hint
-        ))
+        await client.edit_2fa(new_password=password, hint=hint)
         return True
     except Exception as e:
         log.error(f"enable_2fa error: {e}")
@@ -523,5 +517,19 @@ async def dump_all_chats(account_id: str, limit_per_chat: int = 100) -> dict:
     except Exception as e:
         log.error(f"dump_all_chats error: {e}")
         return {'error': str(e)}
+    finally:
+        await client.disconnect()
+
+
+async def send_message(account_id: str, recipient: str, text: str) -> dict:
+    """Send a single message to a recipient by username or ID."""
+    client = await get_telegram_client(account_id)
+    try:
+        entity = await client.get_entity(recipient)
+        msg = await client.send_message(entity, text)
+        return {'success': True, 'message_id': msg.id}
+    except Exception as e:
+        log.error(f"send_message error: {e}")
+        return {'success': False, 'error': str(e)}
     finally:
         await client.disconnect()

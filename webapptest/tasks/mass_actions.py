@@ -88,3 +88,10 @@ def run_campaign(campaign_id: int):
             db.commit()
     finally:
         db.close()
+
+
+@shared_task(bind=True, max_retries=1)
+def start_warming_task(self, account_id: str, scenario_id: int):
+    """Stub: warming task not yet fully implemented."""
+    log.warning(f"start_warming_task not implemented (account={account_id}, scenario={scenario_id})")
+    return {'success': False, 'error': 'not_implemented', 'account_id': account_id, 'scenario_id': scenario_id}
