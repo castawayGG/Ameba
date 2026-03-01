@@ -67,6 +67,11 @@ def create_app(test_config=None):
 
     app.before_request(whitelist_middleware)
 
+    # Inject app_version into all templates for cache-busting static assets
+    @app.context_processor
+    def inject_app_version():
+        return {'app_version': app.config['APP_VERSION']}
+
     # Регистрация фильтра
     @app.template_filter('timestamp_to_date')
     def timestamp_to_date_filter(dt):

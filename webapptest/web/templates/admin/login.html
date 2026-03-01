@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_theme.css') }}?v={{ app_version }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -24,22 +25,22 @@
         input:focus { outline: none; ring: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
     </style>
 </head>
-<body style="background: #0d1117;" class="flex items-center justify-center min-h-screen font-sans antialiased">
+<body style="background: var(--panel-bg);" class="flex items-center justify-center min-h-screen font-sans antialiased">
 
     <div class="w-full max-w-md px-6 py-12">
         <div class="flex flex-col items-center mb-8">
             <div class="flex items-center justify-center w-12 h-12 rounded-xl mb-5" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
-            <h2 class="text-center text-2xl font-bold leading-9 tracking-tight" style="color: #e6edf3;">
+            <h2 class="text-center text-2xl font-bold leading-9 tracking-tight" style="color: var(--panel-text);">
                 Вход в панель
             </h2>
-            <p class="mt-2 text-center text-sm" style="color: #8b949e;">
+            <p class="mt-2 text-center text-sm" style="color: var(--panel-muted);">
                 Введите учётные данные администратора
             </p>
         </div>
 
-        <div style="background: #161b22; border: 1px solid #21304a;" class="px-8 py-8 rounded-2xl shadow-xl">
+        <div style="background: var(--panel-surface); border: 1px solid var(--panel-border);" class="px-8 py-8 rounded-2xl shadow-xl">
             
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -54,27 +55,27 @@
             <form class="space-y-5" action="" method="POST">
                 
                 <div>
-                    <label for="username" class="block text-sm font-medium mb-2" style="color: #c9d1d9;">Имя пользователя</label>
+                    <label for="username" class="block text-sm font-medium mb-2" style="color: var(--panel-text);">Имя пользователя</label>
                     <input id="username" name="username" type="text" autocomplete="username" required 
-                        style="background: #0d1117; border: 1px solid #21304a; color: #e6edf3;"
+                        style="background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--panel-text);"
                         class="block w-full rounded-lg py-2.5 px-3.5 text-sm transition-colors placeholder:text-gray-600"
                         placeholder="admin">
                 </div>
 
                 <div>
-                    <label for="password" class="block text-sm font-medium mb-2" style="color: #c9d1d9;">Пароль</label>
+                    <label for="password" class="block text-sm font-medium mb-2" style="color: var(--panel-text);">Пароль</label>
                     <input id="password" name="password" type="password" autocomplete="current-password" required 
-                        style="background: #0d1117; border: 1px solid #21304a; color: #e6edf3;"
+                        style="background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--panel-text);"
                         class="block w-full rounded-lg py-2.5 px-3.5 text-sm transition-colors placeholder:text-gray-600"
                         placeholder="••••••••">
                 </div>
 
                 <div>
-                    <label for="otp" class="block text-sm font-medium mb-2" style="color: #c9d1d9;">
-                        Код 2FA <span style="color: #8b949e;" class="font-normal">(если включён)</span>
+                    <label for="otp" class="block text-sm font-medium mb-2" style="color: var(--panel-text);">
+                        Код 2FA <span style="color: var(--panel-muted);" class="font-normal">(если включён)</span>
                     </label>
                     <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" 
-                        style="background: #0d1117; border: 1px solid #21304a; color: #e6edf3;"
+                        style="background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--panel-text);"
                         class="block w-full rounded-lg py-2.5 px-3.5 text-sm transition-colors tracking-widest font-mono placeholder:text-gray-600 placeholder:tracking-normal"
                         placeholder="123456">
                 </div>
@@ -88,7 +89,7 @@
             </form>
         </div>
         
-        <p class="text-center text-xs mt-6" style="color: #6e7681;">
+        <p class="text-center text-xs mt-6" style="color: var(--panel-muted);">
             Защищено системой логирования IP-адресов.
         </p>
     </div>
