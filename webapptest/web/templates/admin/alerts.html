@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createAlertModal')" class="btn-accent-glow text-white text-sm font-medium px-4 py-2 rounded-lg">
-    <i class="fa-solid fa-plus mr-2"></i>Создать правило
+    <i data-lucide="plus" class="w-4 h-4 mr-2"></i>Создать правило
 </button>
 {% endblock %}
 
@@ -12,7 +12,7 @@
 <!-- Alert Rules -->
 <div class="mb-8">
     <h2 class="text-base font-semibold mb-3" style="color: var(--panel-text);">
-        <i class="fa-solid fa-triangle-exclamation mr-2" style="color: var(--panel-accent);"></i>Правила алертов
+        <i data-lucide="alert-triangle" class="w-4 h-4 mr-2" style="color: var(--panel-accent);"></i>Правила алертов
     </h2>
     <div class="rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
         <table class="w-full text-sm">
@@ -36,10 +36,10 @@
 <div>
     <div class="flex items-center justify-between mb-3">
         <h2 class="text-base font-semibold" style="color: var(--panel-text);">
-            <i class="fa-solid fa-share-nodes mr-2" style="color: var(--panel-accent);"></i>Правила пересылки
+            <i data-lucide="share-2" class="w-4 h-4 mr-2" style="color: var(--panel-accent);"></i>Правила пересылки
         </h2>
         <button onclick="openModal('createForwardModal')" class="text-sm px-3 py-1.5 rounded-lg border font-medium" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
-            <i class="fa-solid fa-plus mr-1"></i>Добавить
+            <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Добавить
         </button>
     </div>
     <div class="rounded-xl border overflow-hidden" style="background: var(--panel-surface); border-color: var(--panel-border);">
@@ -65,7 +65,7 @@
     <div class="w-full max-w-lg rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
         <div class="flex items-center justify-between mb-5">
             <h3 class="text-base font-semibold" style="color: var(--panel-text);">Создать правило алерта</h3>
-            <button onclick="closeModal('createAlertModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <button onclick="closeModal('createAlertModal')" style="color: var(--panel-muted);"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="space-y-4">
             <div>
@@ -114,7 +114,7 @@
     <div class="w-full max-w-lg rounded-2xl border p-6" style="background: var(--panel-card); border-color: var(--panel-border);">
         <div class="flex items-center justify-between mb-5">
             <h3 class="text-base font-semibold" style="color: var(--panel-text);">Правило пересылки</h3>
-            <button onclick="closeModal('createForwardModal')" style="color: var(--panel-muted);"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <button onclick="closeModal('createForwardModal')" style="color: var(--panel-muted);"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">

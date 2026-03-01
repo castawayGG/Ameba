@@ -12,13 +12,13 @@
     </div>
     <div class="flex gap-2">
         <button onclick="listenerAction('start')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-600/30 transition-colors">
-            <i class="fa-solid fa-play mr-1"></i>Start
+            <i data-lucide="play" class="w-4 h-4 mr-1"></i>Start
         </button>
         <button onclick="listenerAction('stop')" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors">
-            <i class="fa-solid fa-stop mr-1"></i>Stop
+            <i data-lucide="square" class="w-4 h-4 mr-1"></i>Stop
         </button>
         <button onclick="listenerAction('restart')" class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors" style="background: rgba(14,165,233,0.1); color: var(--panel-accent); border-color: var(--panel-accent)/30">
-            <i class="fa-solid fa-rotate mr-1"></i>Restart
+            <i data-lucide="rotate-cw" class="w-4 h-4 mr-1"></i>Restart
         </button>
     </div>
 </div>
@@ -42,13 +42,13 @@
         <option value="new_contact">Контакт</option>
     </select>
     <button id="btn-unread" onclick="toggleUnread()" class="px-3 py-2 text-sm rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">
-        <i class="fa-regular fa-envelope mr-1"></i>Непрочитанные
+        <i data-lucide="mail" class="w-4 h-4 mr-1"></i>Непрочитанные
     </button>
     <button onclick="toggleSound()" id="btn-sound" class="px-3 py-2 text-sm rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);" title="Звук уведомлений">
-        <i class="fa-solid fa-volume-xmark" id="sound-icon"></i>
+        <i data-lucide="volume-x" class="w-4 h-4" id="sound-icon"></i>
     </button>
     <button onclick="loadEvents()" class="px-3 py-2 text-sm rounded-lg border transition-colors ml-auto" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
-        <i class="fa-solid fa-rotate-right mr-1"></i>Обновить
+        <i data-lucide="rotate-cw" class="w-4 h-4 mr-1"></i>Обновить
     </button>
 </div>
 
@@ -67,13 +67,13 @@
 {% block scripts %}
 <script>
 const EVENT_ICONS = {
-    new_message: {icon: 'fa-envelope', color: '#38bdf8'},
-    message_read: {icon: 'fa-envelope-open', color: '#34d399'},
-    user_online: {icon: 'fa-circle', color: '#34d399'},
-    chat_action: {icon: 'fa-comment-dots', color: '#a78bfa'},
-    account_banned: {icon: 'fa-ban', color: '#f87171'},
-    flood_wait: {icon: 'fa-clock', color: '#fbbf24'},
-    new_contact: {icon: 'fa-user-plus', color: '#a78bfa'},
+    new_message: {icon: 'mail', color: '#38bdf8'},
+    message_read: {icon: 'mail-open', color: '#34d399'},
+    user_online: {icon: 'circle', color: '#34d399'},
+    chat_action: {icon: 'message-circle', color: '#a78bfa'},
+    account_banned: {icon: 'ban', color: '#f87171'},
+    flood_wait: {icon: 'clock', color: '#fbbf24'},
+    new_contact: {icon: 'user-plus', color: '#a78bfa'},
 };
 
 let currentPage = 1;
@@ -91,7 +91,7 @@ function relativeTime(isoStr) {
 }
 
 function renderEvent(e, prepend=false) {
-    const cfg = EVENT_ICONS[e.event_type] || {icon: 'fa-bolt', color: '#0ea5e9'};
+    const cfg = EVENT_ICONS[e.event_type] || {icon: 'zap', color: '#0ea5e9'};
     const feed = document.getElementById('events-feed');
     const loading = feed.querySelector('.text-center');
     if (loading) loading.remove();
@@ -102,7 +102,7 @@ function renderEvent(e, prepend=false) {
     div.style.cssText = `background: var(--panel-card); border-color: var(--panel-border);`;
     div.innerHTML = `
         <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style="background: ${cfg.color}22;">
-            <i class="fa-solid ${cfg.icon} text-sm" style="color: ${cfg.color};"></i>
+            <i data-lucide="${cfg.icon}" class="w-4 h-4" style="color: ${cfg.color};"></i>
         </div>
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
@@ -123,6 +123,7 @@ function renderEvent(e, prepend=false) {
     } else {
         feed.appendChild(div);
     }
+    if (window.lucide) lucide.createIcons({ el: div });
 }
 
 async function loadEvents(reset=true) {
@@ -156,7 +157,8 @@ function toggleUnread() {
 function toggleSound() {
     soundEnabled = !soundEnabled;
     const icon = document.getElementById('sound-icon');
-    icon.className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+    icon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+    if (window.lucide) lucide.createIcons({ el: icon.parentNode });
 }
 
 async function markRead(id, e) {

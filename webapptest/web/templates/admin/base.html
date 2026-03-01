@@ -6,25 +6,26 @@
     <title>{% block title %}Plashka{% endblock %} | Панель управления</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.umd.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { sans: ['Geist', 'sans-serif'] },
                     colors: {
                         panel: {
-                            bg:      '#0d1421',
-                            surface: '#131c2e',
-                            card:    '#192238',
-                            border:  '#1d3150',
+                            bg:      '#080808',
+                            surface: '#0f0f0f',
+                            card:    '#141414',
+                            border:  '#1e2636',
                             accent:  '#3b82f6',
                             accent2: '#2563eb',
-                            text:    '#e1e8f5',
-                            muted:   '#607d99',
+                            text:    '#e2e8f0',
+                            muted:   '#556070',
                         }
                     }
                 }
@@ -39,12 +40,12 @@
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden" onclick="closeSidebar()"></div>
 
     <!-- Sidebar -->
-    <aside id="sidebar" class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 sidebar-transition -translate-x-full md:translate-x-0">
+    <aside id="sidebar" data-turbo-permanent class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed md:relative inset-y-0 left-0 z-30 sidebar-transition -translate-x-full md:translate-x-0">
         <div class="flex flex-col h-full">
             <!-- Logo -->
             <div class="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0">
                 <div class="flex items-center justify-center w-8 h-8 rounded-xl mr-3 flex-shrink-0" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">
-                    <i class="fa-solid fa-bolt text-white text-sm"></i>
+                    <i data-lucide="zap" class="w-4 h-4 text-white"></i>
                 </div>
                 <span class="text-base font-bold text-gray-900 tracking-tight">Plashka</span>
             </div>
@@ -54,33 +55,33 @@
 
                 <!-- Always-visible top links -->
                 <a href="{{ url_for('admin.dashboard') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dashboard' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-gauge-high w-5 mr-3 text-center text-sm"></i>
+                    <i data-lucide="gauge" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                     Дашборд
                 </a>
                 <a href="{{ url_for('admin.analytics') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.analytics' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-chart-line w-5 mr-3 text-center text-sm"></i>
+                    <i data-lucide="trending-up" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                     Аналитика
                 </a>
 
                 <!-- ── Operations group ── -->
                 <div class="nav-group" id="grp-operations">
                     <button class="nav-group-header" onclick="toggleGroup('grp-operations')">
-                        <i class="fa-solid fa-bullhorn nav-group-icon"></i>
+                        <i data-lucide="megaphone" class="nav-group-icon"></i>
                         Операции
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-operations-items">
                         <a href="{{ url_for('admin.campaigns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.campaigns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-bullhorn w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="megaphone" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Кампании
                         </a>
                         <a href="{{ url_for('admin.automations') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.automations' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="bot" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Автоматизации
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-list-check w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="list-checks" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Задачи
                         </a>
                     </div>
@@ -89,39 +90,39 @@
                 <!-- ── Accounts group ── -->
                 <div class="nav-group" id="grp-accounts">
                     <button class="nav-group-header" onclick="toggleGroup('grp-accounts')">
-                        <i class="fa-brands fa-telegram nav-group-icon"></i>
+                        <i data-lucide="send" class="nav-group-icon"></i>
                         Аккаунты
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-accounts-items">
                         <a href="{{ url_for('admin.accounts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-brands fa-telegram w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="send" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Аккаунты
                         </a>
                         <a href="{{ url_for('admin.account_pools') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_pools' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-layer-group w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="layers" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Пулы аккаунтов
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.accounts_health') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts_health' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-heart-pulse w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="activity" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Здоровье аккаунтов
                         </a>
                         <a href="{{ url_for('admin.account_bulk') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_bulk' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="zap" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Массовые операции
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.warming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.warming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-fire w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="flame" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Прогрев
                         </a>
                         <a href="{{ url_for('admin.antidetect') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.antidetect' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="shield" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Антидетект
                         </a>
                         <a href="{{ url_for('admin.cooldowns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cooldowns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-clock w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="clock" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Кулдауны
                         </a>
                     </div>
@@ -130,30 +131,30 @@
                 <!-- ── Infrastructure group ── -->
                 <div class="nav-group" id="grp-infrastructure">
                     <button class="nav-group-header" onclick="toggleGroup('grp-infrastructure')">
-                        <i class="fa-solid fa-server nav-group-icon"></i>
+                        <i data-lucide="server" class="nav-group-icon"></i>
                         Инфраструктура
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-infrastructure-items">
                         <a href="{{ url_for('admin.proxies') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.proxies' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-network-wired w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="network" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Прокси
                         </a>
                         <a href="{{ url_for('admin.events') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.events' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="zap" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Лента событий
                         </a>
                         <a href="{{ url_for('admin.inbox') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.inbox' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-envelope w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="mail" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Входящие
                             <span id="nav-inbox-badge" class="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white hidden"></span>
                         </a>
                         <a href="{{ url_for('admin.alerts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.alerts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-triangle-exclamation w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="alert-triangle" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Алерты
                         </a>
                         <a href="{{ url_for('admin.monitoring') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.monitoring' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="server" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Мониторинг
                         </a>
                     </div>
@@ -162,21 +163,21 @@
                 <!-- ── Data / Analysis group ── -->
                 <div class="nav-group" id="grp-data">
                     <button class="nav-group-header" onclick="toggleGroup('grp-data')">
-                        <i class="fa-solid fa-database nav-group-icon"></i>
+                        <i data-lucide="database" class="nav-group-icon"></i>
                         Данные
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-data-items">
                         <a href="{{ url_for('admin.victims') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.victims' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-crosshairs w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="crosshair" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Жертвы
                         </a>
                         <a href="{{ url_for('admin.links') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.links' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-link w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="link" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Трекинг-ссылки
                         </a>
                         <a href="{{ url_for('admin.ab_tests') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ab_tests' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-flask w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="flask-conical" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             A/B Тесты
                         </a>
                     </div>
@@ -185,39 +186,39 @@
                 <!-- ── Tools group ── -->
                 <div class="nav-group" id="grp-tools">
                     <button class="nav-group-header" onclick="toggleGroup('grp-tools')">
-                        <i class="fa-solid fa-toolbox nav-group-icon"></i>
+                        <i data-lucide="wrench" class="nav-group-icon"></i>
                         Инструменты
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-tools-items">
                         <a href="{{ url_for('admin.landings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.landings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-globe w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="globe" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Лендинги
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.cloaking') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cloaking' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-mask w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="eye-off" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Клоакинг
                         </a>
                         <a href="{{ url_for('admin.dns_management') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dns_management' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="server" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             DNS ротация
                         </a>
                         <a href="{{ url_for('admin.spintax') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.spintax' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-shuffle w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="shuffle" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Spintax
                         </a>
                         <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-list-ul w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="list" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Парсинг
                         </a>
                         <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="bot" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             AI Фарминг
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.reports') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.reports' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-chart-bar w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Отчёты
                         </a>
                     </div>
@@ -226,17 +227,17 @@
                 <!-- ── Team group ── -->
                 <div class="nav-group" id="grp-team">
                     <button class="nav-group-header" onclick="toggleGroup('grp-team')">
-                        <i class="fa-solid fa-people-group nav-group-icon"></i>
+                        <i data-lucide="users" class="nav-group-icon"></i>
                         Команда
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-team-items">
                         <a href="{{ url_for('admin.team') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-people-group w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="users" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Команда
                         </a>
                         <a href="{{ url_for('admin.team_tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team_tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-clipboard-list w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Задачи команды
                         </a>
                     </div>
@@ -245,41 +246,41 @@
                 <!-- ── System group ── -->
                 <div class="nav-group" id="grp-system">
                     <button class="nav-group-header" onclick="toggleGroup('grp-system')">
-                        <i class="fa-solid fa-gear nav-group-icon"></i>
+                        <i data-lucide="settings" class="nav-group-icon"></i>
                         Система
-                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                        <i data-lucide="chevron-right" class="nav-chevron"></i>
                     </button>
                     <div class="nav-group-items" id="grp-system-items">
                         {% if current_user.role in ('superadmin', 'admin') %}
                         <a href="{{ url_for('admin.users') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.users' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-users w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="users" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Пользователи
                         </a>
                         <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_credentials' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-key w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="key" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             API-учётные данные
                         </a>
                         <a href="{{ url_for('admin.api_keys') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_keys' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-code w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="code" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             API Ключи
                             <span class="badge-new">NEW</span>
                         </a>
                         {% endif %}
                         <a href="{{ url_for('admin.webhooks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.webhooks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-satellite-dish w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="radio" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Вебхуки
                             <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.security') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.security' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="shield" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Безопасность
                         </a>
                         <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-file-lines w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="file-text" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Логи
                         </a>
                         <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.settings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i class="fa-solid fa-gear w-5 mr-3 text-center text-sm"></i>
+                            <i data-lucide="settings" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Настройки
                         </a>
                     </div>
@@ -303,7 +304,7 @@
                         </p>
                     </div>
                     <a href="{{ url_for('admin.logout') }}" class="p-1.5 rounded-lg transition-colors flex-shrink-0" style="color: var(--panel-muted);" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--panel-muted)'" title="Выйти" onclick="event.stopPropagation()">
-                        <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
                     </a>
                 </a>
             </div>
@@ -316,7 +317,7 @@
             <div class="flex items-center gap-3">
                 <!-- Hamburger (mobile) -->
                 <button onclick="openSidebar()" class="md:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                    <i class="fa-solid fa-bars text-sm"></i>
+                    <i data-lucide="menu" class="w-4 h-4"></i>
                 </button>
                 <h1 class="text-base font-semibold text-gray-800">{% block page_title %}{% endblock %}</h1>
             </div>
@@ -324,7 +325,7 @@
                 <!-- Notification bell -->
                 <div class="relative" id="notif-bell-wrapper">
                     <button onclick="toggleNotifPanel()" class="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50" title="Уведомления">
-                        <i class="fa-solid fa-bell text-sm"></i>
+                        <i data-lucide="bell" class="w-4 h-4"></i>
                         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 font-bold"></span>
                     </button>
                     <div id="notif-panel" class="hidden absolute right-0 top-10 w-80 rounded-2xl z-50 overflow-hidden" style="background: var(--panel-card); border: 1px solid var(--panel-border); box-shadow: 0 8px 24px rgba(17,24,39,0.08);">
@@ -391,14 +392,15 @@
                 warning: 'background:#fffbeb;border:1px solid #fde68a;color:#92400e;'
             };
             const icons = {
-                success: 'fa-check-circle',
-                error:   'fa-circle-xmark',
-                info:    'fa-circle-info',
-                warning: 'fa-triangle-exclamation'
+                success: 'check-circle-2',
+                error:   'x-circle',
+                info:    'info',
+                warning: 'alert-triangle'
             };
             toast.setAttribute('style', (styles[type] || styles.info) + 'border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;max-width:320px;box-shadow:0 4px 16px rgba(17,24,39,0.08);');
             toast.className = 'pointer-events-auto toast-enter';
-            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${message}</span>`;
+            toast.innerHTML = `<i data-lucide="${icons[type] || icons.info}" class="w-4 h-4 flex-shrink-0"></i><span>${message}</span>`;
+            if (window.lucide) lucide.createIcons({ el: toast });
             container.appendChild(toast);
             setTimeout(() => {
                 toast.classList.remove('toast-enter');
@@ -445,7 +447,14 @@
             _saveGroupState(s);
         }
 
-        document.addEventListener('DOMContentLoaded', initGroupState);
+        document.addEventListener('DOMContentLoaded', function() {
+            initGroupState();
+            if (window.lucide) lucide.createIcons();
+        });
+        document.addEventListener('turbo:load', function() {
+            initGroupState();
+            if (window.lucide) lucide.createIcons();
+        });
     </script>
     {% block scripts %}{% endblock %}
 <script>
@@ -468,10 +477,10 @@ async function loadNotifications() {
             return;
         }
         const typeColors = {info: 'text-blue-400', warning: 'text-yellow-400', error: 'text-red-400', success: 'text-green-400'};
-        list.innerHTML = d.notifications.map(n => `
+        const html = d.notifications.map(n => `
             <div class="px-4 py-3 ${n.is_read ? 'opacity-60' : ''}">
                 <div class="flex items-start gap-2">
-                    <i class="fa-solid fa-circle-info mt-0.5 ${typeColors[n.type] || 'text-blue-400'} text-xs flex-shrink-0"></i>
+                    <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 ${typeColors[n.type] || 'text-blue-400'} flex-shrink-0"></i>
                     <div class="flex-1 min-w-0">
                         <p class="text-xs font-medium text-panel-text truncate">${n.title}</p>
                         <p class="text-xs text-panel-muted mt-0.5 line-clamp-2">${n.message}</p>
@@ -480,6 +489,8 @@ async function loadNotifications() {
                 </div>
             </div>
         `).join('');
+        list.innerHTML = html;
+        if (window.lucide) lucide.createIcons({ el: list });
     } catch(e) {}
 }
 

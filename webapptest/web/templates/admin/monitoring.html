@@ -6,7 +6,7 @@
 <!-- Версии -->
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 mb-6">
     <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
-        <i class="fa-solid fa-code-branch mr-2 text-blue-500"></i>Версии компонентов
+        <i data-lucide="git-branch" class="w-4 h-4 mr-2 text-blue-500"></i>Версии компонентов
     </h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {% for key, val in version_info.items() %}
@@ -28,7 +28,7 @@
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center">
                 <span class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-lg mr-3">
-                    <i class="fa-solid fa-microchip"></i>
+                    <i data-lucide="cpu" class="w-4 h-4"></i>
                 </span>
                 <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">CPU</span>
             </div>
@@ -47,7 +47,7 @@
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center">
                 <span class="p-2 bg-purple-50 dark:bg-purple-900/30 text-purple-500 rounded-lg mr-3">
-                    <i class="fa-solid fa-memory"></i>
+                    <i data-lucide="memory-stick" class="w-4 h-4"></i>
                 </span>
                 <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">RAM</span>
             </div>
@@ -67,7 +67,7 @@
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center">
                 <span class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-lg mr-3">
-                    <i class="fa-solid fa-hard-drive"></i>
+                    <i data-lucide="hard-drive" class="w-4 h-4"></i>
                 </span>
                 <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Диск</span>
             </div>
@@ -188,9 +188,9 @@ function updateWarnings(data) {
     if (!cont) return;
     cont.innerHTML = '';
     if (data.warnings) {
-        if (data.warnings.cpu) cont.innerHTML += `<div class="flex items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Высокая загрузка CPU: ${data.cpu}%</div>`;
-        if (data.warnings.ram) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Критическое использование RAM: ${data.ram}%</div>`;
-        if (data.warnings.disk) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Диск почти заполнен: ${data.disk}%</div>`;
+        if (data.warnings.cpu) cont.innerHTML += `<div class="flex items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-300 text-sm"><i data-lucide="alert-triangle" class="w-4 h-4 mr-2"></i>Высокая загрузка CPU: ${data.cpu}%</div>`;
+        if (data.warnings.ram) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i data-lucide="alert-triangle" class="w-4 h-4 mr-2"></i>Критическое использование RAM: ${data.ram}%</div>`;
+        if (data.warnings.disk) cont.innerHTML += `<div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-red-800 dark:text-red-300 text-sm"><i data-lucide="alert-triangle" class="w-4 h-4 mr-2"></i>Диск почти заполнен: ${data.disk}%</div>`;
     }
 }
 

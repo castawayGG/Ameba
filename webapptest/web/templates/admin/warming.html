@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createScenarioModal')" class="btn-accent-glow flex items-center text-sm font-medium text-white px-4 py-2 rounded-lg">
-    <i class="fa-solid fa-plus mr-1.5"></i>Новый сценарий
+    <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i>Новый сценарий
 </button>
 {% endblock %}
 
@@ -14,7 +14,7 @@
     <!-- Scenarios -->
     <div>
         <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-            <i class="fa-solid fa-list-check mr-2 text-blue-400"></i>Сценарии ({{ scenarios|length }})
+            <i data-lucide="list-checks" class="w-4 h-4 mr-2 text-blue-400"></i>Сценарии ({{ scenarios|length }})
         </h2>
         {% if scenarios %}
         <div class="space-y-4">
@@ -33,12 +33,12 @@
                             {% endif %}
                         </div>
                         <div class="mt-3 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span><i class="fa-solid fa-clock mr-1 text-gray-400"></i>Интервал: {{ sc.interval_minutes }} мин</span>
-                            <span><i class="fa-solid fa-hourglass-half mr-1 text-gray-400"></i>Длительность: {{ sc.duration_hours }} ч</span>
+                            <span><i data-lucide="clock" class="w-4 h-4 mr-1 text-gray-400"></i>Интервал: {{ sc.interval_minutes }} мин</span>
+                            <span><i data-lucide="loader" class="w-4 h-4 mr-1 text-gray-400"></i>Длительность: {{ sc.duration_hours }} ч</span>
                         </div>
                     </div>
                     <button onclick="deleteScenario({{ sc.id }})" class="flex-shrink-0 text-gray-400 hover:text-red-400 transition-colors p-1.5 rounded-lg" title="Удалить сценарий">
-                        <i class="fa-solid fa-trash text-sm"></i>
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
@@ -46,7 +46,7 @@
         </div>
         {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center">
-            <i class="fa-solid fa-list-check text-3xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+            <i data-lucide="list-checks" class="w-7 h-7 text-gray-300 dark:text-gray-600 mb-3 block"></i>
             <p class="text-sm text-gray-500 dark:text-gray-400">Сценарии не созданы</p>
             <button onclick="openModal('createScenarioModal')" class="mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors">Создать первый сценарий</button>
         </div>
@@ -56,7 +56,7 @@
     <!-- Active Sessions -->
     <div>
         <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-            <i class="fa-solid fa-fire mr-2 text-orange-400"></i>Активные сессии ({{ warming_sessions|length }})
+            <i data-lucide="flame" class="w-4 h-4 mr-2 text-orange-400"></i>Активные сессии ({{ warming_sessions|length }})
         </h2>
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
@@ -110,7 +110,7 @@
 <!-- Create Scenario Modal -->
 <div id="createScenarioModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style="background:rgba(0,0,0,0.6);" onclick="if(event.target===this)closeModal('createScenarioModal')">
     <div class="modal-panel bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-lg mx-4 p-6">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-5"><i class="fa-solid fa-plus-circle text-blue-400 mr-2"></i>Новый сценарий прогрева</h3>
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-5"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-400 mr-2"></i>Новый сценарий прогрева</h3>
         <form id="create-scenario-form" class="space-y-4">
             <div>
                 <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Название</label>

@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <a href="{{ url_for('admin.campaigns') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-    <i class="fa-solid fa-arrow-left mr-1.5"></i>К кампаниям
+    <i data-lucide="arrow-left" class="w-4 h-4 mr-1.5"></i>К кампаниям
 </a>
 {% endblock %}
 
@@ -14,7 +14,7 @@
 <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-6 py-5 flex flex-wrap items-center justify-between gap-4">
     <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#0ea5e9,#2563eb)">
-            <i class="fa-solid fa-bullhorn text-white text-lg"></i>
+            <i data-lucide="megaphone" class="text-white w-5 h-5"></i>
         </div>
         <div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -38,17 +38,17 @@
     <div class="flex items-center gap-2 flex-wrap">
         {% if campaign.status in ('draft', 'paused') %}
         <button onclick="campaignAction({{ campaign.id }}, 'start')" class="flex items-center text-sm font-medium bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-            <i class="fa-solid fa-play mr-1.5"></i>Запустить
+            <i data-lucide="play" class="w-4 h-4 mr-1.5"></i>Запустить
         </button>
         {% endif %}
         {% if campaign.status == 'running' %}
         <button onclick="campaignAction({{ campaign.id }}, 'pause')" class="flex items-center text-sm font-medium bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors">
-            <i class="fa-solid fa-pause mr-1.5"></i>Приостановить
+            <i data-lucide="pause" class="w-4 h-4 mr-1.5"></i>Приостановить
         </button>
         {% endif %}
         {% if campaign.status in ('running', 'paused') %}
         <button onclick="campaignAction({{ campaign.id }}, 'stop')" class="flex items-center text-sm font-medium bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-            <i class="fa-solid fa-stop mr-1.5"></i>Остановить
+            <i data-lucide="square" class="w-4 h-4 mr-1.5"></i>Остановить
         </button>
         {% endif %}
     </div>
@@ -167,7 +167,7 @@
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Вариации текста</h3>
             <button onclick="saveVariations({{ campaign.id }})" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
-                <i class="fa-solid fa-floppy-disk mr-1"></i>Сохранить
+                <i data-lucide="save" class="w-4 h-4 mr-1"></i>Сохранить
             </button>
         </div>
         <div class="px-6 py-4">
@@ -177,7 +177,7 @@
                     <div class="variation-item flex items-start gap-2">
                         <textarea rows="2" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500">{{ v }}</textarea>
                         <button onclick="removeVariation(this)" class="flex-shrink-0 mt-1.5 text-gray-400 hover:text-red-400 transition-colors p-1">
-                            <i class="fa-solid fa-times text-sm"></i>
+                            <i data-lucide="x" class="w-4 h-4"></i>
                         </button>
                     </div>
                     {% endfor %}
@@ -186,7 +186,7 @@
                 {% endif %}
             </div>
             <button onclick="addVariation()" class="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5">
-                <i class="fa-solid fa-plus"></i>Добавить вариацию
+                <i data-lucide="plus" class="w-4 h-4"></i>Добавить вариацию
             </button>
         </div>
     </div>
@@ -229,7 +229,7 @@ function addVariation() {
     div.innerHTML = `
         <textarea rows="2" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Текст вариации…"></textarea>
         <button onclick="removeVariation(this)" class="flex-shrink-0 mt-1.5 text-gray-400 hover:text-red-400 transition-colors p-1">
-            <i class="fa-solid fa-times text-sm"></i>
+            <i data-lucide="x" class="w-4 h-4"></i>
         </button>`;
     container.appendChild(div);
     div.querySelector('textarea').focus();

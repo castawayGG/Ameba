@@ -7,7 +7,7 @@
 <!-- Active Sessions -->
 <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-        <i class="fa-solid fa-users-rectangle text-blue-400"></i>
+        <i data-lucide="users" class="w-4 h-4 text-blue-400"></i>
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Активные сессии ({{ user_sessions|length }})</h2>
     </div>
     <div class="overflow-x-auto">
@@ -32,7 +32,7 @@
                     <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ sess.last_active }}</td>
                     <td class="px-4 py-3 text-right">
                         <button onclick="forceLogout('{{ sess.id }}')" class="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors">
-                            <i class="fa-solid fa-right-from-bracket mr-1"></i>Выйти
+                            <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>Выйти
                         </button>
                     </td>
                 </tr>
@@ -47,7 +47,7 @@
 <!-- Failed Logins -->
 <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-        <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i>
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-400"></i>
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Неудачные входы ({{ failed_users|length }})</h2>
     </div>
     <div class="overflow-x-auto">
@@ -89,7 +89,7 @@
 <!-- Suspicious Activity -->
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-        <i class="fa-solid fa-shield-halved text-red-400"></i>
+        <i data-lucide="shield" class="w-4 h-4 text-red-400"></i>
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Подозрительная активность ({{ suspicious|length }})</h2>
     </div>
     <div class="overflow-x-auto">

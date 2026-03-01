@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createParseModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Новий парсинг
+    <i data-lucide="plus" class="w-4 h-4"></i> Новий парсинг
 </button>
 {% endblock %}
 
@@ -91,11 +91,11 @@
             <div class="flex items-center gap-2">
               {% if task.status == 'completed' and task.result_data %}
               <a href="/admin/api/parser/{{ task.id }}/export_csv" class="text-xs px-2 py-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;">
-                <i class="fa-solid fa-download mr-1"></i>CSV
+                <i data-lucide="download" class="w-4 h-4 mr-1"></i>CSV
               </a>
               {% endif %}
               <button onclick="deleteParseTask({{ task.id }})" class="text-xs px-2 py-1 rounded border hover:border-red-500 hover:text-red-400 transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);">
-                <i class="fa-solid fa-trash"></i>
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
           </td>
@@ -106,7 +106,7 @@
   </div>
   {% else %}
   <div class="px-6 py-12 text-center">
-    <i class="fa-solid fa-list-ul text-4xl mb-4" style="color:var(--panel-border);"></i>
+    <i data-lucide="list" class="w-8 h-8 mb-4" style="color:var(--panel-border);"></i>
     <p class="text-sm" style="color:var(--panel-muted);">Немає задач парсингу</p>
   </div>
   {% endif %}

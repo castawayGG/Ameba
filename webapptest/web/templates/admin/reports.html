@@ -12,43 +12,43 @@
   <!-- HTML Отчёт -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
-      <i class="fa-solid fa-file-code mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="file-code" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       HTML Отчёт
     </h2>
     <p class="text-xs mb-4" style="color:var(--panel-muted);">Полный отчёт системы в формате HTML с таблицами</p>
     <a href="/admin/api/reports/generate" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
-      <i class="fa-solid fa-download mr-2"></i>Скачать отчёт
+      <i data-lucide="download" class="w-4 h-4 mr-2"></i>Скачать отчёт
     </a>
   </div>
 
   <!-- Excel Отчёт -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
-      <i class="fa-solid fa-file-excel mr-2 text-green-500"></i>
+      <i data-lucide="file-spreadsheet" class="w-4 h-4 mr-2 text-green-500"></i>
       Excel Отчёт
     </h2>
     <p class="text-xs mb-4" style="color:var(--panel-muted);">Список аккаунтов в формате Excel (.xlsx)</p>
     <a href="/admin/export/accounts_excel" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
-      <i class="fa-solid fa-download mr-2"></i>Скачать Excel
+      <i data-lucide="download" class="w-4 h-4 mr-2"></i>Скачать Excel
     </a>
   </div>
 
   <!-- CSV Аккаунты -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-1" style="color:var(--panel-text);">
-      <i class="fa-solid fa-file-csv mr-2 text-yellow-400"></i>
+      <i data-lucide="file-spreadsheet" class="w-4 h-4 mr-2 text-yellow-400"></i>
       CSV Аккаунты
     </h2>
     <p class="text-xs mb-4" style="color:var(--panel-muted);">Таблица аккаунтов в формате CSV</p>
     <a href="/admin/export/accounts_csv" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
-      <i class="fa-solid fa-download mr-2"></i>Скачать CSV
+      <i data-lucide="download" class="w-4 h-4 mr-2"></i>Скачать CSV
     </a>
   </div>
 
   <!-- Отправка в Telegram -->
   <div class="rounded-xl p-6 lg:col-span-2" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-4" style="color:var(--panel-text);">
-      <i class="fa-brands fa-telegram mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="send" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Отправить отчёт в Telegram
     </h2>
     <div class="space-y-3">
@@ -66,7 +66,7 @@
         </div>
       </div>
       <button onclick="sendReport()" class="px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-        <i class="fa-brands fa-telegram mr-2"></i>Отправить в Telegram
+        <i data-lucide="send" class="w-4 h-4 mr-2"></i>Отправить в Telegram
       </button>
     </div>
   </div>
@@ -74,7 +74,7 @@
   <!-- Инфо -->
   <div class="rounded-xl p-6" style="background:var(--panel-card);border:1px solid var(--panel-border);">
     <h2 class="text-base font-semibold mb-3" style="color:var(--panel-text);">
-      <i class="fa-solid fa-clock mr-2" style="color:var(--panel-accent);"></i>
+      <i data-lucide="clock" class="w-4 h-4 mr-2" style="color:var(--panel-accent);"></i>
       Автоотправка
     </h2>
     <p class="text-xs" style="color:var(--panel-muted);">Для настройки автоматической отправки отчётов по расписанию используйте Celery Beat. Добавьте в расписание задачу:</p>

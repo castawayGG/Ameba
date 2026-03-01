@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="loadHealthStats()" id="refresh-btn" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-    <i class="fa-solid fa-rotate mr-1.5 text-blue-400"></i>Обновить
+    <i data-lucide="rotate-cw" class="w-4 h-4 mr-1.5 text-blue-400"></i>Обновить
 </button>
 {% endblock %}
 
@@ -13,19 +13,19 @@
 <!-- Stat cards -->
 <div id="stat-cards" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
     {% set stat_defs = [
-        ('active',     'Активные',    'fa-circle-check',           'text-green-400',  'bg-green-900/20',  'text-green-300'),
-        ('banned',     'Забанены',    'fa-ban',                    'text-red-400',    'bg-red-900/20',    'text-red-300'),
-        ('flood_wait', 'Flood Wait',  'fa-hourglass-half',         'text-orange-400', 'bg-orange-900/20', 'text-orange-300'),
-        ('expired',    'Истекли',     'fa-calendar-xmark',         'text-gray-400',   'bg-gray-700/30',   'text-gray-300'),
-        ('2fa',        '2FA',         'fa-lock',                   'text-yellow-400', 'bg-yellow-900/20', 'text-yellow-300'),
-        ('inactive',   'Неактивные',  'fa-moon',                   'text-blue-400',   'bg-blue-900/20',   'text-blue-300'),
+        ('active',     'Активные',    'check-circle-2',  'text-green-400',  'bg-green-900/20',  'text-green-300'),
+        ('banned',     'Забанены',    'ban',             'text-red-400',    'bg-red-900/20',    'text-red-300'),
+        ('flood_wait', 'Flood Wait',  'loader',          'text-orange-400', 'bg-orange-900/20', 'text-orange-300'),
+        ('expired',    'Истекли',     'calendar-x',      'text-gray-400',   'bg-gray-700/30',   'text-gray-300'),
+        ('2fa',        '2FA',         'lock',            'text-yellow-400', 'bg-yellow-900/20', 'text-yellow-300'),
+        ('inactive',   'Неактивные',  'moon',            'text-blue-400',   'bg-blue-900/20',   'text-blue-300'),
     ] %}
     {% for key, label, icon, icon_color, bg, text_color in stat_defs %}
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 flex flex-col gap-2">
         <div class="flex items-center justify-between">
             <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</span>
             <div class="w-8 h-8 rounded-lg {{ bg }} flex items-center justify-center">
-                <i class="fa-solid {{ icon }} {{ icon_color }} text-sm"></i>
+                <i data-lucide="{{ icon }}" class="w-4 h-4 {{ icon_color }}"></i>
             </div>
         </div>
         <p id="stat-{{ key }}" class="text-2xl font-bold {{ text_color }}">—</p>
@@ -52,7 +52,7 @@
     <!-- At Risk table -->
     <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-            <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i>
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-400"></i>
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Группа риска</h3>
         </div>
         <div class="overflow-x-auto">

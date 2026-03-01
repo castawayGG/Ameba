@@ -4,7 +4,7 @@
 
 {% block header_actions %}
 <button onclick="openModal('createTmplModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
-    <i class="fa-solid fa-plus"></i> Новий шаблон
+    <i data-lucide="plus" class="w-4 h-4"></i> Новий шаблон
 </button>
 {% endblock %}
 
@@ -38,7 +38,7 @@
       </div>
       <div class="flex items-center justify-between">
         <button onclick="previewSpintax()" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-accent2);">
-          <i class="fa-solid fa-eye"></i> Превью
+          <i data-lucide="eye" class="w-4 h-4"></i> Превью
         </button>
         <span id="uniqueness_count" class="text-xs" style="color:var(--panel-muted);"></span>
       </div>
@@ -72,7 +72,7 @@
     <div class="text-xs" style="color:var(--panel-muted);">Створено: {{ t.created_at | timestamp_to_date }}</div>
     <div class="flex items-center gap-2 pt-1 border-t" style="border-color:var(--panel-border);">
       <button onclick="deleteTemplate({{ t.id }})" class="flex-1 px-3 py-1.5 text-xs rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--panel-muted)'">
-        <i class="fa-solid fa-trash mr-1"></i>Видалити
+        <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i>Видалити
       </button>
     </div>
   </div>
@@ -80,7 +80,7 @@
 </div>
 {% else %}
 <div class="rounded-xl p-12 text-center" style="background:var(--panel-card);border:1px dashed var(--panel-border);">
-  <i class="fa-solid fa-shuffle text-4xl mb-4" style="color:var(--panel-border);"></i>
+  <i data-lucide="shuffle" class="w-8 h-8 mb-4" style="color:var(--panel-border);"></i>
   <p class="text-sm" style="color:var(--panel-muted);">Немає шаблонів. Створіть перший!</p>
 </div>
 {% endif %}
