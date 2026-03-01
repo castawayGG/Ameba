@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.umd.js"></script>
+    <script type="module">import * as turbo from 'https://cdn.skypack.dev/@hotwired/turbo';</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -18,14 +18,14 @@
                     fontFamily: { sans: ['Geist', 'sans-serif'] },
                     colors: {
                         panel: {
-                            bg:      '#080808',
-                            surface: '#0f0f0f',
-                            card:    '#141414',
+                            bg:      '#050505',
+                            surface: '#0a0a0a',
+                            card:    '#111111',
                             border:  '#1e2636',
                             accent:  '#3b82f6',
                             accent2: '#2563eb',
-                            text:    '#e2e8f0',
-                            muted:   '#556070',
+                            text:    '#f8fafc',
+                            muted:   '#94a3b8',
                         }
                     }
                 }
