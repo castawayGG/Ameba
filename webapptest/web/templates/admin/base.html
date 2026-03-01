@@ -17,14 +17,14 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         panel: {
-                            bg:      '#f7f8fc',
-                            surface: '#ffffff',
-                            card:    '#ffffff',
-                            border:  '#e8edf3',
+                            bg:      '#0d1421',
+                            surface: '#131c2e',
+                            card:    '#192238',
+                            border:  '#1d3150',
                             accent:  '#3b82f6',
                             accent2: '#2563eb',
-                            text:    '#111827',
-                            muted:   '#6b7280',
+                            text:    '#e1e8f5',
+                            muted:   '#607d99',
                         }
                     }
                 }
@@ -32,20 +32,20 @@
         }
     </script>
     <style>
-        /* Clean minimalist CSS variables — light airy palette */
+        /* Fintech dark-navy CSS variables */
         :root {
-            --panel-bg:      #f7f8fc;
-            --panel-surface: #ffffff;
-            --panel-card:    #ffffff;
-            --panel-border:  #e8edf3;
-            --panel-accent:  #3b82f6;
-            --panel-accent2: #2563eb;
+            --panel-bg:        #0d1421;
+            --panel-surface:   #131c2e;
+            --panel-card:      #192238;
+            --panel-border:    #1d3150;
+            --panel-accent:    #3b82f6;
+            --panel-accent2:   #2563eb;
             --panel-accent-g1: #3b82f6;
             --panel-accent-g2: #06b6d4;
-            --panel-text:    #111827;
-            --panel-muted:   #6b7280;
+            --panel-text:      #e1e8f5;
+            --panel-muted:     #607d99;
         }
-        /* Light palette applied to the entire admin panel */
+        /* Dark palette applied to the entire admin panel */
         body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
         aside#sidebar {
             background: var(--panel-surface) !important;
@@ -60,31 +60,40 @@
         main { background: var(--panel-bg) !important; }
 
         /* Cards & containers */
+        .bg-white { background: var(--panel-surface) !important; }
+        .bg-gray-50 { background: var(--panel-bg) !important; }
+        .bg-gray-100 { background: rgba(255,255,255,0.04) !important; }
         [class*="bg-gray-800"],
         [class*="bg-gray-900"] { background: var(--panel-card) !important; }
-        [class*="bg-gray-700"] { background: var(--panel-bg) !important; }
+        [class*="bg-gray-700"] { background: var(--panel-card) !important; }
 
         /* Borders */
+        .border-gray-100,
+        .border-gray-200 { border-color: var(--panel-border) !important; }
         [class*="border-gray-700"],
         [class*="border-gray-600"] { border-color: var(--panel-border) !important; }
 
         /* Text */
+        .text-gray-800,
+        .text-gray-900 { color: var(--panel-text) !important; }
+        .text-gray-700 { color: #aac3e0 !important; }
         [class*="text-gray-100"],
         [class*="text-white"] { color: var(--panel-text) !important; }
-        [class*="text-gray-300"] { color: #374151 !important; }
+        [class*="text-gray-300"] { color: #aac3e0 !important; }
         [class*="text-gray-400"] { color: var(--panel-muted) !important; }
-        [class*="text-gray-500"] { color: #9ca3af !important; }
+        [class*="text-gray-500"] { color: var(--panel-muted) !important; }
 
         /* Table head */
         [class*="bg-gray-700\\/50"],
-        [class*="bg-gray-700\\/40"] { background: rgba(248,249,252,0.8) !important; }
+        [class*="bg-gray-700\\/40"] { background: rgba(25,34,56,0.9) !important; }
 
         /* Hover rows */
-        [class*="hover:bg-gray-700\\/30"]:hover { background: rgba(59,130,246,0.04) !important; }
+        [class*="hover:bg-gray-700\\/30"]:hover { background: rgba(59,130,246,0.06) !important; }
+        .hover\:bg-gray-50:hover { background: rgba(255,255,255,0.04) !important; }
 
         /* Inputs */
         input, select, textarea {
-            background: var(--panel-surface) !important;
+            background: var(--panel-card) !important;
             border-color: var(--panel-border) !important;
             color: var(--panel-text) !important;
         }
@@ -92,23 +101,24 @@
 
         /* Nav active state */
         .nav-accent-active {
-            background: rgba(59,130,246,0.08) !important;
-            color: var(--panel-accent) !important;
+            background: rgba(59,130,246,0.14) !important;
+            color: #60a5fa !important;
             border-left: 2px solid var(--panel-accent) !important;
             padding-left: calc(0.75rem - 2px) !important;
         }
         .nav-accent-hover:hover {
-            background: rgba(59,130,246,0.05) !important;
-            color: var(--panel-accent) !important;
+            background: rgba(255,255,255,0.05) !important;
+            color: var(--panel-text) !important;
         }
 
         /* Transparent border for non-active items to keep alignment */
         .nav-accent-hover {
             border-left: 2px solid transparent;
             padding-left: calc(0.75rem - 2px);
+            color: var(--panel-muted);
         }
 
-        /* Sidebar section labels */
+        /* Sidebar section labels (kept for legacy) */
         .nav-section-label {
             font-size: 10px;
             font-weight: 700;
@@ -118,6 +128,55 @@
             padding: 0.875rem 0.75rem 0.25rem;
             margin-top: 0.25rem;
         }
+
+        /* NEW badge */
+        .badge-new {
+            background: rgba(59,130,246,0.15);
+            color: var(--panel-accent);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            margin-left: auto;
+        }
+
+        /* ── Collapsible nav group (accordion) ── */
+        .nav-group-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.375rem;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--panel-muted);
+            background: transparent;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: color 0.15s, background 0.15s;
+            text-align: left;
+        }
+        .nav-group-header:hover {
+            color: var(--panel-text);
+            background: rgba(255,255,255,0.04);
+        }
+        .nav-group-header i.nav-group-icon { width: 1.125rem; margin-right: 0.5rem; text-align: center; }
+        .nav-chevron {
+            margin-left: auto;
+            font-size: 9px;
+            transition: transform 0.2s ease;
+        }
+        .nav-group-items {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.25s ease;
+        }
+        .nav-group.is-open .nav-group-items { max-height: 1000px; }
+        .nav-group.is-open .nav-chevron { transform: rotate(90deg); }
+        .nav-group-items a { margin-left: 0.375rem; }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -142,17 +201,17 @@
         /* Accent button */
         .btn-accent-glow {
             background: var(--panel-accent);
-            box-shadow: 0 0 12px rgba(59,130,246,0.15);
+            box-shadow: 0 0 12px rgba(59,130,246,0.2);
             transition: box-shadow 0.2s, background 0.2s;
         }
-        .btn-accent-glow:hover { background: var(--panel-accent2); box-shadow: 0 0 18px rgba(59,130,246,0.25); }
+        .btn-accent-glow:hover { background: var(--panel-accent2); box-shadow: 0 0 20px rgba(59,130,246,0.35); }
 
-        /* Card minimalist helper — use on any card element */
+        /* Card helper */
         .card-surface {
             background: var(--panel-card);
             border: 1px solid var(--panel-border);
             border-radius: 1rem;
-            box-shadow: 0 1px 4px rgba(17,24,39,0.04), 0 1px 2px rgba(17,24,39,0.02);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         }
 
         /* Divider */
@@ -178,186 +237,238 @@
             <!-- Nav -->
             <nav class="px-3 py-4 space-y-0.5 flex-1 overflow-y-auto">
 
-                <!-- Главное -->
+                <!-- Always-visible top links -->
                 <a href="{{ url_for('admin.dashboard') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dashboard' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-gauge-high w-5 mr-3 text-center text-sm"></i>
                     Дашборд
                 </a>
-
-                <!-- Кампании и операции -->
-                <div class="nav-section-label">Операции</div>
-                <a href="{{ url_for('admin.campaigns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.campaigns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-bullhorn w-5 mr-3 text-center text-sm"></i>
-                    Кампании
-                </a>
-                <a href="{{ url_for('admin.automations') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.automations' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
-                    Автоматизации
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-list-check w-5 mr-3 text-center text-sm"></i>
-                    Задачи
-                </a>
-
-                <!-- Аккаунты -->
-                <div class="nav-section-label">Аккаунты</div>
-                <a href="{{ url_for('admin.accounts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-brands fa-telegram w-5 mr-3 text-center text-sm"></i>
-                    Аккаунты
-                </a>
-                <a href="{{ url_for('admin.account_pools') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_pools' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-layer-group w-5 mr-3 text-center text-sm"></i>
-                    Пулы аккаунтов
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.accounts_health') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts_health' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-heart-pulse w-5 mr-3 text-center text-sm"></i>
-                    Здоровье аккаунтов
-                </a>
-                <a href="{{ url_for('admin.account_bulk') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_bulk' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
-                    Массовые операции
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.warming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.warming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-fire w-5 mr-3 text-center text-sm"></i>
-                    Прогрев
-                </a>
-                <a href="{{ url_for('admin.antidetect') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.antidetect' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
-                    Антидетект
-                </a>
-                <a href="{{ url_for('admin.cooldowns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cooldowns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-clock w-5 mr-3 text-center text-sm"></i>
-                    Кулдауны
-                </a>
-
-                <!-- Прокси -->
-                <div class="nav-section-label">Прокси</div>
-                <a href="{{ url_for('admin.proxies') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.proxies' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-network-wired w-5 mr-3 text-center text-sm"></i>
-                    Прокси
-                </a>
-
-                <!-- Live мониторинг -->
-                <div class="nav-section-label">Live</div>
-                <a href="{{ url_for('admin.events') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.events' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
-                    Лента событий
-                </a>
-                <a href="{{ url_for('admin.inbox') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.inbox' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-envelope w-5 mr-3 text-center text-sm"></i>
-                    Входящие
-                    <span id="nav-inbox-badge" class="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white hidden"></span>
-                </a>
-                <a href="{{ url_for('admin.alerts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.alerts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-triangle-exclamation w-5 mr-3 text-center text-sm"></i>
-                    Алерты
-                </a>
-                <a href="{{ url_for('admin.monitoring') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.monitoring' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
-                    Мониторинг
-                </a>
-
-                <!-- Аналитика -->
-                <div class="nav-section-label">Аналитика</div>
                 <a href="{{ url_for('admin.analytics') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.analytics' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                     <i class="fa-solid fa-chart-line w-5 mr-3 text-center text-sm"></i>
                     Аналитика
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.victims') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.victims' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-crosshairs w-5 mr-3 text-center text-sm"></i>
-                    Жертвы
-                </a>
-                <a href="{{ url_for('admin.links') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.links' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-link w-5 mr-3 text-center text-sm"></i>
-                    Трекинг-ссылки
-                </a>
-                <a href="{{ url_for('admin.ab_tests') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ab_tests' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-flask w-5 mr-3 text-center text-sm"></i>
-                    A/B Тесты
                 </a>
 
-                <!-- Инструменты -->
-                <div class="nav-section-label">Инструменты</div>
-                <a href="{{ url_for('admin.landings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.landings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-globe w-5 mr-3 text-center text-sm"></i>
-                    Лендинги
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.cloaking') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cloaking' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-mask w-5 mr-3 text-center text-sm"></i>
-                    Клоакинг
-                </a>
-                <a href="{{ url_for('admin.dns_management') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dns_management' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
-                    DNS ротация
-                </a>
-                <a href="{{ url_for('admin.spintax') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.spintax' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-shuffle w-5 mr-3 text-center text-sm"></i>
-                    Spintax
-                </a>
-                <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-list-ul w-5 mr-3 text-center text-sm"></i>
-                    Парсинг
-                </a>
-                <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
-                    AI Фарминг
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.reports') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.reports' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-chart-bar w-5 mr-3 text-center text-sm"></i>
-                    Отчёты
-                </a>
+                <!-- ── Operations group ── -->
+                <div class="nav-group" id="grp-operations">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-operations')">
+                        <i class="fa-solid fa-bullhorn nav-group-icon"></i>
+                        Операции
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-operations-items">
+                        <a href="{{ url_for('admin.campaigns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.campaigns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-bullhorn w-5 mr-3 text-center text-sm"></i>
+                            Кампании
+                        </a>
+                        <a href="{{ url_for('admin.automations') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.automations' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
+                            Автоматизации
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-list-check w-5 mr-3 text-center text-sm"></i>
+                            Задачи
+                        </a>
+                    </div>
+                </div>
 
-                <!-- Команда -->
-                <div class="nav-section-label">Команда</div>
-                <a href="{{ url_for('admin.team') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-people-group w-5 mr-3 text-center text-sm"></i>
-                    Команда
-                </a>
-                <a href="{{ url_for('admin.team_tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team_tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-clipboard-list w-5 mr-3 text-center text-sm"></i>
-                    Задачи команды
-                </a>
+                <!-- ── Accounts group ── -->
+                <div class="nav-group" id="grp-accounts">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-accounts')">
+                        <i class="fa-brands fa-telegram nav-group-icon"></i>
+                        Аккаунты
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-accounts-items">
+                        <a href="{{ url_for('admin.accounts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-brands fa-telegram w-5 mr-3 text-center text-sm"></i>
+                            Аккаунты
+                        </a>
+                        <a href="{{ url_for('admin.account_pools') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_pools' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-layer-group w-5 mr-3 text-center text-sm"></i>
+                            Пулы аккаунтов
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.accounts_health') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.accounts_health' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-heart-pulse w-5 mr-3 text-center text-sm"></i>
+                            Здоровье аккаунтов
+                        </a>
+                        <a href="{{ url_for('admin.account_bulk') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.account_bulk' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
+                            Массовые операции
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.warming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.warming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-fire w-5 mr-3 text-center text-sm"></i>
+                            Прогрев
+                        </a>
+                        <a href="{{ url_for('admin.antidetect') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.antidetect' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
+                            Антидетект
+                        </a>
+                        <a href="{{ url_for('admin.cooldowns') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cooldowns' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-clock w-5 mr-3 text-center text-sm"></i>
+                            Кулдауны
+                        </a>
+                    </div>
+                </div>
 
-                <!-- Система -->
-                <div class="nav-section-label">Система</div>
-                {% if current_user.role in ('superadmin', 'admin') %}
-                <a href="{{ url_for('admin.users') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.users' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-users w-5 mr-3 text-center text-sm"></i>
-                    Пользователи
-                </a>
-                <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_credentials' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-key w-5 mr-3 text-center text-sm"></i>
-                    API-учётные данные
-                </a>
-                <a href="{{ url_for('admin.api_keys') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_keys' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-code w-5 mr-3 text-center text-sm"></i>
-                    API Ключи
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                {% endif %}
-                <a href="{{ url_for('admin.webhooks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.webhooks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-satellite-dish w-5 mr-3 text-center text-sm"></i>
-                    Вебхуки
-                    <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.1);color:var(--panel-accent);">NEW</span>
-                </a>
-                <a href="{{ url_for('admin.security') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.security' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
-                    Безопасность
-                </a>
-                <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-file-lines w-5 mr-3 text-center text-sm"></i>
-                    Логи
-                </a>
-                <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.settings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                    <i class="fa-solid fa-gear w-5 mr-3 text-center text-sm"></i>
-                    Настройки
-                </a>
+                <!-- ── Infrastructure group ── -->
+                <div class="nav-group" id="grp-infrastructure">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-infrastructure')">
+                        <i class="fa-solid fa-server nav-group-icon"></i>
+                        Инфраструктура
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-infrastructure-items">
+                        <a href="{{ url_for('admin.proxies') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.proxies' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-network-wired w-5 mr-3 text-center text-sm"></i>
+                            Прокси
+                        </a>
+                        <a href="{{ url_for('admin.events') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.events' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-bolt w-5 mr-3 text-center text-sm"></i>
+                            Лента событий
+                        </a>
+                        <a href="{{ url_for('admin.inbox') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.inbox' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-envelope w-5 mr-3 text-center text-sm"></i>
+                            Входящие
+                            <span id="nav-inbox-badge" class="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white hidden"></span>
+                        </a>
+                        <a href="{{ url_for('admin.alerts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.alerts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-triangle-exclamation w-5 mr-3 text-center text-sm"></i>
+                            Алерты
+                        </a>
+                        <a href="{{ url_for('admin.monitoring') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.monitoring' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
+                            Мониторинг
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ── Data / Analysis group ── -->
+                <div class="nav-group" id="grp-data">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-data')">
+                        <i class="fa-solid fa-database nav-group-icon"></i>
+                        Данные
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-data-items">
+                        <a href="{{ url_for('admin.victims') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.victims' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-crosshairs w-5 mr-3 text-center text-sm"></i>
+                            Жертвы
+                        </a>
+                        <a href="{{ url_for('admin.links') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.links' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-link w-5 mr-3 text-center text-sm"></i>
+                            Трекинг-ссылки
+                        </a>
+                        <a href="{{ url_for('admin.ab_tests') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ab_tests' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-flask w-5 mr-3 text-center text-sm"></i>
+                            A/B Тесты
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ── Tools group ── -->
+                <div class="nav-group" id="grp-tools">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-tools')">
+                        <i class="fa-solid fa-toolbox nav-group-icon"></i>
+                        Инструменты
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-tools-items">
+                        <a href="{{ url_for('admin.landings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.landings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-globe w-5 mr-3 text-center text-sm"></i>
+                            Лендинги
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.cloaking') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.cloaking' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-mask w-5 mr-3 text-center text-sm"></i>
+                            Клоакинг
+                        </a>
+                        <a href="{{ url_for('admin.dns_management') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.dns_management' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-server w-5 mr-3 text-center text-sm"></i>
+                            DNS ротация
+                        </a>
+                        <a href="{{ url_for('admin.spintax') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.spintax' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-shuffle w-5 mr-3 text-center text-sm"></i>
+                            Spintax
+                        </a>
+                        <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-list-ul w-5 mr-3 text-center text-sm"></i>
+                            Парсинг
+                        </a>
+                        <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-robot w-5 mr-3 text-center text-sm"></i>
+                            AI Фарминг
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.reports') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.reports' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-chart-bar w-5 mr-3 text-center text-sm"></i>
+                            Отчёты
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ── Team group ── -->
+                <div class="nav-group" id="grp-team">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-team')">
+                        <i class="fa-solid fa-people-group nav-group-icon"></i>
+                        Команда
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-team-items">
+                        <a href="{{ url_for('admin.team') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-people-group w-5 mr-3 text-center text-sm"></i>
+                            Команда
+                        </a>
+                        <a href="{{ url_for('admin.team_tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.team_tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-clipboard-list w-5 mr-3 text-center text-sm"></i>
+                            Задачи команды
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ── System group ── -->
+                <div class="nav-group" id="grp-system">
+                    <button class="nav-group-header" onclick="toggleGroup('grp-system')">
+                        <i class="fa-solid fa-gear nav-group-icon"></i>
+                        Система
+                        <i class="fa-solid fa-chevron-right nav-chevron"></i>
+                    </button>
+                    <div class="nav-group-items" id="grp-system-items">
+                        {% if current_user.role in ('superadmin', 'admin') %}
+                        <a href="{{ url_for('admin.users') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.users' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-users w-5 mr-3 text-center text-sm"></i>
+                            Пользователи
+                        </a>
+                        <a href="{{ url_for('admin.api_credentials') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_credentials' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-key w-5 mr-3 text-center text-sm"></i>
+                            API-учётные данные
+                        </a>
+                        <a href="{{ url_for('admin.api_keys') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.api_keys' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-code w-5 mr-3 text-center text-sm"></i>
+                            API Ключи
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('admin.webhooks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.webhooks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-satellite-dish w-5 mr-3 text-center text-sm"></i>
+                            Вебхуки
+                            <span class="badge-new">NEW</span>
+                        </a>
+                        <a href="{{ url_for('admin.security') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.security' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-shield-halved w-5 mr-3 text-center text-sm"></i>
+                            Безопасность
+                        </a>
+                        <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-file-lines w-5 mr-3 text-center text-sm"></i>
+                            Логи
+                        </a>
+                        <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.settings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i class="fa-solid fa-gear w-5 mr-3 text-center text-sm"></i>
+                            Настройки
+                        </a>
+                    </div>
+                </div>
 
             </nav>
 
@@ -487,6 +598,39 @@
                 document.querySelectorAll('[id$="Modal"]:not(.hidden)').forEach(m => closeModal(m.id));
             }
         });
+
+        // ── Sidebar accordion ──
+        const _SIDEBAR_KEY = 'admin_sidebar_groups';
+
+        function _loadGroupState() {
+            try { return JSON.parse(localStorage.getItem(_SIDEBAR_KEY) || '{}'); } catch(e) { console.warn('Failed to parse sidebar state:', e); return {}; }
+        }
+        function _saveGroupState(s) { localStorage.setItem(_SIDEBAR_KEY, JSON.stringify(s)); }
+
+        function toggleGroup(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const open = el.classList.toggle('is-open');
+            const s = _loadGroupState();
+            s[id] = open;
+            _saveGroupState(s);
+        }
+
+        function initGroupState() {
+            const s = _loadGroupState();
+            document.querySelectorAll('.nav-group').forEach(function(grp) {
+                const id = grp.id;
+                if (grp.querySelector('.nav-accent-active')) {
+                    grp.classList.add('is-open');
+                    s[id] = true;
+                } else if (s[id]) {
+                    grp.classList.add('is-open');
+                }
+            });
+            _saveGroupState(s);
+        }
+
+        document.addEventListener('DOMContentLoaded', initGroupState);
     </script>
     {% block scripts %}{% endblock %}
 <script>
