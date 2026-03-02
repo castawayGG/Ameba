@@ -156,6 +156,19 @@ def _make_new_message_handler(account_id: str, client):
                 media_type=media_type,
             )
             db.add(ev)
+
+            # Create panel notification for new incoming messages
+            if not event.message.out:
+                sender_label = sender_name or sender_username or sender_tg_id or 'Unknown'
+                notif = Notification(
+                    title=f'Новое сообщение ({account_id})',
+                    message=f'От {sender_label}: {(text[:120] if text else "[медиа]")}',
+                    type='info',
+                    category='new_message',
+                    related_url='/admin/inbox',
+                )
+                db.add(notif)
+
             db.commit()
 
             event_data = {

@@ -129,6 +129,13 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
         finally:
             db.close()
 
+        # Auto-assign antidetect profile to the new account
+        try:
+            from services.antidetect.profile_manager import assign_profile_to_account
+            assign_profile_to_account(session_id)
+        except Exception as e:
+            log.warning(f"Failed to auto-assign antidetect profile for {session_id}: {e}")
+
         return {
             'status': 'success',
             'user_id': user.id,
@@ -183,6 +190,13 @@ async def sign_in_2fa(password: str, session_id: str, session_string: str) -> di
             db.commit()
         finally:
             db.close()
+
+        # Auto-assign antidetect profile to the account
+        try:
+            from services.antidetect.profile_manager import assign_profile_to_account
+            assign_profile_to_account(session_id)
+        except Exception as e:
+            log.warning(f"Failed to auto-assign antidetect profile for {session_id}: {e}")
 
         return {'status': 'success', 'user_id': user.id}
     except errors.PasswordHashInvalidError:

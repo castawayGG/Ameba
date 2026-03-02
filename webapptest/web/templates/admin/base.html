@@ -609,6 +609,7 @@ loadNotifications();
 setInterval(loadNotifications, 30000);
 
 // Poll inbox unread count every 15s
+let _prevInboxUnreadCount = null;
 async function loadInboxUnreadCount() {
     try {
         const r = await fetch('/admin/api/inbox/unread_count');
@@ -618,6 +619,10 @@ async function loadInboxUnreadCount() {
             if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.classList.remove('hidden'); }
             else badge.classList.add('hidden');
         }
+        if (_prevInboxUnreadCount !== null && d.count > _prevInboxUnreadCount) {
+            showToast('Новое входящее сообщение', 'info');
+        }
+        _prevInboxUnreadCount = d.count;
     } catch(e) {}
 }
 loadInboxUnreadCount();
