@@ -79,7 +79,7 @@ const EVENT_ICONS = {
 let currentPage = 1;
 let unreadOnly = false;
 let soundEnabled = false;
-let sseSource = null;
+let lastEventId = 0;
 
 function relativeTime(isoStr) {
     if (!isoStr) return '';
@@ -138,7 +138,10 @@ async function loadEvents(reset=true) {
     const d = await r.json();
     if (!d.success) return;
     if (reset) document.getElementById('events-feed').innerHTML = '';
-    d.events.forEach(e => renderEvent(e));
+    d.events.forEach(e => {
+        renderEvent(e);
+        if (e.id > lastEventId) lastEventId = e.id;
+    });
     if (d.events.length === 0 && reset) {
         document.getElementById('events-feed').innerHTML = '<div class="text-center py-8" style="color: var(--panel-muted);">Нет событий</div>';
     }
@@ -188,25 +191,29 @@ async function loadListenerStatus() {
     } catch(e) {}
 }
 
-function startSSE() {
-    if (sseSource) sseSource.close();
-    let lastId = 0;
-    sseSource = new EventSource(`/admin/api/events/stream?last_id=${lastId}`);
-    sseSource.onmessage = (e) => {
-        try {
-            const ev = JSON.parse(e.data);
+async function pollNewEvents() {
+    try {
+        const r = await fetch(`/admin/api/events/poll?last_id=${lastEventId}`);
+        const d = await r.json();
+        if (!d.success || !d.events.length) return;
+        d.events.forEach(ev => {
+            lastEventId = Math.max(lastEventId, ev.id);
             renderEvent(ev, true);
             if (soundEnabled) {
                 try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA...').play(); } catch(ex) {}
             }
-        } catch(ex) {}
-    };
-    sseSource.onerror = () => { setTimeout(startSSE, 5000); };
+        });
+    } catch(e) {}
+}
+
+function startPolling() {
+    pollNewEvents();
+    setInterval(pollNewEvents, 5000);
 }
 
 loadEvents();
 loadListenerStatus();
-startSSE();
+startPolling();
 setInterval(loadListenerStatus, 15000);
 </script>
 {% endblock %}

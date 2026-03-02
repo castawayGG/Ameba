@@ -1351,23 +1351,15 @@ def api_notifications_mark_read():
 @admin_bp.route('/api/notifications/stream')
 @login_required
 def api_notifications_stream():
-    """SSE endpoint for real-time notifications"""
-    import time
-    from flask import Response
-    def generate():
-        last_id = 0
-        while True:
-            notifs = db.session.query(Notification).filter(
-                Notification.id > last_id,
-                or_(Notification.user_id == None, Notification.user_id == current_user.id)
-            ).order_by(Notification.id.desc()).limit(5).all()
-            if notifs:
-                last_id = notifs[0].id
-                import json as _json
-                data = _json.dumps([{'id': n.id, 'title': n.title, 'type': n.type} for n in notifs])
-                yield f"data: {data}\n\n"
-            time.sleep(10)
-    return Response(generate(), mimetype='text/event-stream')
+    """Polling endpoint for new notifications since last_id. Returns JSON and closes immediately."""
+    last_id = request.args.get('last_id', 0, type=int)
+    notifs = db.session.query(Notification).filter(
+        Notification.id > last_id,
+        or_(Notification.user_id == None, Notification.user_id == current_user.id)
+    ).order_by(Notification.id).limit(10).all()
+    return jsonify({'success': True, 'notifications': [
+        {'id': n.id, 'title': n.title, 'type': n.type} for n in notifs
+    ]})
 
 
 # --- TASKS ---
@@ -2189,26 +2181,8 @@ def events():
     return render_template('admin/events.html', accounts=accounts)
 
 
-@admin_bp.route('/api/events')
-@login_required
-def api_events():
-    from models.telegram_event import TelegramEvent
-    page = int(request.args.get('page', 1))
-    limit = min(int(request.args.get('limit', 50)), 200)
-    event_type = request.args.get('event_type', '')
-    account_id = request.args.get('account_id', '')
-    unread_only = request.args.get('unread_only', '') == '1'
-    q = db.session.query(TelegramEvent)
-    if event_type:
-        q = q.filter(TelegramEvent.event_type == event_type)
-    if account_id:
-        q = q.filter(TelegramEvent.account_id == account_id)
-    if unread_only:
-        q = q.filter(TelegramEvent.is_read == False)
-    q = q.order_by(desc(TelegramEvent.created_at))
-    total = q.count()
-    items = q.offset((page - 1) * limit).limit(limit).all()
-    return jsonify({'success': True, 'total': total, 'events': [{
+def _serialize_telegram_event(e):
+    return {
         'id': e.id,
         'account_id': e.account_id,
         'event_type': e.event_type,
@@ -2220,48 +2194,46 @@ def api_events():
         'media_type': e.media_type,
         'is_read': e.is_read,
         'created_at': e.created_at.isoformat() if e.created_at else None,
-    } for e in items]})
+    }
 
 
-@admin_bp.route('/api/events/stream')
+@admin_bp.route('/api/events')
 @login_required
-def api_events_stream():
-    from flask import Response
+def api_events():
     from models.telegram_event import TelegramEvent
-    import time
+    page = int(request.args.get('page', 1))
+    limit = min(int(request.args.get('limit', 50)), 200)
+    event_type = request.args.get('event_type', '')
+    account_id = request.args.get('account_id', '')
+    unread_only = request.args.get('unread_only', '') == '1'
     last_id = request.args.get('last_id', 0, type=int)
+    q = db.session.query(TelegramEvent)
+    if event_type:
+        q = q.filter(TelegramEvent.event_type == event_type)
+    if account_id:
+        q = q.filter(TelegramEvent.account_id == account_id)
+    if unread_only:
+        q = q.filter(TelegramEvent.is_read == False)
+    if last_id:
+        q = q.filter(TelegramEvent.id > last_id).order_by(TelegramEvent.id)
+        items = q.limit(limit).all()
+        return jsonify({'success': True, 'total': len(items), 'events': [_serialize_telegram_event(e) for e in items]})
+    q = q.order_by(desc(TelegramEvent.created_at))
+    total = q.count()
+    items = q.offset((page - 1) * limit).limit(limit).all()
+    return jsonify({'success': True, 'total': total, 'events': [_serialize_telegram_event(e) for e in items]})
 
-    def generate():
-        nonlocal last_id
-        while True:
-            try:
-                new_events = db.session.query(TelegramEvent).filter(
-                    TelegramEvent.id > last_id
-                ).order_by(TelegramEvent.id).limit(20).all()
-                db.session.expire_all()
-                for ev in new_events:
-                    last_id = ev.id
-                    data = {
-                        'id': ev.id,
-                        'account_id': ev.account_id,
-                        'event_type': ev.event_type,
-                        'sender_username': ev.sender_username,
-                        'sender_name': ev.sender_name,
-                        'chat_title': ev.chat_title,
-                        'text_preview': ev.text_preview,
-                        'is_read': ev.is_read,
-                        'created_at': ev.created_at.isoformat() if ev.created_at else None,
-                    }
-                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-                if not new_events:
-                    yield ": keepalive\n\n"
-            except Exception as e:
-                log.error(f"SSE stream error: {e}")
-                yield ": error\n\n"
-            time.sleep(15)
 
-    return Response(generate(), mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+@admin_bp.route('/api/events/poll')
+@login_required
+def api_events_poll():
+    """Polling endpoint for new events since last_id. Returns JSON and closes immediately."""
+    from models.telegram_event import TelegramEvent
+    last_id = request.args.get('last_id', 0, type=int)
+    new_events = db.session.query(TelegramEvent).filter(
+        TelegramEvent.id > last_id
+    ).order_by(TelegramEvent.id).limit(20).all()
+    return jsonify({'success': True, 'events': [_serialize_telegram_event(ev) for ev in new_events]})
 
 
 @admin_bp.route('/api/events/<int:event_id>/mark_read', methods=['POST'])
