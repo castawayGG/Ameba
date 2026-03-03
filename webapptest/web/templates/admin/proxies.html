@@ -3,6 +3,9 @@
 {% block page_title %}Прокси{% endblock %}
 
 {% block header_actions %}
+<button onclick="deleteAllProxies()" class="flex items-center text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 border border-red-300 dark:border-red-700 rounded-lg px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+    <i data-lucide="trash-2" class="w-4 h-4 mr-1.5"></i>Удалить все
+</button>
 <button onclick="bulkCheckProxies()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" id="bulk-check-btn">
     <i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все
 </button>
@@ -358,6 +361,26 @@ async function bulkDeleteSelected() {
                 if (row) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); }
             });
             clearSelection();
+        } else {
+            showToast('Ошибка: ' + (data.error || 'Unknown'), 'error');
+        }
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    }
+}
+
+// --- Delete all proxies ---
+async function deleteAllProxies() {
+    if (!confirm('Удалить все прокси? Это действие необратимо.')) return;
+    try {
+        const res = await fetch('/admin/proxies/delete_all', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Удалено ${data.deleted} прокси`, 'success');
+            location.reload();
         } else {
             showToast('Ошибка: ' + (data.error || 'Unknown'), 'error');
         }

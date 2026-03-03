@@ -851,6 +851,20 @@ def proxy_update_description(proxy_id):
     return jsonify({'success': True})
 
 
+@admin_bp.route('/proxies/delete_all', methods=['POST'])
+@login_required
+def proxies_delete_all():
+    """Удаление всех прокси"""
+    try:
+        deleted = db.session.query(Proxy).delete()
+        db.session.commit()
+        log_action('proxies_delete_all', f'Удалено все прокси: {deleted}')
+        return jsonify({'success': True, 'deleted': deleted})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/proxies/bulk_delete', methods=['POST'])
 @login_required
 def proxies_bulk_delete():
