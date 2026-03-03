@@ -43,6 +43,7 @@ async def get_telegram_client(account_id: str) -> TelegramClient:
                 device_params['device_model'] = fp.device_model
             if fp.app_version:
                 device_params['app_version'] = fp.app_version
+            # AccountFingerprint stores OS version as 'os_version'; TelegramClient param is 'system_version'
             if fp.os_version:
                 device_params['system_version'] = fp.os_version
         except Exception as e:

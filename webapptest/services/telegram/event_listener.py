@@ -85,7 +85,10 @@ async def _process_alert_rules(account_id: str, event_type: str, event_data: dic
                     params = rule.action_params or {}
                     reply_text = params.get('reply_text', '')
                     chat_id = event_data.get('chat_id')
-                    delay = int(params.get('delay', 0))
+                    try:
+                        delay = int(params.get('delay', 0))
+                    except (ValueError, TypeError):
+                        delay = 0
                     if reply_text and chat_id:
                         try:
                             if delay > 0:

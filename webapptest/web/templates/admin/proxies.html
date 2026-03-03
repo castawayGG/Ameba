@@ -246,6 +246,8 @@
 
 {% block scripts %}
 <script>
+const PROXY_RELOAD_DELAY_MS = 5000;
+
 // Drag and drop for proxy upload
 const pdz = document.getElementById('proxy-drop-zone');
 pdz.addEventListener('dragover', e => { e.preventDefault(); pdz.classList.add('border-blue-400'); });
@@ -316,8 +318,8 @@ async function bulkCheckProxies() {
         const res = await fetch('/admin/proxies/bulk_check', {method: 'POST'});
         const data = await res.json();
         if (data.success) {
-            showToast('Проверка всех прокси запущена. Страница обновится через 5 секунд.', 'success');
-            setTimeout(() => location.reload(), 5000);
+            showToast(`Проверка всех прокси запущена. Страница обновится через ${PROXY_RELOAD_DELAY_MS / 1000} секунд.`, 'success');
+            setTimeout(() => location.reload(), PROXY_RELOAD_DELAY_MS);
         } else {
             showToast('Ошибка: ' + (data.error || 'Unknown error'), 'error');
             location.reload();

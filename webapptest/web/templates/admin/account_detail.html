@@ -532,6 +532,7 @@ function startWarming(id) {
 
 // ── Dialogs / Chat tab ──
 const ACCOUNT_ID = '{{ account.id }}';
+const PARSE_CONTACTS_LIMIT = 100;
 let currentDialogChatId = null;
 
 async function loadDialogs() {
@@ -721,7 +722,7 @@ async function parseContacts() {
         const r = await fetch(`/admin/api/accounts/${ACCOUNT_ID}/parse_contacts`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({limit: 100})
+            body: JSON.stringify({limit: PARSE_CONTACTS_LIMIT})
         });
         const d = await r.json();
         skeleton.classList.add('hidden');
