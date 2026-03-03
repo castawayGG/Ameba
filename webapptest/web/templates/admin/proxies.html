@@ -304,16 +304,27 @@ async function bulkCheckProxies() {
     const btn = document.getElementById('bulk-check-btn');
     btn.disabled = true;
     btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 fa-spin mr-1.5"></i>Запуск...';
+    // Show skeleton loader rows
+    const tbody = document.querySelector('tbody.divide-y');
+    const rowCount = tbody ? tbody.querySelectorAll('tr[data-id]').length : 5;
+    if (tbody) {
+        tbody.innerHTML = Array(Math.max(rowCount, 3)).fill(
+            `<tr class="animate-pulse"><td colspan="10" class="px-4 py-3"><div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-full"></div></td></tr>`
+        ).join('');
+    }
     try {
         const res = await fetch('/admin/proxies/bulk_check', {method: 'POST'});
         const data = await res.json();
         if (data.success) {
-            showToast('Проверка всех прокси запущена', 'success');
+            showToast('Проверка всех прокси запущена. Страница обновится через 5 секунд.', 'success');
+            setTimeout(() => location.reload(), 5000);
         } else {
             showToast('Ошибка: ' + (data.error || 'Unknown error'), 'error');
+            location.reload();
         }
     } catch(e) {
         showToast('Ошибка запроса', 'error');
+        location.reload();
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="search" class="w-4 h-4 mr-1.5 text-yellow-400"></i>Проверить все';

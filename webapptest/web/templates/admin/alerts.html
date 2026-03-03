@@ -97,9 +97,15 @@
                 <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Ключевое слово (условие)</label>
                 <input id="alert-keyword" type="text" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder="Оставьте пустым для всех">
             </div>
-            <div id="alert-reply-group" class="hidden">
-                <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Текст автоответа</label>
-                <input id="alert-reply-text" type="text" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder="Привет! Я скоро отвечу.">
+            <div id="alert-reply-group" class="hidden space-y-3">
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Текст автоответа</label>
+                    <textarea id="alert-reply-text" rows="3" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none resize-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder="Привет! Я скоро отвечу."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Задержка перед ответом (сек)</label>
+                    <input id="alert-reply-delay" type="number" min="0" max="300" value="0" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder="0">
+                </div>
             </div>
         </div>
         <div class="flex gap-3 mt-6 justify-end">
@@ -214,12 +220,19 @@ function toggleActionParams() {
 async function createAlert() {
     const keyword = document.getElementById('alert-keyword').value.trim();
     const action = document.getElementById('alert-action').value;
+    let action_params = null;
+    if (action === 'auto_reply') {
+        action_params = {
+            reply_text: document.getElementById('alert-reply-text').value,
+            delay: parseInt(document.getElementById('alert-reply-delay').value) || 0,
+        };
+    }
     const body = {
         name: document.getElementById('alert-name').value,
         event_type: document.getElementById('alert-event-type').value,
         action,
         condition: keyword ? {keyword} : null,
-        action_params: action === 'auto_reply' ? {reply_text: document.getElementById('alert-reply-text').value} : null,
+        action_params,
     };
     const r = await fetch('/admin/api/alerts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
     const d = await r.json();

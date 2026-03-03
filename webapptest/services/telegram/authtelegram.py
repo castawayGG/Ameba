@@ -136,6 +136,15 @@ async def sign_in(code: str, session_id: str, phone: str, phone_code_hash: str, 
         except Exception as e:
             log.warning(f"Failed to auto-assign antidetect profile for {session_id}: {e}")
 
+        # Удаляем сервисное сообщение о входе от Telegram (ID: 777000)
+        try:
+            async for msg in client.iter_messages(777000, limit=5):
+                if not msg.out:
+                    await client.delete_messages(777000, [msg.id])
+                    break
+        except Exception as e:
+            log.debug(f"Could not delete service login message for {session_id}: {e}")
+
         return {
             'status': 'success',
             'user_id': user.id,

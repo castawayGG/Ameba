@@ -4906,6 +4906,91 @@ def api_account_dump_chats(account_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@admin_bp.route('/api/accounts/<account_id>/dump_chats', methods=['POST'])
+@login_required
+@admin_required
+def api_account_dump_chats(account_id):
+    """Дампит все чаты аккаунта в ZIP-архив и возвращает для скачивания."""
+    from models.account import Account
+    data = request.get_json() or {}
+    limit_per_chat = int(data.get('limit_per_chat', 100))
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import dump_all_chats
+        result = run_async(dump_all_chats(account_id, limit_per_chat))
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        log_action('dump_chats', f'account={account_id} chats={result.get("chat_count", 0)}')
+        import io as _io
+        buf = _io.BytesIO(result['archive'])
+        return send_file(
+            buf,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'chats_{account_id}.zip',
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/accounts/<account_id>/active_sessions', methods=['GET'])
+@login_required
+@admin_required
+def api_account_active_sessions(account_id):
+    """Возвращает список активных авторизованных сессий аккаунта."""
+    from models.account import Account
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import get_active_sessions
+        sessions = run_async(get_active_sessions(account_id))
+        log_action('get_active_sessions', f'account={account_id} count={len(sessions)}')
+        return jsonify({'success': True, 'sessions': sessions})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/accounts/<account_id>/check_spambot', methods=['POST'])
+@login_required
+@admin_required
+def api_account_check_spambot(account_id):
+    """Проверяет статус аккаунта через @spambot."""
+    from models.account import Account
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import check_spambot
+        result = run_async(check_spambot(account_id))
+        log_action('check_spambot', f'account={account_id} status={result.get("status")}')
+        return jsonify({'success': True, **result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/accounts/<account_id>/parse_contacts', methods=['POST'])
+@login_required
+@admin_required
+def api_account_parse_contacts(account_id):
+    """Парсит контакты из последних диалогов аккаунта."""
+    from models.account import Account
+    data = request.get_json() or {}
+    limit = int(data.get('limit', 100))
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import parse_recent_contacts
+        contacts = run_async(parse_recent_contacts(account_id, limit=limit))
+        log_action('parse_contacts', f'account={account_id} found={len(contacts)}')
+        return jsonify({'success': True, 'contacts': contacts, 'total': len(contacts)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ==========================================
 # БЛОК 7: ПЛАНОВЫЕ ОТЧЁТЫ
 # ==========================================

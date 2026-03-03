@@ -100,20 +100,26 @@
 
 <!-- Tabs -->
 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-    <div class="border-b border-gray-200 dark:border-gray-700 px-6 flex gap-0" id="account-tabs">
-        <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-500 -mb-px transition-colors">
+    <div class="border-b border-gray-200 dark:border-gray-700 px-6 flex gap-0 overflow-x-auto" id="account-tabs">
+        <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-500 -mb-px transition-colors whitespace-nowrap">
             <i data-lucide="file-text" class="w-4 h-4 mr-1.5"></i>Логи
         </button>
-        <button onclick="switchTab('actions')" id="tab-actions" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+        <button onclick="switchTab('actions')" id="tab-actions" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
             <i data-lucide="zap" class="w-4 h-4 mr-1.5"></i>Действия
         </button>
-        <button onclick="switchTab('dialogs')" id="tab-dialogs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+        <button onclick="switchTab('dialogs')" id="tab-dialogs" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
             <i data-lucide="message-circle" class="w-4 h-4 mr-1.5"></i>Чаты
         </button>
-        <button onclick="switchTab('groups')" id="tab-groups" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+        <button onclick="switchTab('groups')" id="tab-groups" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
             <i data-lucide="users" class="w-4 h-4 mr-1.5"></i>Группы
         </button>
-        <button onclick="switchTab('search')" id="tab-search" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors">
+        <button onclick="switchTab('sessions')" id="tab-sessions" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
+            <i data-lucide="monitor" class="w-4 h-4 mr-1.5"></i>Сессии
+        </button>
+        <button onclick="switchTab('contacts')" id="tab-contacts" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
+            <i data-lucide="contact" class="w-4 h-4 mr-1.5"></i>Контакты
+        </button>
+        <button onclick="switchTab('search')" id="tab-search" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 -mb-px transition-colors whitespace-nowrap">
             <i data-lucide="search" class="w-4 h-4 mr-1.5"></i>Поиск
         </button>
     </div>
@@ -180,6 +186,14 @@
             <button onclick="openModal('enable2faModal')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/30 dark:hover:bg-purple-900/10 transition-colors">
                 <i data-lucide="lock" class="text-purple-400 w-5 h-5"></i>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Включить 2FA</span>
+            </button>
+            <button onclick="terminateOtherSessions()" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-red-400 dark:hover:border-red-500 hover:bg-red-50/30 dark:hover:bg-red-900/10 transition-colors">
+                <i data-lucide="log-out" class="text-red-400 w-5 h-5"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Завершить другие сеансы</span>
+            </button>
+            <button onclick="runSpambotCheck()" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 hover:bg-orange-50/30 dark:hover:bg-orange-900/10 transition-colors">
+                <i data-lucide="shield-check" class="text-orange-400 w-5 h-5"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Проверить @spambot</span>
             </button>
         </div>
 
@@ -270,6 +284,42 @@
     </div>
     <div id="search-results" class="space-y-2">
         <p class="text-sm" style="color: var(--panel-muted);">Введите запрос и нажмите Поиск</p>
+    </div>
+</div>
+
+<!-- Sessions Tab Panel -->
+<div id="panel-sessions" class="tab-panel hidden px-6 py-6" style="background: var(--panel-surface);">
+    <div class="flex items-center gap-3 mb-4">
+        <button onclick="loadActiveSessions()" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
+            <i data-lucide="rotate-cw" class="w-4 h-4 mr-1"></i>Загрузить сессии
+        </button>
+        <button onclick="terminateOtherSessions()" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(239,68,68,0.1); border-color: #ef4444; color: #ef4444;">
+            <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>Завершить другие сеансы
+        </button>
+    </div>
+    <div id="sessions-list" class="space-y-3">
+        <p class="text-sm" style="color: var(--panel-muted);">Нажмите «Загрузить сессии»</p>
+    </div>
+</div>
+
+<!-- Contacts Tab Panel -->
+<div id="panel-contacts" class="tab-panel hidden px-6 py-6" style="background: var(--panel-surface);">
+    <div class="flex items-center gap-3 mb-4">
+        <button onclick="parseContacts()" class="text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(14,165,233,0.1); border-color: var(--panel-accent); color: var(--panel-accent);">
+            <i data-lucide="users" class="w-4 h-4 mr-1"></i>Спарсить диалоги
+        </button>
+        <button id="contacts-export-btn" onclick="exportContacts()" class="hidden text-sm px-3 py-1.5 rounded-lg border" style="background: rgba(52,211,153,0.1); border-color: #34d399; color: #34d399;">
+            <i data-lucide="download" class="w-4 h-4 mr-1"></i>Экспорт CSV
+        </button>
+        <span id="contacts-count" class="text-xs" style="color: var(--panel-muted);"></span>
+    </div>
+    <div id="contacts-skeleton" class="hidden space-y-2">
+        {% for _ in range(5) %}
+        <div class="animate-pulse bg-gray-200 dark:bg-gray-700 h-10 w-full rounded"></div>
+        {% endfor %}
+    </div>
+    <div id="contacts-list" class="overflow-x-auto">
+        <p class="text-sm" style="color: var(--panel-muted);">Нажмите «Спарсить диалоги»</p>
     </div>
 </div>
 
@@ -603,6 +653,114 @@ async function searchMessages() {
             </div>
         `).join('');
     } catch(e) { results.innerHTML = `<p class="text-sm text-red-400">${e}</p>`; }
+}
+
+// ── Sessions tab ──
+async function loadActiveSessions() {
+    const container = document.getElementById('sessions-list');
+    container.innerHTML = `
+        <div class="space-y-2">
+            ${Array(3).fill('<div class="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 w-full rounded-xl"></div>').join('')}
+        </div>`;
+    try {
+        const r = await fetch(`/admin/api/accounts/${ACCOUNT_ID}/active_sessions`);
+        const d = await r.json();
+        if (!d.success) { container.innerHTML = `<p class="text-sm text-red-400">${d.error || 'Ошибка'}</p>`; return; }
+        if (!d.sessions.length) { container.innerHTML = '<p class="text-sm" style="color:var(--panel-muted);">Нет активных сессий</p>'; return; }
+        container.innerHTML = d.sessions.map(s => `
+            <div class="p-4 rounded-xl border flex items-start gap-4" style="background: var(--panel-card); border-color: ${s.current ? 'var(--panel-accent)' : 'var(--panel-border)'};">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-medium text-sm" style="color: var(--panel-text);">${s.device_model || '—'}</span>
+                        ${s.current ? '<span class="text-xs px-1.5 py-0.5 rounded-full font-medium" style="background: rgba(14,165,233,0.15); color: var(--panel-accent);">текущая</span>' : ''}
+                    </div>
+                    <p class="text-xs mt-0.5" style="color: var(--panel-muted);">${s.app_name || ''} ${s.app_version || ''} • ${s.platform || ''} ${s.system_version || ''}</p>
+                    <p class="text-xs mt-0.5" style="color: var(--panel-muted);">${s.ip || ''} ${s.country ? '• ' + s.country : ''} ${s.region ? '• ' + s.region : ''}</p>
+                    <p class="text-xs mt-0.5" style="color: var(--panel-muted);">Активна: ${s.date_active ? new Date(s.date_active).toLocaleString() : '—'}</p>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) { container.innerHTML = `<p class="text-sm text-red-400">${e}</p>`; }
+}
+
+async function terminateOtherSessions() {
+    if (!confirm('Завершить все сессии, кроме текущей?')) return;
+    try {
+        const r = await fetch(`/admin/api/accounts/${ACCOUNT_ID}/reset_sessions`, {method: 'POST'});
+        const d = await r.json();
+        showToast(d.success ? 'Сессии завершены' : ('Ошибка: ' + (d.error || '')), d.success ? 'success' : 'error');
+        if (d.success) loadActiveSessions();
+    } catch(e) { showToast('Ошибка: ' + e, 'error'); }
+}
+
+// ── Spambot check ──
+async function runSpambotCheck() {
+    showToast('Проверяем через @spambot…', 'info');
+    try {
+        const r = await fetch(`/admin/api/accounts/${ACCOUNT_ID}/check_spambot`, {method: 'POST'});
+        const d = await r.json();
+        if (!d.success) { showToast('Ошибка: ' + (d.error || ''), 'error'); return; }
+        const label = d.status === 'clean' ? '✅ Ограничений нет' : (d.status === 'limited' ? '⚠️ Есть ограничения' : '❓ Статус неизвестен');
+        showToast(label, d.status === 'clean' ? 'success' : (d.status === 'limited' ? 'error' : 'warning'));
+        if (d.text) alert(`@spambot ответил:\n\n${d.text}`);
+    } catch(e) { showToast('Ошибка: ' + e, 'error'); }
+}
+
+// ── Contacts tab ──
+let _parsedContacts = [];
+
+async function parseContacts() {
+    const skeleton = document.getElementById('contacts-skeleton');
+    const list = document.getElementById('contacts-list');
+    const countEl = document.getElementById('contacts-count');
+    skeleton.classList.remove('hidden');
+    list.innerHTML = '';
+    countEl.textContent = '';
+    document.getElementById('contacts-export-btn').classList.add('hidden');
+    try {
+        const r = await fetch(`/admin/api/accounts/${ACCOUNT_ID}/parse_contacts`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({limit: 100})
+        });
+        const d = await r.json();
+        skeleton.classList.add('hidden');
+        if (!d.success) { list.innerHTML = `<p class="text-sm text-red-400">${d.error || 'Ошибка'}</p>`; return; }
+        _parsedContacts = d.contacts || [];
+        countEl.textContent = `Найдено: ${_parsedContacts.length}`;
+        if (!_parsedContacts.length) { list.innerHTML = '<p class="text-sm" style="color:var(--panel-muted);">Диалоги с пользователями не найдены</p>'; return; }
+        document.getElementById('contacts-export-btn').classList.remove('hidden');
+        list.innerHTML = `<table class="w-full text-sm">
+            <thead><tr style="background: rgba(10,22,40,0.85);">
+                <th class="px-4 py-2 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">User ID</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Username</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Имя</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold uppercase" style="color:var(--panel-muted);">Телефон</th>
+            </tr></thead>
+            <tbody>${_parsedContacts.map(c => `
+                <tr class="border-b" style="border-color:var(--panel-border);">
+                    <td class="px-4 py-2 text-xs font-mono" style="color:var(--panel-muted);">${c.user_id}</td>
+                    <td class="px-4 py-2 text-sm" style="color:var(--panel-text);">${c.username ? '@' + c.username : '—'}</td>
+                    <td class="px-4 py-2 text-sm" style="color:var(--panel-text);">${[c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}</td>
+                    <td class="px-4 py-2 text-xs font-mono" style="color:var(--panel-muted);">${c.phone || '—'}</td>
+                </tr>`).join('')}
+            </tbody></table>`;
+    } catch(e) {
+        skeleton.classList.add('hidden');
+        list.innerHTML = `<p class="text-sm text-red-400">${e}</p>`;
+    }
+}
+
+function exportContacts() {
+    if (!_parsedContacts.length) return;
+    const rows = [['user_id', 'username', 'first_name', 'last_name', 'phone']];
+    _parsedContacts.forEach(c => rows.push([c.user_id, c.username || '', c.first_name || '', c.last_name || '', c.phone || '']));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `contacts_${ACCOUNT_ID}.csv`;
+    a.click();
 }
 </script>
 {% endblock %}

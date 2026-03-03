@@ -85,8 +85,11 @@ async def _process_alert_rules(account_id: str, event_type: str, event_data: dic
                     params = rule.action_params or {}
                     reply_text = params.get('reply_text', '')
                     chat_id = event_data.get('chat_id')
+                    delay = int(params.get('delay', 0))
                     if reply_text and chat_id:
                         try:
+                            if delay > 0:
+                                await asyncio.sleep(delay)
                             await client.send_message(int(chat_id), reply_text)
                         except Exception as e:
                             log.error(f"auto_reply error: {e}")
