@@ -33,8 +33,6 @@ from core.config import Config
 
 admin_bp = Blueprint('admin', __name__)
 
-# SSE timeout for live analytics stream (seconds)
-_SSE_CONNECTION_TIMEOUT = 30
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ЛОГОВ ---
 def log_action(action, details=""):
@@ -3327,36 +3325,26 @@ def api_automations_delete(auto_id):
 
 
 # ==========================================
-# LIVE ANALYTICS - SSE
+# LIVE ANALYTICS
 # ==========================================
 @admin_bp.route('/api/live/stream')
 @login_required
 def api_live_stream():
-    """Server-Sent Events endpoint for live analytics."""
+    """Polling endpoint for live analytics events. Returns JSON and closes immediately."""
     import json as json_mod
-    import time
-
-    def generate():
-        try:
-            from core.config import Config
-            import redis
-            r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
-            pubsub = r.pubsub()
-            pubsub.subscribe('live_events')
-            yield f"data: {json_mod.dumps({'type': 'connected'})}\n\n"
-            start = time.time()
-            while time.time() - start < _SSE_CONNECTION_TIMEOUT:
-                msg = pubsub.get_message(timeout=1.0)
-                if msg and msg['type'] == 'message':
-                    yield f"data: {msg['data'].decode('utf-8')}\n\n"
-                else:
-                    yield f": ping\n\n"
-        except Exception as e:
-            yield f"data: {json_mod.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    from flask import Response
-    return Response(generate(), mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+    events = []
+    try:
+        import redis
+        r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
+        raw = r.lrange('live_events_log', 0, 19)
+        for item in raw:
+            try:
+                events.append(json_mod.loads(item.decode('utf-8')))
+            except Exception:
+                pass
+    except Exception as e:
+        log.warning(f'api_live_stream Redis error: {e}')
+    return jsonify({'success': True, 'events': events})
 
 
 @admin_bp.route('/api/live/stats')
