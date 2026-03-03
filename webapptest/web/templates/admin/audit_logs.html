@@ -1,0 +1,103 @@
+{% extends 'admin/base.html' %}
+{% block title %}Журнал действий{% endblock %}
+{% block page_title %}Журнал действий{% endblock %}
+
+{% block content %}
+<!-- Фильтры -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 mb-5">
+    <form method="GET" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Пользователь</label>
+            <input type="text" name="user" value="{{ user_filter }}" placeholder="Имя пользователя"
+                   class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-44">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Действие</label>
+            <select name="action" class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Все</option>
+                {% for a in actions %}
+                <option value="{{ a }}" {% if a == action_filter %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="flex items-center text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <i data-lucide="search" class="w-4 h-4 mr-1.5"></i>Найти
+        </button>
+        {% if user_filter or action_filter %}
+        <a href="{{ url_for('admin.audit_logs') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <i data-lucide="x" class="w-4 h-4 mr-1.5"></i>Сбросить
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Таблица -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <i data-lucide="clipboard-list" class="w-4 h-4 mr-2 text-blue-500 inline"></i>
+            Журнал действий ({{ logs.total }})
+        </h2>
+        <span class="text-xs text-gray-400 dark:text-gray-500">Страница {{ logs.page }} из {{ logs.pages }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Кто</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Действие</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Детали</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Когда</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for entry in logs.items %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-5 py-3 font-medium text-gray-900 dark:text-white">{{ entry.username }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% set delete_actions = ['delete_account', 'accounts_bulk_delete', 'proxies_bulk_delete', 'proxies_delete_all', 'proxy_delete', 'user_delete'] %}
+                            {% if entry.action in delete_actions %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300
+                            {% elif entry.action in ['login', 'enable_2fa'] %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300
+                            {% elif entry.action in ['proxy_add', 'proxies_bulk_import', 'user_add', 'api_credentials_add'] %}bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">
+                            {{ entry.action }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate" title="{{ entry.details }}">{{ entry.details or '—' }}</td>
+                    <td class="px-5 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">{{ entry.ip or '—' }}</td>
+                    <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ entry.timestamp.strftime('%d.%m.%Y %H:%M:%S') if entry.timestamp else '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Записей не найдено</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Пагинация -->
+    {% if logs.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <span class="text-sm text-gray-500 dark:text-gray-400">Показано {{ logs.items|length }} из {{ logs.total }}</span>
+        <div class="flex items-center gap-1">
+            {% if logs.has_prev %}
+            <a href="?page={{ logs.prev_num }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">← Назад</a>
+            {% endif %}
+            {% for p_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p_num %}
+                <a href="?page={{ p_num }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+                   class="px-3 py-1.5 text-sm rounded-lg border transition-colors {{ 'bg-blue-600 border-blue-600 text-white' if p_num == logs.page else 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300' }}">{{ p_num }}</a>
+                {% else %}
+                <span class="px-2 text-gray-400">…</span>
+                {% endif %}
+            {% endfor %}
+            {% if logs.has_next %}
+            <a href="?page={{ logs.next_num }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+               class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Вперёд →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

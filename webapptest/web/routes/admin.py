@@ -327,6 +327,25 @@ def logs():
                            user_filter=user_filter, action_filter=action_filter,
                            date_from=date_from, date_to=date_to)
 
+@admin_bp.route('/audit_logs')
+@login_required
+def audit_logs():
+    """Журнал действий администратора"""
+    page = request.args.get('page', 1, type=int)
+    user_filter = request.args.get('user', '').strip()
+    action_filter = request.args.get('action', '').strip()
+
+    stmt = select(AdminLog).order_by(desc(AdminLog.timestamp))
+    if user_filter:
+        stmt = stmt.filter(AdminLog.username.contains(user_filter))
+    if action_filter:
+        stmt = stmt.filter(AdminLog.action == action_filter)
+
+    logs_paginated = db.paginate(stmt, page=page, per_page=50)
+    actions = db.session.execute(select(AdminLog.action).distinct()).scalars().all()
+    return render_template('admin/audit_logs.html', logs=logs_paginated, actions=actions,
+                           user_filter=user_filter, action_filter=action_filter)
+
 # ==========================================
 # 4. НАСТРОЙКИ
 # ==========================================
@@ -873,6 +892,22 @@ def proxies_bulk_delete():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@admin_bp.route('/proxies/delete_all', methods=['POST'])
+@login_required
+@admin_required
+def proxies_delete_all():
+    """Удаление всех прокси из базы данных"""
+    try:
+        count = db.session.query(Proxy).count()
+        log_action('proxies_delete_all', f'Попытка удаления всех прокси: {count}')
+        deleted = db.session.query(Proxy).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({'success': True, 'deleted': deleted})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/proxies/bulk_import', methods=['POST'])
 @login_required
 def proxies_bulk_import():
@@ -1028,6 +1063,33 @@ def monitoring_stats():
         })
     except ImportError:
         return jsonify({'error': 'psutil not installed'}), 500
+
+
+@admin_bp.route('/monitoring/tasks')
+@login_required
+def monitoring_tasks():
+    """AJAX endpoint: последние фоновые задачи (Task model)."""
+    try:
+        recent_tasks = db.session.execute(
+            select(Task).order_by(desc(Task.created_at)).limit(20)
+        ).scalars().all()
+        return jsonify({
+            'success': True,
+            'tasks': [
+                {
+                    'id': t.id,
+                    'task_id': t.task_id,
+                    'name': t.name,
+                    'status': t.status,
+                    'error': t.error,
+                    'created_at': t.created_at.isoformat() if t.created_at else None,
+                    'updated_at': t.updated_at.isoformat() if t.updated_at else None,
+                }
+                for t in recent_tasks
+            ]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==========================================
