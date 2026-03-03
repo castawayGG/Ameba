@@ -279,6 +279,10 @@
                             <i data-lucide="file-text" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Логи
                         </a>
+                        <a href="{{ url_for('admin.audit_logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.audit_logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                            Журнал действий
+                        </a>
                         <a href="{{ url_for('admin.settings') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.settings' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="settings" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Настройки

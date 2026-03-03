@@ -95,6 +95,32 @@
         </div>
     </div>
 </div>
+<!-- Фоновые задачи -->
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden mt-6">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <i data-lucide="activity" class="w-4 h-4 mr-2 text-purple-500 inline"></i>Фоновые задачи
+        </h2>
+        <button onclick="loadTasks()" class="text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline mr-1"></i>Обновить
+        </button>
+    </div>
+    <div id="tasks-container" class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                <tr>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Задача</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Ошибка</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Создана</th>
+                </tr>
+            </thead>
+            <tbody id="tasks-tbody" class="divide-y divide-gray-100 dark:divide-gray-700">
+                <tr><td colspan="4" class="px-6 py-6 text-center text-gray-400 dark:text-gray-500 text-xs">Загрузка...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -234,5 +260,39 @@ const monitoringInterval = setInterval(() => {
     }
     fetchStats();
 }, 7000);
+
+async function loadTasks() {
+    try {
+        const res = await fetch('/admin/monitoring/tasks');
+        const data = await res.json();
+        const tbody = document.getElementById('tasks-tbody');
+        if (!data.success || !data.tasks.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-6 text-center text-gray-400 dark:text-gray-500 text-xs">Задачи не найдены</td></tr>';
+            return;
+        }
+        const statusColors = {
+            SUCCESS: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+            FAILURE: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+            STARTED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+            PENDING: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+            RETRY: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        };
+        tbody.innerHTML = data.tasks.map(t => {
+            const color = statusColors[t.status] || statusColors.PENDING;
+            const created = t.created_at ? new Date(t.created_at).toLocaleString('ru') : '—';
+            const err = t.error ? `<span class="text-xs text-red-500 truncate max-w-xs block" title="${t.error}">${t.error.substring(0, 60)}${t.error.length > 60 ? '…' : ''}</span>` : '—';
+            return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <td class="px-5 py-3 text-xs font-mono text-gray-700 dark:text-gray-300">${t.name || t.task_id || '—'}</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}">${t.status}</span></td>
+                <td class="px-5 py-3">${err}</td>
+                <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">${created}</td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        document.getElementById('tasks-tbody').innerHTML = '<tr><td colspan="4" class="px-6 py-6 text-center text-red-400 text-xs">Ошибка загрузки</td></tr>';
+    }
+}
+
+loadTasks();
 </script>
 {% endblock %}
