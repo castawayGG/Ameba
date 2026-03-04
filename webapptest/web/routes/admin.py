@@ -263,12 +263,20 @@ def accounts():
     accounts_paginated = db.paginate(stmt, page=page, per_page=per_page)
     proxies = db.session.execute(select(Proxy).filter_by(enabled=True)).scalars().all()
     tags = db.session.execute(select(Tag)).scalars().all()
+
+    # Build set of account IDs that have a fingerprint configured (for shield indicator)
+    from models.account_fingerprint import AccountFingerprint
+    fp_ids = {r[0] for r in db.session.execute(
+        select(AccountFingerprint.account_id)
+    ).all()}
+
     return render_template('admin/accounts.html',
                            accounts=accounts_paginated,
                            proxies=proxies,
                            tags=tags,
                            phone_filter=phone_filter,
-                           status_filter=status_filter)
+                           status_filter=status_filter,
+                           fingerprint_account_ids=fp_ids)
 
 @admin_bp.route('/proxies')
 @login_required
@@ -2328,8 +2336,10 @@ def api_events_stats():
 @login_required
 def inbox():
     from models.account import Account as AccountModel
+    from models.user import User as UserModel
     accounts = db.session.query(AccountModel).filter(AccountModel.status == 'active').order_by(AccountModel.phone).all()
-    return render_template('admin/inbox.html', accounts=accounts)
+    users = db.session.query(UserModel).filter(UserModel.is_active == True).order_by(UserModel.username).all()
+    return render_template('admin/inbox.html', accounts=accounts, users=users)
 
 
 @admin_bp.route('/api/inbox')
@@ -2365,6 +2375,7 @@ def api_inbox():
         'text': m.text,
         'media_type': m.media_type,
         'is_read': m.is_read,
+        'assigned_to': m.assigned_to,
         'created_at': m.created_at.isoformat() if m.created_at else None,
     } for m in items]})
 
@@ -2390,6 +2401,48 @@ def api_inbox_unread_count():
         IncomingMessage.is_outgoing == False
     ).scalar() or 0
     return jsonify({'success': True, 'count': count})
+
+
+@admin_bp.route('/api/inbox/assign_chat', methods=['POST'])
+@login_required
+def api_inbox_assign_chat():
+    """Передать чат другому оператору (Handover)."""
+    from models.incoming_message import IncomingMessage
+    from models.notification import Notification
+    from models.user import User
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    chat_id = data.get('chat_id')
+    assignee_id = data.get('assignee_id')
+    if not account_id or not chat_id or not assignee_id:
+        return jsonify({'success': False, 'error': 'account_id, chat_id, assignee_id required'})
+    assignee = db.session.query(User).filter_by(id=assignee_id).first()
+    if not assignee:
+        return jsonify({'success': False, 'error': 'User not found'})
+    # Verify that the chat actually has messages to assign
+    msg_count = db.session.query(func.count(IncomingMessage.id)).filter(
+        IncomingMessage.account_id == account_id,
+        IncomingMessage.chat_id == str(chat_id),
+    ).scalar() or 0
+    if msg_count == 0:
+        return jsonify({'success': False, 'error': 'Chat not found or has no messages'})
+    # Update all messages in this chat
+    db.session.query(IncomingMessage).filter(
+        IncomingMessage.account_id == account_id,
+        IncomingMessage.chat_id == str(chat_id),
+    ).update({'assigned_to': assignee_id}, synchronize_session=False)
+    # Create notification for the assignee
+    notif = Notification(
+        user_id=assignee_id,
+        title='Вам передан чат',
+        message=f'Оператор {current_user.username} передал вам чат (аккаунт {account_id}, chat_id {chat_id}).',
+        type='info',
+        category='handover',
+        related_url='/admin/inbox',
+    )
+    db.session.add(notif)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 # ==========================================
@@ -5112,3 +5165,44 @@ def api_ai_settings_save():
     db.session.commit()
     log_action('ai_settings_update', f'Updated AI settings')
     return jsonify({'success': True})
+
+
+# ==========================================
+# TOOLS: tdata → StringSession CONVERTER
+# ==========================================
+@admin_bp.route('/tools/converter', methods=['GET'])
+@login_required
+def tools_converter():
+    """tdata → StringSession converter page."""
+    return render_template('admin/converter.html')
+
+
+@admin_bp.route('/tools/converter', methods=['POST'])
+@login_required
+def tools_converter_upload():
+    """Accept a ZIP archive containing tdata and return a StringSession string."""
+    import tempfile, os
+    from utils.tdata_converter import convert_tdata_zip_to_session
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file uploaded'})
+    f = request.files['file']
+    if not f.filename or not f.filename.lower().endswith('.zip'):
+        return jsonify({'success': False, 'error': 'Please upload a .zip file'})
+
+    # Save to temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+    try:
+        f.save(tmp.name)
+        tmp.close()
+        result = convert_tdata_zip_to_session(tmp.name)
+        if result['success']:
+            log_action('tdata_convert', 'Converted tdata ZIP to StringSession')
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass

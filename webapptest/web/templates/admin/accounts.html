@@ -191,7 +191,18 @@
                     <td class="px-4 py-3" onclick="event.stopPropagation()">
                         <input type="checkbox" class="row-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500" value="{{ a.id }}" onchange="updateBulkBar()">
                     </td>
-                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ a.phone }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                        {{ a.phone }}
+                        {% if a.proxy_id and a.id in fingerprint_account_ids %}
+                        <span title="Профиль + Прокси привязаны (усиленная защита)" class="ml-1 inline-flex items-center text-green-500">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                        </span>
+                        {% elif a.proxy_id %}
+                        <span title="Прокси привязан, но отпечаток не настроен" class="ml-1 inline-flex items-center text-yellow-500">
+                            <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                        </span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ a.username or '—' }}</td>
                     <td class="px-4 py-3">
                         {# Расширенный индикатор здоровья аккаунта #}

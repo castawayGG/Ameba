@@ -106,6 +106,11 @@
                     <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Задержка перед ответом (сек)</label>
                     <input id="alert-reply-delay" type="number" min="0" max="300" value="0" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder="0">
                 </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">Кнопки (JSON, необязательно)</label>
+                    <textarea id="alert-reply-buttons" rows="3" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none resize-none font-mono" style="background: var(--panel-surface); border-color: var(--panel-border); color: var(--panel-text);" placeholder='[{"label": "Узнать больше", "url": "https://example.com"}, {"label": "Написать нам"}]'></textarea>
+                    <p class="text-xs mt-1" style="color: var(--panel-muted);">Т.к. user-аккаунтам запрещены Inline-кнопки, они будут отправлены как форматированный текст.</p>
+                </div>
             </div>
         </div>
         <div class="flex gap-3 mt-6 justify-end">
@@ -222,9 +227,15 @@ async function createAlert() {
     const action = document.getElementById('alert-action').value;
     let action_params = null;
     if (action === 'auto_reply') {
+        let btns = [];
+        const btnsRaw = document.getElementById('alert-reply-buttons').value.trim();
+        if (btnsRaw) {
+            try { btns = JSON.parse(btnsRaw); } catch(e) { showToast('Неверный JSON кнопок', 'error'); return; }
+        }
         action_params = {
             reply_text: document.getElementById('alert-reply-text').value,
             delay: parseInt(document.getElementById('alert-reply-delay').value) || 0,
+            reply_buttons: btns,
         };
     }
     const body = {

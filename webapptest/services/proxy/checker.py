@@ -61,6 +61,10 @@ async def check_proxy_task(proxy_id: int):
         
         proxy.status = 'working' if success else 'dead'
         proxy.last_check = datetime.now(timezone.utc)
+        if success:
+            proxy.success_count = (proxy.success_count or 0) + 1
+        else:
+            proxy.fail_count = (proxy.fail_count or 0) + 1
         if speed:
             proxy.speed = speed
             # Обновляем среднюю скорость (экспоненциальное скользящее среднее)

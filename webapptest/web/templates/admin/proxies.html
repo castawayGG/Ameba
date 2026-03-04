@@ -57,6 +57,7 @@
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Тип</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Страна</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Health</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Скорость</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Описание</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Включён</th>
@@ -84,6 +85,27 @@
                             {{ p.status }}
                         </span>
                     </td>
+                    <td class="px-5 py-3">
+                        {% set total_checks = (p.success_count or 0) + (p.fail_count or 0) %}
+                        {% if total_checks > 0 %}
+                            {% set health_pct = ((p.success_count or 0) / total_checks * 100) | round(0) | int %}
+                            {% if health_pct >= 80 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300" title="{{ health_pct }}% успешных проверок ({{ p.success_count }}/{{ total_checks }})">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>{{ health_pct }}%
+                            </span>
+                            {% elif health_pct >= 50 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300" title="{{ health_pct }}% успешных проверок ({{ p.success_count }}/{{ total_checks }})">
+                                <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{{ health_pct }}%
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300" title="{{ health_pct }}% успешных проверок ({{ p.success_count }}/{{ total_checks }})">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>{{ health_pct }}%
+                            </span>
+                            {% endif %}
+                        {% else %}
+                        <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                        {% endif %}
+                    </td>
                     <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ p.speed ~ ' ms' if p.speed else '—' }}</td>
                     <td class="px-5 py-3 max-w-[180px]">
                         <span class="desc-display text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 truncate block" data-id="{{ p.id }}" onclick="editDesc(this)">{{ p.description or '+ описание' }}</span>
@@ -107,7 +129,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="10" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
+                <tr><td colspan="11" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">Прокси не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
