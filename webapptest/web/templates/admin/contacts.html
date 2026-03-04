@@ -3,6 +3,30 @@
 {% block page_title %}Парсинг контактов и диалогов{% endblock %}
 
 {% block content %}
+<!-- Broadcast Modal -->
+<div id="broadcastModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+  <div class="rounded-xl shadow-xl w-full max-w-lg mx-4" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 class="text-base font-semibold" style="color:var(--panel-text);">
+        <i data-lucide="send" class="w-4 h-4 inline mr-1" style="color:var(--panel-accent);"></i>Рассылка по контактам
+      </h3>
+      <button onclick="document.getElementById('broadcastModal').classList.add('hidden')" style="color:var(--panel-muted);" class="text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div id="broadcast-info" class="text-sm" style="color:var(--panel-muted);">Получатели: <span id="broadcast-count" class="font-bold" style="color:var(--panel-text);">0</span></div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Текст сообщения</label>
+        <textarea id="broadcast-message" rows="5" class="w-full px-3 py-2 rounded-lg text-sm border font-mono" style="background:var(--panel-surface);border-color:var(--panel-border);color:var(--panel-text);" placeholder="Введите текст сообщения..."></textarea>
+      </div>
+      <div id="broadcast-result" class="hidden text-sm rounded-lg px-4 py-2" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);color:var(--panel-accent);"></div>
+      <div class="flex justify-end gap-3">
+        <button onclick="document.getElementById('broadcastModal').classList.add('hidden')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Отмена</button>
+        <button onclick="sendBroadcast()" id="broadcast-send-btn" class="px-4 py-2 text-sm rounded-lg btn-accent-glow text-white">Отправить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="space-y-5">
   <!-- Controls -->
   <div class="rounded-xl p-4 border flex flex-wrap gap-4 items-end" style="background:var(--panel-card);border-color:var(--panel-border);">
@@ -45,6 +69,9 @@
         <i data-lucide="contact" class="w-4 h-4 inline mr-1"></i>Контакты <span id="contacts-count" class="ml-1 text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(255,255,255,0.1);">0</span>
       </button>
       <div class="flex-1"></div>
+      <button onclick="openBroadcastModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg btn-accent-glow text-white">
+        <i data-lucide="send" class="w-3.5 h-3.5"></i> Рассылка
+      </button>
       <button onclick="exportCSV()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">
         <i data-lucide="download" class="w-3.5 h-3.5"></i> CSV
       </button>
@@ -225,6 +252,54 @@ function exportCSV() {
 
 function esc(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openBroadcastModal() {
+    const accountId = getAccountId();
+    if (!accountId) { showToast('Выберите аккаунт', 'error'); return; }
+    const recipients = currentTab === 'contacts'
+        ? contactsData.map(c => c.user_id || c.username).filter(Boolean)
+        : dialogsData.map(d => d.chat_id || d.id).filter(Boolean);
+    if (!recipients.length) { showToast('Нет получателей. Сначала загрузите диалоги или контакты.', 'error'); return; }
+    document.getElementById('broadcast-count').textContent = recipients.length;
+    document.getElementById('broadcast-message').value = '';
+    document.getElementById('broadcast-result').classList.add('hidden');
+    document.getElementById('broadcastModal').classList.remove('hidden');
+}
+
+async function sendBroadcast() {
+    const accountId = getAccountId();
+    const message = document.getElementById('broadcast-message').value.trim();
+    if (!message) { showToast('Введите текст сообщения', 'error'); return; }
+    const recipients = currentTab === 'contacts'
+        ? contactsData.map(c => c.user_id || c.username).filter(Boolean)
+        : dialogsData.map(d => d.chat_id || d.id).filter(Boolean);
+    const btn = document.getElementById('broadcast-send-btn');
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    try {
+        const r = await fetch('/admin/api/contacts/broadcast', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({account_id: accountId, recipients, message})
+        });
+        const d = await r.json();
+        const resultEl = document.getElementById('broadcast-result');
+        resultEl.classList.remove('hidden');
+        if (d.success) {
+            resultEl.textContent = `✅ Отправлено: ${d.sent}, с ошибками: ${d.failed}`;
+            resultEl.style.color = 'var(--panel-accent)';
+            showToast(`Рассылка завершена: ${d.sent} отправлено`, 'success');
+        } else {
+            resultEl.textContent = `❌ Ошибка: ${d.error || 'Неизвестная ошибка'}`;
+            resultEl.style.color = '#f87171';
+        }
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Отправить';
+    }
 }
 </script>
 {% endblock %}
