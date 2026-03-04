@@ -88,6 +88,10 @@
                             Автоматизации
                             <span class="badge-new">NEW</span>
                         </a>
+                        <a href="{{ url_for('admin.macros') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.macros' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i data-lucide="zap" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                            Макросы
+                        </a>
                         <a href="{{ url_for('admin.tasks') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.tasks' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="list-checks" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Задачи
@@ -690,6 +694,154 @@ async function loadInboxUnreadCount() {
 }
 loadInboxUnreadCount();
 setInterval(loadInboxUnreadCount, 15000);
+</script>
+
+<!-- ==========================================
+     BULK PROGRESS OVERLAY
+     ========================================== -->
+<div id="bulkProgressOverlay" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center animate-pulse">
+                <i data-lucide="loader-2" class="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin"></i>
+            </div>
+            <div>
+                <p id="bulkProgressTitle" class="text-sm font-semibold text-gray-900 dark:text-white">Выполняется операция...</p>
+                <p id="bulkProgressSubtitle" class="text-xs text-gray-500 dark:text-gray-400"></p>
+            </div>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
+            <div id="bulkProgressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
+            <span id="bulkProgressCount">0 / 0</span>
+            <span id="bulkProgressPct">0%</span>
+        </div>
+        <div id="bulkProgressErrors" class="hidden mb-3 max-h-24 overflow-y-auto text-xs text-red-600 dark:text-red-400 space-y-1"></div>
+        <button id="bulkCancelBtn" class="w-full text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" onclick="cancelBulkOperation()">
+            Отмена
+        </button>
+    </div>
+</div>
+
+<!-- ==========================================
+     BULK OPERATION HISTORY PANEL
+     ========================================== -->
+<div id="bulkHistoryPanel" class="hidden fixed right-0 top-0 h-full w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-40 flex flex-col">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <span class="text-sm font-semibold text-gray-900 dark:text-white">История операций</span>
+        <button onclick="closeBulkHistory()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+    </div>
+    <div id="bulkHistoryList" class="flex-1 overflow-y-auto p-3 space-y-2 text-xs">
+        <p class="text-center text-gray-400 py-4">Загрузка...</p>
+    </div>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+        <button onclick="loadBulkHistory()" class="w-full text-xs border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Обновить</button>
+    </div>
+</div>
+
+<script>
+// ---- Bulk Progress Helpers ----
+let _currentBulkOpId = null;
+
+window._showBulkProgress = function(title, subtitle, total) {
+    document.getElementById('bulkProgressTitle').textContent = title;
+    document.getElementById('bulkProgressSubtitle').textContent = subtitle || '';
+    document.getElementById('bulkProgressBar').style.width = '0%';
+    document.getElementById('bulkProgressCount').textContent = `0 / ${total}`;
+    document.getElementById('bulkProgressPct').textContent = '0%';
+    document.getElementById('bulkProgressErrors').innerHTML = '';
+    document.getElementById('bulkProgressErrors').classList.add('hidden');
+    document.getElementById('bulkProgressOverlay').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+};
+
+window._updateBulkProgress = function(processed, total, errors) {
+    const pct = total > 0 ? Math.round(processed / total * 100) : 0;
+    document.getElementById('bulkProgressBar').style.width = pct + '%';
+    document.getElementById('bulkProgressCount').textContent = `${processed} / ${total}`;
+    document.getElementById('bulkProgressPct').textContent = pct + '%';
+    if (errors && errors.length) {
+        const errDiv = document.getElementById('bulkProgressErrors');
+        errDiv.classList.remove('hidden');
+        errDiv.textContent = '';
+        errors.slice(-5).forEach(e => {
+            const d = document.createElement('div');
+            d.textContent = `• ${e.phone || e.id || ''}: ${e.error}`;
+            errDiv.appendChild(d);
+        });
+    }
+};
+
+window._hideBulkProgress = function(successMsg) {
+    document.getElementById('bulkProgressOverlay').classList.add('hidden');
+    if (successMsg) showToast(successMsg, 'success');
+};
+
+function cancelBulkOperation() {
+    document.getElementById('bulkProgressOverlay').classList.add('hidden');
+    if (_currentBulkOpId) {
+        fetch(`/admin/api/bulk_operations/${_currentBulkOpId}/cancel`, {method: 'POST'})
+            .then(() => showToast('Операция отменена', 'warning'))
+            .catch(() => {});
+        _currentBulkOpId = null;
+    }
+}
+
+// ---- Bulk History ----
+window.openBulkHistory = function() {
+    document.getElementById('bulkHistoryPanel').classList.remove('hidden');
+    loadBulkHistory();
+};
+
+window.closeBulkHistory = function() {
+    document.getElementById('bulkHistoryPanel').classList.add('hidden');
+};
+
+window.loadBulkHistory = async function() {
+    const list = document.getElementById('bulkHistoryList');
+    list.innerHTML = '<p class="text-center text-gray-400 py-4">Загрузка...</p>';
+    try {
+        const resp = await fetch('/admin/api/bulk_operations?limit=30');
+        const data = await resp.json();
+        if (!data.success || !data.operations.length) {
+            list.innerHTML = '<p class="text-center text-gray-400 dark:text-gray-500 py-4">Нет операций</p>';
+            return;
+        }
+        const statusColors = {completed:'text-green-600', failed:'text-red-500', cancelled:'text-yellow-500', running:'text-blue-500', pending:'text-gray-400'};
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        list.innerHTML = data.operations.map(op => `
+            <div class="rounded-lg border border-gray-100 dark:border-gray-700 p-2.5 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span class="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[170px]">${esc(op.operation_type)}</span>
+                    <span class="${statusColors[op.status] || 'text-gray-400'} font-semibold">${esc(op.status)}</span>
+                </div>
+                <div class="flex gap-3 text-gray-500 dark:text-gray-400">
+                    <span>✅ ${esc(op.succeeded)}</span>
+                    <span>❌ ${esc(op.failed)}</span>
+                    <span>📊 ${esc(op.total)}</span>
+                </div>
+                ${op.created_at ? `<div class="text-gray-400">${esc(op.created_at.slice(0,16).replace('T',' '))}</div>` : ''}
+                ${op.status === 'running' || op.status === 'pending' ? `<button onclick="cancelOpById(${parseInt(op.id,10)})" class="text-xs text-red-500 hover:text-red-400 underline">Отменить</button>` : ''}
+                ${op.errors?.length ? `<details class="text-red-500"><summary>Ошибки (${esc(op.errors.length)})</summary>${op.errors.slice(0,5).map(e=>`<div class="pl-2">• ${esc(e.phone||e.id||'')}: ${esc(e.error)}</div>`).join('')}</details>` : ''}
+            </div>
+        `).join('');
+    } catch(e) {
+        list.innerHTML = '<p class="text-center text-red-400 py-4">Ошибка загрузки</p>';
+    }
+};
+
+window.cancelOpById = async function(opId) {
+    const resp = await fetch(`/admin/api/bulk_operations/${opId}/cancel`, {method:'POST'});
+    const data = await resp.json();
+    if (data.success) { showToast('Операция отменена', 'warning'); loadBulkHistory(); }
+    else showToast(data.error || 'Ошибка', 'error');
+};
+
+// expose showToast globally for use in page-specific scripts
+window._showToast = window.showToast;
 </script>
 </body>
 </html>

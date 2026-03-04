@@ -6,6 +6,9 @@
 <button onclick="checkAllSessions()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i data-lucide="rotate-cw" class="w-4 h-4 mr-1.5 text-blue-400"></i>Проверить сессии
 </button>
+<button onclick="openModal('bulkImportCsvModal')" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i data-lucide="file-up" class="w-4 h-4 mr-1.5 text-blue-400"></i>Импорт CSV
+</button>
 <a href="{{ url_for('admin.export_accounts') }}" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i data-lucide="download" class="w-4 h-4 mr-1.5"></i>Excel
 </a>
@@ -67,6 +70,12 @@
     </button>
     <button onclick="bulkCheckSessions()" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors flex items-center">
         <i data-lucide="shield-check" class="w-4 h-4 mr-1"></i> Проверить
+    </button>
+    <button onclick="openBulkMacroModal()" class="text-sm bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 transition-colors flex items-center">
+        <i data-lucide="zap" class="w-4 h-4 mr-1"></i> Макрос
+    </button>
+    <button onclick="openBulkHistory()" class="text-sm bg-slate-600 text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors flex items-center" title="История операций">
+        <i data-lucide="history" class="w-4 h-4 mr-1"></i> История
     </button>
     <button onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-auto">Отмена</button>
 </div>
@@ -159,6 +168,47 @@
         <div class="flex gap-3">
             <button onclick="bulkJoinGroup()" class="flex-1 bg-teal-600 text-white text-sm py-2 rounded-lg hover:bg-teal-700 transition-colors">Вступить</button>
             <button onclick="closeModal('bulkJoinGroupModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Apply Macro Modal -->
+<div id="bulkMacroModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkMacroModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-sm p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i data-lucide="zap" class="w-4 h-4 mr-2 text-orange-500"></i>Применить макрос</h3>
+        <div class="mb-5">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Выберите макрос</label>
+            <select id="bulkMacroSelect" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">— Загрузка... —</option>
+            </select>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="bulkApplyMacro()" class="flex-1 bg-orange-600 text-white text-sm py-2 rounded-lg hover:bg-orange-700 transition-colors">Применить</button>
+            <button onclick="closeModal('bulkMacroModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Import CSV Modal -->
+<div id="bulkImportCsvModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('bulkImportCsvModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md p-6 modal-panel">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4"><i data-lucide="file-up" class="w-4 h-4 mr-2 text-blue-500"></i>Импорт аккаунтов из CSV</h3>
+        <div class="mb-3">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Файл CSV (колонки: phone, username, first_name, last_name, status)</label>
+            <input type="file" id="csvImportFile" accept=".csv" class="text-sm text-gray-700 dark:text-gray-300">
+        </div>
+        <div class="mb-5">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-2">Режим импорта</label>
+            <div class="space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="csvMode" value="add" checked class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300"><b>Добавить</b> — пропустить существующие</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="csvMode" value="replace" class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300"><b>Заменить</b> — перезаписать данные существующих</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="csvMode" value="merge" class="text-blue-500"> <span class="text-sm text-gray-700 dark:text-gray-300"><b>Слияние</b> — обновить непустые поля</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="csvMode" value="delete" class="text-blue-500"> <span class="text-sm text-red-600 dark:text-red-400"><b>Удалить</b> — удалить аккаунты из списка</span></label>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="submitCsvImport()" class="flex-1 bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700 transition-colors">Импортировать</button>
+            <button onclick="closeModal('bulkImportCsvModal')" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
         </div>
     </div>
 </div>
@@ -770,6 +820,80 @@ async function bulkJoinGroup() {
     closeModal('bulkJoinGroupModal');
     if (res.ok) showToast('Запрос на вступление отправлен', 'info');
     else showToast('Ошибка', 'error');
+}
+
+// ---- Bulk Macro Apply ----
+async function openBulkMacroModal() {
+    // Populate macro select
+    try {
+        const resp = await fetch('/admin/api/macros');
+        const data = await resp.json();
+        const sel = document.getElementById('bulkMacroSelect');
+        if (data.success && data.macros.length) {
+            sel.innerHTML = data.macros.filter(m => m.is_active).map(m =>
+                `<option value="${m.id}">${m.name} (${m.steps.length} шагов)</option>`
+            ).join('');
+        } else {
+            sel.innerHTML = '<option value="">— Нет макросов —</option>';
+        }
+    } catch(e) {
+        document.getElementById('bulkMacroSelect').innerHTML = '<option value="">— Ошибка загрузки —</option>';
+    }
+    openModal('bulkMacroModal');
+}
+
+async function bulkApplyMacro() {
+    const macroId = document.getElementById('bulkMacroSelect').value;
+    if (!macroId) { showToast('Выберите макрос', 'error'); return; }
+    const ids = getSelectedIds();
+    if (!ids.length) { showToast('Не выбраны аккаунты', 'error'); return; }
+    closeModal('bulkMacroModal');
+    _showBulkProgress('Применение макроса...', `${ids.length} аккаунтов`, ids.length);
+    try {
+        const resp = await fetch(`/admin/api/macros/${macroId}/apply`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({account_ids: ids}),
+        });
+        const data = await resp.json();
+        _hideBulkProgress(data.success ? `Макрос запущен (задача ${data.task_id})` : null);
+        if (!data.success) showToast(data.error || 'Ошибка', 'error');
+    } catch(e) {
+        _hideBulkProgress();
+        showToast('Ошибка сети', 'error');
+    }
+}
+
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.account-checkbox:checked')).map(cb => cb.value);
+}
+
+// ---- CSV Import ----
+async function submitCsvImport() {
+    const file = document.getElementById('csvImportFile').files[0];
+    if (!file) { showToast('Выберите файл CSV', 'error'); return; }
+    const mode = document.querySelector('input[name="csvMode"]:checked')?.value || 'add';
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+    closeModal('bulkImportCsvModal');
+    _showBulkProgress('Импорт CSV...', `Режим: ${mode}`, 0);
+    try {
+        const resp = await fetch('/admin/accounts/bulk_import_csv', {method: 'POST', body: formData});
+        const data = await resp.json();
+        _hideBulkProgress(null);
+        if (data.success) {
+            const msg = `Импорт завершён: +${data.added} добавлено, ${data.replaced} заменено, ${data.merged} обновлено, ${data.deleted} удалено`;
+            showToast(msg, 'success');
+            if (data.errors?.length) showToast(`${data.errors.length} ошибок`, 'warning');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(data.error || 'Ошибка импорта', 'error');
+        }
+    } catch(e) {
+        _hideBulkProgress();
+        showToast('Ошибка сети', 'error');
+    }
 }
 </script>
 {% endblock %}

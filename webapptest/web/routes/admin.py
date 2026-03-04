@@ -5656,3 +5656,399 @@ def api_funnel_campaign():
             'click_pct': click_pct,
         },
     })
+
+
+# ==========================================
+# MACROS
+# ==========================================
+
+@admin_bp.route('/macros')
+@login_required
+def macros():
+    from models.macro import Macro
+    macros_list = db.session.query(Macro).order_by(Macro.created_at.desc()).all()
+    return render_template('admin/macros.html', macros=macros_list)
+
+
+@admin_bp.route('/api/macros', methods=['GET'])
+@login_required
+def api_macros_list():
+    from models.macro import Macro
+    macros_list = db.session.query(Macro).order_by(Macro.created_at.desc()).all()
+    return jsonify({'success': True, 'macros': [
+        {
+            'id': m.id,
+            'name': m.name,
+            'description': m.description,
+            'steps': m.steps,
+            'is_active': m.is_active,
+            'runs_count': m.runs_count,
+            'last_run': m.last_run.isoformat() if m.last_run else None,
+            'created_at': m.created_at.isoformat() if m.created_at else None,
+        } for m in macros_list
+    ]})
+
+
+@admin_bp.route('/api/macros', methods=['POST'])
+@login_required
+@admin_required
+def api_macros_create():
+    from models.macro import Macro
+    data = request.get_json()
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'name required'}), 400
+    steps = data.get('steps', [])
+    if not isinstance(steps, list):
+        return jsonify({'success': False, 'error': 'steps must be a list'}), 400
+    macro = Macro(
+        name=name,
+        description=data.get('description', ''),
+        steps=steps,
+        is_active=data.get('is_active', True),
+        created_by=current_user.id,
+    )
+    db.session.add(macro)
+    db.session.commit()
+    log_action('create_macro', f'name={name}')
+    return jsonify({'success': True, 'id': macro.id})
+
+
+@admin_bp.route('/api/macros/<int:macro_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_macros_update(macro_id):
+    from models.macro import Macro
+    macro = db.session.get(Macro, macro_id)
+    if not macro:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json()
+    for field in ('name', 'description', 'steps', 'is_active'):
+        if field in data:
+            setattr(macro, field, data[field])
+    db.session.commit()
+    log_action('update_macro', f'id={macro_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/macros/<int:macro_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_macros_delete(macro_id):
+    from models.macro import Macro
+    macro = db.session.get(Macro, macro_id)
+    if not macro:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(macro)
+    db.session.commit()
+    log_action('delete_macro', f'id={macro_id}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/macros/<int:macro_id>/apply', methods=['POST'])
+@login_required
+@admin_required
+def api_macros_apply(macro_id):
+    """Apply a macro to a list of account IDs (async via Celery)."""
+    from models.macro import Macro
+    macro = db.session.get(Macro, macro_id)
+    if not macro:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json()
+    account_ids = data.get('account_ids', [])
+    if not account_ids:
+        return jsonify({'success': False, 'error': 'account_ids required'}), 400
+    try:
+        from tasks.mass_actions import apply_macro_task
+        task = apply_macro_task.delay(macro_id, account_ids)
+        log_action('apply_macro', f'macro_id={macro_id} accounts={len(account_ids)}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# BULK OPERATION HISTORY
+# ==========================================
+
+@admin_bp.route('/api/bulk_operations', methods=['GET'])
+@login_required
+def api_bulk_operations_list():
+    from models.bulk_operation import BulkOperation
+    limit = min(int(request.args.get('limit', 50)), 200)
+    ops = db.session.query(BulkOperation).order_by(BulkOperation.created_at.desc()).limit(limit).all()
+    return jsonify({'success': True, 'operations': [
+        {
+            'id': o.id,
+            'operation_type': o.operation_type,
+            'status': o.status,
+            'total': o.total,
+            'processed': o.processed,
+            'succeeded': o.succeeded,
+            'failed': o.failed,
+            'errors': o.errors or [],
+            'started_at': o.started_at.isoformat() if o.started_at else None,
+            'completed_at': o.completed_at.isoformat() if o.completed_at else None,
+            'created_at': o.created_at.isoformat() if o.created_at else None,
+        } for o in ops
+    ]})
+
+
+@admin_bp.route('/api/bulk_operations/<int:op_id>/cancel', methods=['POST'])
+@login_required
+@admin_required
+def api_bulk_operations_cancel(op_id):
+    from models.bulk_operation import BulkOperation
+    op = db.session.get(BulkOperation, op_id)
+    if not op:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    if op.status not in ('pending', 'running'):
+        return jsonify({'success': False, 'error': f'Cannot cancel operation in status: {op.status}'}), 400
+    op.status = 'cancelled'
+    op.completed_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+    log_action('cancel_bulk_operation', f'op_id={op_id}')
+    return jsonify({'success': True})
+
+
+# ==========================================
+# CLOUD BACKUP SETTINGS & UPLOAD
+# ==========================================
+
+@admin_bp.route('/api/cloud_backup/settings', methods=['GET'])
+@login_required
+@admin_required
+def api_cloud_backup_settings_get():
+    from services.backup.cloud import _load_settings
+    settings = _load_settings()
+    # Never expose tokens in plain text – mask them
+    masked = dict(settings)
+    for key in ('yandex_token', 'google_credentials_json'):
+        if masked.get(key):
+            masked[key] = '***'
+    return jsonify({'success': True, 'settings': masked})
+
+
+@admin_bp.route('/api/cloud_backup/settings', methods=['POST'])
+@login_required
+@admin_required
+def api_cloud_backup_settings_save():
+    from services.backup.cloud import _load_settings, save_settings
+    data = request.get_json()
+    current = _load_settings()
+    # Allow partial update; do not overwrite secret fields with '***' placeholder
+    for key in ('provider', 'yandex_remote_dir', 'google_folder_id'):
+        if key in data:
+            current[key] = data[key]
+    for key in ('yandex_token', 'google_credentials_json'):
+        if key in data and data[key] and data[key] != '***':
+            current[key] = data[key]
+    save_settings(current)
+    log_action('cloud_backup_settings_save', f'provider={current.get("provider")}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/cloud_backup/upload', methods=['POST'])
+@login_required
+@admin_required
+def api_cloud_backup_upload():
+    """Trigger async upload of a backup file to the configured cloud provider."""
+    data = request.get_json()
+    filename = (data or {}).get('filename', '')
+    if not filename:
+        return jsonify({'success': False, 'error': 'filename required'}), 400
+    try:
+        from tasks.mass_actions import cloud_backup_task
+        task = cloud_backup_task.delay(filename)
+        log_action('cloud_backup_upload', f'filename={filename}')
+        return jsonify({'success': True, 'task_id': task.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# DASHBOARD – LEADERS OF THE DAY & STATS
+# ==========================================
+
+@admin_bp.route('/api/dashboard/leaders')
+@login_required
+def api_dashboard_leaders():
+    """Return top accounts by outgoing messages today (leaders of the day)."""
+    from models.incoming_message import IncomingMessage
+
+    today_start = datetime.datetime.combine(datetime.date.today(), datetime.time.min)
+    rows = (
+        db.session.query(IncomingMessage.account_id, func.count(IncomingMessage.id).label('cnt'))
+        .filter(IncomingMessage.is_outgoing.is_(True))
+        .filter(IncomingMessage.created_at >= today_start)
+        .group_by(IncomingMessage.account_id)
+        .order_by(func.count(IncomingMessage.id).desc())
+        .limit(10)
+        .all()
+    )
+    leaders = []
+    for account_id, cnt in rows:
+        acc = db.session.query(Account).filter(Account.id == account_id).first()
+        if acc:
+            leaders.append({
+                'account_id': account_id,
+                'phone': acc.phone,
+                'username': acc.username,
+                'sent_today': cnt,
+            })
+    return jsonify({'success': True, 'leaders': leaders})
+
+
+@admin_bp.route('/api/dashboard/account_stats')
+@login_required
+def api_dashboard_account_stats():
+    """Return per-status distribution of accounts for pie/bar charts."""
+    rows = (
+        db.session.query(Account.status, func.count(Account.id).label('cnt'))
+        .group_by(Account.status)
+        .all()
+    )
+    distribution = {row.status: row.cnt for row in rows}
+    total = sum(distribution.values())
+    return jsonify({'success': True, 'distribution': distribution, 'total': total})
+
+
+@admin_bp.route('/api/dashboard/campaign_stats')
+@login_required
+def api_dashboard_campaign_stats():
+    """Return aggregated campaign performance metrics."""
+    from models.campaign import Campaign as CampaignModel
+    rows = db.session.query(CampaignModel).all()
+    total_sent = sum(c.successful or 0 for c in rows)
+    total_failed = sum(c.failed or 0 for c in rows)
+    total_processed = sum(c.processed or 0 for c in rows)
+    reply_pct = 0.0
+    try:
+        from models.incoming_message import IncomingMessage
+        replies = db.session.query(func.count(IncomingMessage.id)).filter(
+            IncomingMessage.is_outgoing.is_(False)
+        ).scalar() or 0
+        reply_pct = round(replies / total_sent * 100, 1) if total_sent > 0 else 0.0
+    except Exception:
+        pass
+    return jsonify({
+        'success': True,
+        'total_sent': total_sent,
+        'total_failed': total_failed,
+        'total_processed': total_processed,
+        'reply_pct': reply_pct,
+    })
+
+
+# ==========================================
+# BULK IMPORT WITH REPLACE/MERGE/DELETE MODE
+# ==========================================
+
+@admin_bp.route('/accounts/bulk_import_csv', methods=['POST'])
+@login_required
+@admin_required
+def accounts_bulk_import_csv():
+    """
+    Import accounts from a CSV file.
+
+    CSV columns (header row required): phone, username, first_name, last_name, status
+
+    Query param `mode`:
+      - add     (default) – skip existing, add new
+      - replace           – overwrite existing by phone
+      - merge             – update existing fields with non-empty CSV values
+      - delete            – delete accounts listed in CSV
+    """
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+    mode = request.form.get('mode', 'add')
+    if mode not in ('add', 'replace', 'merge', 'delete'):
+        return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+    try:
+        content = f.read().decode('utf-8-sig')
+        reader = csv.DictReader(content.splitlines())
+        rows = list(reader)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'CSV parse error: {e}'}), 400
+
+    added = replaced = merged = deleted = skipped = 0
+    errors = []
+
+    for row in rows:
+        phone = (row.get('phone') or '').strip()
+        if not phone:
+            continue
+        try:
+            existing = db.session.query(Account).filter(Account.phone == phone).first()
+
+            if mode == 'delete':
+                if existing:
+                    db.session.delete(existing)
+                    deleted += 1
+                else:
+                    skipped += 1
+
+            elif mode == 'replace':
+                if existing:
+                    existing.username = row.get('username') or existing.username
+                    existing.first_name = row.get('first_name') or existing.first_name
+                    existing.last_name = row.get('last_name') or existing.last_name
+                    existing.status = row.get('status') or existing.status
+                    replaced += 1
+                else:
+                    acc = Account(
+                        id=uuid.uuid4().hex,
+                        phone=phone,
+                        username=row.get('username', ''),
+                        first_name=row.get('first_name', ''),
+                        last_name=row.get('last_name', ''),
+                        status=row.get('status', 'inactive'),
+                    )
+                    db.session.add(acc)
+                    added += 1
+
+            elif mode == 'merge':
+                if existing:
+                    for field in ('username', 'first_name', 'last_name', 'status'):
+                        val = (row.get(field) or '').strip()
+                        if val:
+                            setattr(existing, field, val)
+                    merged += 1
+                else:
+                    skipped += 1
+
+            else:  # add
+                if not existing:
+                    acc = Account(
+                        id=uuid.uuid4().hex,
+                        phone=phone,
+                        username=row.get('username', ''),
+                        first_name=row.get('first_name', ''),
+                        last_name=row.get('last_name', ''),
+                        status=row.get('status', 'inactive'),
+                    )
+                    db.session.add(acc)
+                    added += 1
+                else:
+                    skipped += 1
+
+        except Exception as row_err:
+            db.session.rollback()
+            errors.append({'phone': phone, 'error': str(row_err)})
+            continue
+
+    db.session.commit()
+    log_action('bulk_import_csv', f'mode={mode} added={added} replaced={replaced} merged={merged} deleted={deleted}')
+    return jsonify({
+        'success': True,
+        'mode': mode,
+        'added': added,
+        'replaced': replaced,
+        'merged': merged,
+        'deleted': deleted,
+        'skipped': skipped,
+        'errors': errors,
+    })
