@@ -193,8 +193,7 @@ def _make_new_message_handler(account_id: str, client):
                 # Send Telegram lead alert to subscribed users
                 try:
                     from services.notification.telegram_bot import send_alert, ALERT_INCOMING_LEAD
-                    from models.account import Account as AccModel
-                    acc = db.query(AccModel).filter(AccModel.id == account_id).first()
+                    acc = db.query(Account).filter(Account.id == account_id).first()
                     acc_label = (acc.phone if acc else account_id) or account_id
                     send_alert(
                         ALERT_INCOMING_LEAD,

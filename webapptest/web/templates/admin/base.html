@@ -1012,7 +1012,7 @@ function initScrollMaps() {
         if (el.dataset.scrollMapInit) return;
         el.dataset.scrollMapInit = '1';
         el.classList.add('scroll-map-container');
-        if (el.scrollHeight <= el.clientHeight + 8) return; // not tall enough
+        if (el.scrollHeight <= el.clientHeight + 8) return; // 8px threshold: skip tiny overflow (border/padding)
 
         const track = document.createElement('div');
         track.className = 'scroll-map-track';

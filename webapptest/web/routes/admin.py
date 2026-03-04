@@ -5582,14 +5582,15 @@ def api_global_search():
 
     results = []
     limit = 5  # max results per category
+    safe_q = q.replace('%', r'\%').replace('_', r'\_')  # escape LIKE wildcards
 
     # Search accounts
     try:
         acc_stmt = (
             select(Account)
             .filter(or_(
-                Account.phone.contains(q),
-                Account.username.contains(q),
+                Account.phone.ilike(f'%{safe_q}%'),
+                Account.username.ilike(f'%{safe_q}%'),
             ))
             .limit(limit)
         )
@@ -5607,7 +5608,7 @@ def api_global_search():
     try:
         camp_stmt = (
             select(Campaign)
-            .filter(Campaign.name.ilike(f'%{q}%'))
+            .filter(Campaign.name.ilike(f'%{safe_q}%'))
             .limit(limit)
         )
         for c in db.session.execute(camp_stmt).scalars().all():
@@ -5625,7 +5626,7 @@ def api_global_search():
         from models.incoming_message import IncomingMessage
         msg_stmt = (
             select(IncomingMessage)
-            .filter(IncomingMessage.text.ilike(f'%{q}%'))
+            .filter(IncomingMessage.text.ilike(f'%{safe_q}%'))
             .order_by(desc(IncomingMessage.created_at))
             .limit(limit)
         )
