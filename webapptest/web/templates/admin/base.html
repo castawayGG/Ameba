@@ -626,12 +626,16 @@ async function loadNotifications() {
 function toggleLangMenu() {
     const menu = document.getElementById('lang-menu');
     menu.classList.toggle('hidden');
-    document.addEventListener('click', function closeLang(e) {
-        if (!document.getElementById('lang-switcher').contains(e.target)) {
-            menu.classList.add('hidden');
-            document.removeEventListener('click', closeLang);
-        }
-    });
+    if (!menu.classList.contains('hidden')) {
+        setTimeout(() => {
+            document.addEventListener('click', function closeLang(e) {
+                if (!document.getElementById('lang-switcher').contains(e.target)) {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeLang);
+                }
+            });
+        }, 0);
+    }
 }
 
 async function setLanguage(lang) {
