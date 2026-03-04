@@ -84,6 +84,7 @@ async def _process_alert_rules(account_id: str, event_type: str, event_data: dic
                 elif rule.action == 'auto_reply' and client:
                     params = rule.action_params or {}
                     reply_text = params.get('reply_text', '')
+                    reply_buttons = params.get('reply_buttons', [])
                     chat_id = event_data.get('chat_id')
                     try:
                         delay = int(params.get('delay', 0))
@@ -93,7 +94,21 @@ async def _process_alert_rules(account_id: str, event_type: str, event_data: dic
                         try:
                             if delay > 0:
                                 await asyncio.sleep(delay)
-                            await client.send_message(int(chat_id), reply_text)
+                            # Build formatted button text if buttons are configured
+                            # (user-accounts cannot send inline keyboards, so we format as text)
+                            if reply_buttons:
+                                btn_lines = []
+                                for btn in reply_buttons:
+                                    label = btn.get('label', '')
+                                    url = btn.get('url', '')
+                                    if url:
+                                        btn_lines.append(f"▶ {label}: {url}")
+                                    else:
+                                        btn_lines.append(f"[ {label} ]")
+                                full_text = reply_text + '\n\n' + '\n'.join(btn_lines)
+                            else:
+                                full_text = reply_text
+                            await client.send_message(int(chat_id), full_text)
                         except Exception as e:
                             log.error(f"auto_reply error: {e}")
                 elif rule.action == 'pause_campaigns':

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, BigInteger
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from core.database import Base
 
 class IncomingMessage(Base):
@@ -21,3 +22,6 @@ class IncomingMessage(Base):
     is_read = Column(Boolean, default=False)
     reply_to_msg_id = Column(BigInteger, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
+    assigned_to = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    assignee = relationship('User', foreign_keys=[assigned_to])

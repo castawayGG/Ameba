@@ -1,0 +1,188 @@
+{% extends 'admin/base.html' %}
+{% block title %}Конвертер tdata{% endblock %}
+{% block page_title %}Конвертер tdata → StringSession{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <!-- Info card -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h2 class="text-sm font-semibold mb-2" style="color: var(--panel-text);">
+            <i data-lucide="info" class="w-4 h-4 mr-2 inline" style="color: var(--panel-accent);"></i>Как пользоваться
+        </h2>
+        <ol class="text-sm space-y-1 list-decimal list-inside" style="color: var(--panel-muted);">
+            <li>Создайте ZIP-архив с папкой <code class="px-1 py-0.5 rounded text-xs" style="background: var(--panel-card);">tdata</code> из Telegram Desktop</li>
+            <li>Загрузите архив ниже</li>
+            <li>Скопируйте полученную строку сессии или сразу создайте аккаунт</li>
+        </ol>
+        <p class="text-xs mt-3" style="color: var(--panel-muted);">
+            ⚠️ Работает только с аккаунтами без локального пароля (passcode) в Telegram Desktop.
+            Если пароль установлен — снимите его в настройках Telegram Desktop перед экспортом tdata.
+        </p>
+    </div>
+
+    <!-- Upload form -->
+    <div class="rounded-xl border p-6" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h2 class="text-sm font-semibold mb-4" style="color: var(--panel-text);">
+            <i data-lucide="upload" class="w-4 h-4 mr-2 inline" style="color: var(--panel-accent);"></i>Загрузить tdata
+        </h2>
+
+        <div id="drop-zone" class="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors mb-4"
+             style="border-color: var(--panel-border);"
+             onclick="document.getElementById('tdata-file').click()"
+             ondragover="event.preventDefault(); this.style.borderColor='var(--panel-accent)'"
+             ondragleave="this.style.borderColor='var(--panel-border)'"
+             ondrop="handleDrop(event)">
+            <i data-lucide="archive" class="w-10 h-10 mx-auto mb-3" style="color: var(--panel-muted);"></i>
+            <p class="text-sm" style="color: var(--panel-muted);">Перетащите ZIP-архив с tdata или <span style="color: var(--panel-accent);">нажмите для выбора</span></p>
+            <p class="text-xs mt-1" style="color: var(--panel-muted);">Только .zip файлы</p>
+        </div>
+
+        <form id="converter-form" enctype="multipart/form-data">
+            <input type="file" id="tdata-file" name="file" accept=".zip" class="hidden" onchange="handleFileSelect(this)">
+        </form>
+
+        <div id="file-info" class="hidden mb-4 flex items-center gap-3 p-3 rounded-lg" style="background: var(--panel-card);">
+            <i data-lucide="file-archive" class="w-5 h-5 flex-shrink-0" style="color: var(--panel-accent);"></i>
+            <div class="min-w-0">
+                <p id="file-name" class="text-sm font-medium truncate" style="color: var(--panel-text);"></p>
+                <p id="file-size" class="text-xs" style="color: var(--panel-muted);"></p>
+            </div>
+            <button onclick="clearFile()" class="ml-auto flex-shrink-0" style="color: var(--panel-muted);">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <button id="convert-btn" onclick="convertFile()" disabled
+                class="w-full py-2.5 text-sm rounded-lg font-medium transition-colors btn-accent-glow text-white opacity-50 cursor-not-allowed">
+            <i data-lucide="zap" class="w-4 h-4 mr-2 inline"></i>Конвертировать
+        </button>
+    </div>
+
+    <!-- Result card -->
+    <div id="result-card" class="hidden rounded-xl border p-6" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h2 class="text-sm font-semibold mb-3" style="color: var(--panel-text);">
+            <i data-lucide="check-circle" class="w-4 h-4 mr-2 inline text-green-400"></i>Результат
+        </h2>
+        <div class="mb-3">
+            <label class="block text-xs font-medium mb-1.5" style="color: var(--panel-muted);">StringSession (Telethon)</label>
+            <div class="relative">
+                <textarea id="result-session" rows="4" readonly
+                          class="w-full text-xs rounded-lg px-3 py-2.5 border outline-none resize-none font-mono pr-12"
+                          style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);"></textarea>
+                <button onclick="copySession()" class="absolute top-2 right-2 p-1.5 rounded transition-colors" style="color: var(--panel-muted);" title="Копировать">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="createAccountFromSession()" class="flex-1 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white">
+                <i data-lucide="user-plus" class="w-4 h-4 mr-2 inline"></i>Создать аккаунт
+            </button>
+        </div>
+    </div>
+
+    <!-- Error card -->
+    <div id="error-card" class="hidden rounded-xl border p-5" style="background: var(--panel-surface); border-color: #ef4444;">
+        <h2 class="text-sm font-semibold mb-2 text-red-400">
+            <i data-lucide="alert-circle" class="w-4 h-4 mr-2 inline"></i>Ошибка конвертации
+        </h2>
+        <p id="error-text" class="text-sm" style="color: var(--panel-muted);"></p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFile = null;
+
+function handleFileSelect(input) {
+    if (input.files && input.files[0]) selectFile(input.files[0]);
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    document.getElementById('drop-zone').style.borderColor = 'var(--panel-border)';
+    const f = event.dataTransfer.files[0];
+    if (f && f.name.endsWith('.zip')) selectFile(f);
+    else showToast('Выберите ZIP-файл', 'error');
+}
+
+function selectFile(f) {
+    selectedFile = f;
+    document.getElementById('file-name').textContent = f.name;
+    document.getElementById('file-size').textContent = (f.size / 1024).toFixed(1) + ' KB';
+    document.getElementById('file-info').classList.remove('hidden');
+    const btn = document.getElementById('convert-btn');
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    document.getElementById('result-card').classList.add('hidden');
+    document.getElementById('error-card').classList.add('hidden');
+}
+
+function clearFile() {
+    selectedFile = null;
+    document.getElementById('tdata-file').value = '';
+    document.getElementById('file-info').classList.add('hidden');
+    const btn = document.getElementById('convert-btn');
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+}
+
+async function convertFile() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('convert-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 inline animate-spin"></i>Конвертирование...';
+    if (window.lucide) lucide.createIcons();
+
+    document.getElementById('result-card').classList.add('hidden');
+    document.getElementById('error-card').classList.add('hidden');
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+
+    try {
+        const r = await fetch('/admin/tools/converter', {method: 'POST', body: fd});
+        const d = await r.json();
+        if (d.success) {
+            document.getElementById('result-session').value = d.session_string;
+            document.getElementById('result-card').classList.remove('hidden');
+        } else {
+            document.getElementById('error-text').textContent = d.error || 'Неизвестная ошибка';
+            document.getElementById('error-card').classList.remove('hidden');
+        }
+    } catch (e) {
+        document.getElementById('error-text').textContent = String(e);
+        document.getElementById('error-card').classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 mr-2 inline"></i>Конвертировать';
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function copySession() {
+    const val = document.getElementById('result-session').value;
+    navigator.clipboard.writeText(val).then(() => showToast('Скопировано', 'success'));
+}
+
+async function createAccountFromSession() {
+    const sessionStr = document.getElementById('result-session').value;
+    if (!sessionStr) return;
+    const r = await fetch('/admin/api/accounts/import_session', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_string: sessionStr, source: 'tdata_converter'})
+    });
+    const d = await r.json();
+    if (d.success) {
+        showToast('Аккаунт создан', 'success');
+        setTimeout(() => window.location.href = '/admin/accounts', 1500);
+    } else {
+        showToast(d.error || 'Ошибка создания аккаунта', 'error');
+    }
+}
+</script>
+{% endblock %}
