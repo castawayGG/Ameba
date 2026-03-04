@@ -12,14 +12,52 @@ is handled by the route layer so that the current_user can be set as owner.
 
 import csv
 import io
+import ipaddress
 import re
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 _PHONE_RE = re.compile(r'\+?\d[\d\s\-().]{6,19}\d')
+
+# Private and loopback address ranges to block SSRF
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network('10.0.0.0/8'),
+    ipaddress.ip_network('172.16.0.0/12'),
+    ipaddress.ip_network('192.168.0.0/16'),
+    ipaddress.ip_network('127.0.0.0/8'),
+    ipaddress.ip_network('::1/128'),
+    ipaddress.ip_network('fc00::/7'),
+]
+
+
+def _validate_url(url: str) -> Optional[str]:
+    """
+    Validate that *url* is a safe public HTTP(S) URL.
+    Returns an error message if the URL is invalid or targets a private address,
+    or ``None`` if the URL is acceptable.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return 'Недопустимый URL'
+    if parsed.scheme not in ('http', 'https'):
+        return 'URL должен использовать схему http или https'
+    hostname = parsed.hostname
+    if not hostname:
+        return 'URL не содержит имени хоста'
+    # Block raw IP addresses that point to private ranges
+    try:
+        addr = ipaddress.ip_address(hostname)
+        for net in _PRIVATE_NETWORKS:
+            if addr in net:
+                return 'URL указывает на внутренний адрес (SSRF недопустим)'
+    except ValueError:
+        pass  # hostname is a domain name — allow it
+    return None
 
 
 def _normalise_phone(raw: str) -> str:
@@ -107,6 +145,10 @@ def fetch_numbers(
     if auth_header:
         headers['Authorization'] = auth_header
 
+    url_error = _validate_url(url)
+    if url_error:
+        return [], url_error
+
     try:
         resp = requests.get(url, headers=headers, timeout=timeout)
         resp.raise_for_status()
@@ -129,7 +171,7 @@ def fetch_numbers(
 
     elif source_type == 'csv_url':
         text = resp.text
-        phones: list[str] = []
+        phones = []
         reader = csv.reader(io.StringIO(text))
         for row in reader:
             if not row:

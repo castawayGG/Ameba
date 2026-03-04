@@ -307,6 +307,27 @@ class TestNumberImportService:
         assert numbers == []
         assert error is not None
 
+    def test_fetch_numbers_ssrf_private_ip_blocked(self):
+        """Requests to private IP ranges must be blocked."""
+        from services.accounts.number_import import fetch_numbers
+        for private_url in [
+            'http://127.0.0.1/api',
+            'http://192.168.1.1/numbers',
+            'http://10.0.0.1/phones',
+            'http://172.16.0.1/data',
+        ]:
+            numbers, error = fetch_numbers(private_url)
+            assert numbers == [], f'Expected block for {private_url}'
+            assert error is not None, f'Expected error for {private_url}'
+            assert 'SSRF' in error or 'внутренний' in error.lower()
+
+    def test_fetch_numbers_non_http_scheme_blocked(self):
+        """Non-HTTP(S) schemes must be rejected."""
+        from services.accounts.number_import import fetch_numbers
+        numbers, error = fetch_numbers('ftp://example.com/numbers.txt')
+        assert numbers == []
+        assert error is not None
+
 
 # ---------------------------------------------------------------------------
 # Auto-API import connector — routes
