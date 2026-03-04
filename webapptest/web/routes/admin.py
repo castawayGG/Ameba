@@ -299,8 +299,9 @@ def campaigns():
 @login_required
 @admin_required
 def users():
+    from models.user import ALL_PERMISSIONS
     users_list = db.session.execute(select(User)).scalars().all()
-    return render_template('admin/users.html', users=users_list)
+    return render_template('admin/users.html', users=users_list, all_permissions=ALL_PERMISSIONS)
 
 @admin_bp.route('/logs')
 @login_required
@@ -388,7 +389,28 @@ def settings():
     backups = list_backups()
     api_settings = _get_api_settings()
     rate_limits = _get_rate_limits()
-    return render_template('admin/settings.html', backups=backups, api_settings=api_settings, rate_limits=rate_limits)
+    from models.panel_settings import PanelSettings
+    brand_settings = {s.key: s.value for s in db.session.query(PanelSettings).filter(
+        PanelSettings.key.in_(['brand_name', 'brand_logo_url', 'brand_accent_color', 'brand_bg_color'])
+    ).all()}
+    return render_template('admin/settings.html', backups=backups, api_settings=api_settings,
+                           rate_limits=rate_limits, brand_settings=brand_settings)
+
+
+@admin_bp.route('/settings/language', methods=['POST'])
+@login_required
+def set_language():
+    """Сохранение языка интерфейса для текущего пользователя"""
+    from flask import make_response
+    lang = request.get_json(silent=True) or {}
+    lang = lang.get('lang', request.form.get('lang', 'ru'))
+    if lang not in ('ru', 'en'):
+        lang = 'ru'
+    current_user.language = lang
+    db.session.commit()
+    resp = make_response(jsonify({'success': True, 'lang': lang}))
+    resp.set_cookie('lang', lang, max_age=365 * 24 * 3600, httponly=False, samesite='Lax')
+    return resp
 
 
 @admin_bp.route('/settings/2fa/enable', methods=['POST'])
@@ -664,6 +686,32 @@ def user_delete(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/users/<int:user_id>/permissions', methods=['POST'])
+@login_required
+@admin_required
+def user_update_permissions(user_id):
+    """Обновление гранулярных прав пользователя"""
+    from models.user import ALL_PERMISSIONS
+    if current_user.role != 'superadmin':
+        return jsonify({'success': False, 'error': 'Только superadmin может изменять права'}), 403
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'}), 404
+    data = request.get_json() or {}
+    # Accept new role if provided
+    new_role = data.get('role')
+    if new_role and new_role in ('admin', 'superadmin', 'viewer'):
+        user.role = new_role
+    # Accept permissions dict
+    perms = data.get('permissions')
+    if isinstance(perms, dict):
+        # Only store known permission keys
+        user.permissions = {k: bool(v) for k, v in perms.items() if k in ALL_PERMISSIONS}
+    db.session.commit()
+    log_action('user_update_permissions', f'user={user.username} role={user.role}')
+    return jsonify({'success': True})
 
 
 # ==========================================
@@ -2972,15 +3020,11 @@ def notification_settings():
     if request.method == 'POST':
         data = request.get_json() or {}
         try:
-            # Save Telegram bot settings to PanelSettings
+            # Save per-user Telegram bot settings on the user record
             for key in ('tg_bot_token', 'tg_chat_id'):
                 val = data.pop(key, None)
                 if val is not None:
-                    row = db.session.query(PanelSettings).filter_by(key=key).first()
-                    if row:
-                        row.value = val
-                    else:
-                        db.session.add(PanelSettings(key=key, value=val))
+                    setattr(current_user, key, val)
             current_user.notification_prefs = data
             db.session.commit()
             log_action('update_notification_settings', '')
@@ -2991,11 +3035,8 @@ def notification_settings():
     prefs = getattr(current_user, 'notification_prefs', None) or {}
     from models.account import Account as AccountModel
     accounts = db.session.query(AccountModel).order_by(AccountModel.phone).all()
-    def _ps_value(key):
-        row = db.session.query(PanelSettings).filter_by(key=key).first()
-        return row.value if row else ''
-    tg_bot_token = _ps_value('tg_bot_token')
-    tg_chat_id   = _ps_value('tg_chat_id')
+    tg_bot_token = current_user.tg_bot_token or ''
+    tg_chat_id   = current_user.tg_chat_id or ''
     return render_template('admin/notification_settings.html', prefs=prefs, accounts=accounts,
                            tg_bot_token=tg_bot_token, tg_chat_id=tg_chat_id)
 

@@ -61,6 +61,9 @@
                     <td class="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ u.created_at | timestamp_to_date }}</td>
                     <td class="px-5 py-4 text-right whitespace-nowrap">
                         {% if u.id != current_user.id %}
+                        {% if current_user.role == 'superadmin' %}
+                        <button onclick="openPermissionsModal({{ u.id }}, '{{ u.username }}', '{{ u.role }}', {{ (u.permissions or {})|tojson }})" class="text-xs px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors mr-1">Права</button>
+                        {% endif %}
                         <button onclick="toggleUser({{ u.id }}, this)" data-active="{{ 'true' if u.is_active else 'false' }}" class="text-xs px-2.5 py-1.5 rounded-lg border transition-colors mr-1 {{ 'border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' if u.is_active else 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20' }}">
                             {{ 'Блок' if u.is_active else 'Разблок' }}
                         </button>
@@ -113,10 +116,94 @@
         </div>
     </div>
 </div>
+
+<!-- Permissions Modal -->
+<div id="permissionsModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('permissionsModal')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Права пользователя: <span id="perm-username"></span></h3>
+                <button onclick="closeModal('permissionsModal')" class="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Роль</label>
+                    <select id="perm-role" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="admin">admin — стандартный</option>
+                        <option value="superadmin">superadmin — полный доступ</option>
+                        <option value="viewer">viewer — только просмотр</option>
+                    </select>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Гранулярные права (только для роли admin):</p>
+                    <div id="perm-checkboxes" class="space-y-2">
+                        {% set perm_labels = {
+                            'view_proxies': 'Просмотр прокси (/admin/proxies)',
+                            'delete_accounts': 'Удаление аккаунтов',
+                            'run_campaigns': 'Запуск/остановка кампаний',
+                            'view_logs': 'Просмотр логов и аудита',
+                            'manage_webhooks': 'Управление webhook-уведомлениями',
+                            'manage_api_keys': 'Управление API-ключами',
+                            'manage_users': 'Управление пользователями'
+                        } %}
+                        {% for perm in all_permissions %}
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" class="perm-check w-4 h-4 rounded" data-perm="{{ perm }}" style="accent-color: var(--panel-accent);">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm_labels.get(perm, perm) }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="closeModal('permissionsModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
+                <button onclick="savePermissions()" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+let _permUserId = null;
+
+function openPermissionsModal(userId, username, role, perms) {
+    _permUserId = userId;
+    document.getElementById('perm-username').textContent = username;
+    document.getElementById('perm-role').value = role;
+    document.querySelectorAll('.perm-check').forEach(cb => {
+        const p = cb.dataset.perm;
+        // Default: checked (granted). If explicitly false in perms, uncheck.
+        cb.checked = perms[p] !== false;
+    });
+    document.getElementById('permissionsModal').classList.remove('hidden');
+}
+
+async function savePermissions() {
+    const role = document.getElementById('perm-role').value;
+    const permissions = {};
+    document.querySelectorAll('.perm-check').forEach(cb => {
+        permissions[cb.dataset.perm] = cb.checked;
+    });
+    const res = await fetch(`/admin/users/${_permUserId}/permissions`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({role, permissions})
+    });
+    const data = await res.json();
+    if (data.success) {
+        closeModal('permissionsModal');
+        showToast('Права обновлены');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast(data.error || 'Ошибка', 'error');
+    }
+}
+
 async function toggleUser(id, btn) {
     const res = await fetch(`/admin/users/${id}/toggle`, {method: 'POST'});
     if (res.ok) {

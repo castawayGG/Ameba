@@ -242,6 +242,46 @@
         </div>
     </div>
 
+<!-- White-label / Branding Settings -->
+{% if current_user.role == 'superadmin' %}
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">White-label / Брендинг</h2>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Кастомизация названия, логотипа и цветов панели (SaaS/White-label режим).</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название панели</label>
+                <input type="text" id="brand-name" value="{{ brand_settings.get('brand_name', '') }}" placeholder="Ameba" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL логотипа</label>
+                <input type="url" id="brand-logo-url" value="{{ brand_settings.get('brand_logo_url', '') }}" placeholder="https://example.com/logo.png" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Акцентный цвет</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="brand-accent-color" value="{{ brand_settings.get('brand_accent_color', '#3b82f6') }}" class="w-10 h-10 rounded cursor-pointer border border-gray-200 dark:border-gray-600">
+                    <input type="text" id="brand-accent-color-text" value="{{ brand_settings.get('brand_accent_color', '#3b82f6') }}" placeholder="#3b82f6" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Цвет фона панели</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="brand-bg-color" value="{{ brand_settings.get('brand_bg_color', '#050505') }}" class="w-10 h-10 rounded cursor-pointer border border-gray-200 dark:border-gray-600">
+                    <input type="text" id="brand-bg-color-text" value="{{ brand_settings.get('brand_bg_color', '#050505') }}" placeholder="#050505" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div>
+            <button onclick="saveBrandSettings()" class="text-sm bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">Сохранить брендинг</button>
+            <span id="brand-save-status" class="ml-3 text-xs text-gray-500 dark:text-gray-400 hidden"></span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 </div>
 {% endblock %}
 
@@ -253,7 +293,50 @@ function toggleApiProxy() {
     fields.classList.toggle('hidden', !cb.checked);
 }
 
-async function setup2FA() {
+async function saveBrandSettings() {
+    const statusEl = document.getElementById('brand-save-status');
+    const payload = {
+        brand_name: document.getElementById('brand-name').value,
+        brand_logo_url: document.getElementById('brand-logo-url').value,
+        brand_accent_color: document.getElementById('brand-accent-color-text').value,
+        brand_bg_color: document.getElementById('brand-bg-color-text').value,
+    };
+    try {
+        const res = await fetch('/admin/api/panel_settings', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        statusEl.textContent = data.success ? '✓ Сохранено' : ('Ошибка: ' + (data.error || ''));
+        statusEl.classList.remove('hidden');
+        if (data.success) {
+            // Apply accent color immediately
+            const accent = payload.brand_accent_color;
+            if (/^#[0-9a-fA-F]{6}$/.test(accent)) {
+                document.documentElement.style.setProperty('--panel-accent', accent);
+            }
+            setTimeout(() => statusEl.classList.add('hidden'), 3000);
+        }
+    } catch(e) {
+        statusEl.textContent = 'Ошибка запроса';
+        statusEl.classList.remove('hidden');
+    }
+}
+
+// Sync color pickers with text inputs
+document.addEventListener('DOMContentLoaded', () => {
+    const pairs = [
+        ['brand-accent-color', 'brand-accent-color-text'],
+        ['brand-bg-color', 'brand-bg-color-text'],
+    ];
+    pairs.forEach(([pickerId, textId]) => {
+        const picker = document.getElementById(pickerId);
+        const text = document.getElementById(textId);
+        if (!picker || !text) return;
+        picker.addEventListener('input', () => { text.value = picker.value; });
+        text.addEventListener('input', () => { if (/^#[0-9a-fA-F]{6}$/.test(text.value)) picker.value = text.value; });
+    });
+});
     const panel = document.getElementById('setup-2fa-panel');
     panel.classList.remove('hidden');
     document.getElementById('qr-loading').classList.remove('hidden');

@@ -56,3 +56,25 @@ def superadmin_required(func):
             abort(403, description='Недостаточно прав')
         return func(*args, **kwargs)
     return decorated_view
+
+
+def permission_required(perm):
+    """
+    Декоратор для маршрутов, требующих конкретного гранулярного разрешения.
+    Использование: @permission_required('view_proxies')
+    superadmin всегда имеет доступ; admin — в зависимости от настроек;
+    viewer — доступ запрещён для всех write-разрешений.
+    """
+    def decorator(func):
+        @wraps(func)
+        def decorated_view(*args, **kwargs):
+            if not current_user.is_authenticated:
+                flash('Необходимо войти в систему', 'warning')
+                return redirect(url_for('admin.login'))
+            if not current_user.is_active:
+                abort(403, description='Аккаунт деактивирован')
+            if not current_user.has_permission(perm):
+                abort(403, description=f'Недостаточно прав: требуется {perm}')
+            return func(*args, **kwargs)
+        return decorated_view
+    return decorator

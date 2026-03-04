@@ -72,6 +72,19 @@ def create_app(test_config=None):
     def inject_app_version():
         return {'app_version': app.config['APP_VERSION']}
 
+    # Inject brand/panel settings into all templates
+    @app.context_processor
+    def inject_brand_settings():
+        try:
+            from models.panel_settings import PanelSettings
+            from web.extensions import db as _db
+            rows = _db.session.query(PanelSettings).filter(
+                PanelSettings.key.in_(['brand_name', 'brand_logo_url', 'brand_accent_color', 'brand_bg_color'])
+            ).all()
+            return {'g_brand': {r.key: r.value for r in rows}}
+        except Exception:
+            return {'g_brand': {}}
+
     # Регистрация фильтра
     @app.template_filter('timestamp_to_date')
     def timestamp_to_date_filter(dt):
