@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Plashka{% endblock %} | Панель управления</title>
+    <title>{% block title %}Plashka{% endblock %} | {{ g_brand.get('brand_name') or 'Панель управления' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
@@ -32,6 +32,14 @@
         }
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_theme.css') }}?v={{ app_version }}">
+    {% if g_brand.get('brand_accent_color') or g_brand.get('brand_bg_color') %}
+    <style>
+        :root {
+            {% if g_brand.get('brand_accent_color') %}--panel-accent: {{ g_brand['brand_accent_color'] }};--panel-accent2: {{ g_brand['brand_accent_color'] }};{% endif %}
+            {% if g_brand.get('brand_bg_color') %}--panel-bg: {{ g_brand['brand_bg_color'] }};{% endif %}
+        }
+    </style>
+    {% endif %}
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased flex h-screen overflow-hidden transition-colors duration-200">
 
@@ -47,7 +55,7 @@
                 <div class="flex items-center justify-center w-8 h-8 rounded-xl mr-3 flex-shrink-0" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">
                     <i data-lucide="zap" class="w-4 h-4 text-white"></i>
                 </div>
-                <span class="text-base font-bold text-gray-900 tracking-tight">Plashka</span>
+                <span class="text-base font-bold text-gray-900 tracking-tight">{{ g_brand.get('brand_name') or 'Plashka' }}</span>
             </div>
 
             <!-- Nav -->
@@ -342,6 +350,16 @@
                 <h1 class="text-base font-semibold text-gray-800">{% block page_title %}{% endblock %}</h1>
             </div>
             <div class="flex items-center gap-2">
+                <!-- Language switcher -->
+                <div class="relative" id="lang-switcher">
+                    <button onclick="toggleLangMenu()" class="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50 text-xs font-semibold" title="Язык / Language" style="min-width:36px;">
+                        {{ current_user.language|upper if current_user.language else 'RU' }}
+                    </button>
+                    <div id="lang-menu" class="hidden absolute right-0 top-10 w-28 rounded-xl z-50 overflow-hidden" style="background: var(--panel-card); border: 1px solid var(--panel-border); box-shadow: 0 8px 24px rgba(17,24,39,0.08);">
+                        <button onclick="setLanguage('ru')" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" style="color: var(--panel-text);">🇷🇺 Русский</button>
+                        <button onclick="setLanguage('en')" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" style="color: var(--panel-text);">🇬🇧 English</button>
+                    </div>
+                </div>
                 <!-- Notification bell -->
                 <div class="relative" id="notif-bell-wrapper">
                     <button onclick="toggleNotifPanel()" class="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50" title="Уведомления">
@@ -603,6 +621,31 @@ async function loadNotifications() {
         list.innerHTML = html;
         if (window.lucide) lucide.createIcons({ el: list });
     } catch(e) {}
+}
+
+function toggleLangMenu() {
+    const menu = document.getElementById('lang-menu');
+    menu.classList.toggle('hidden');
+    if (!menu.classList.contains('hidden')) {
+        setTimeout(() => {
+            document.addEventListener('click', function closeLang(e) {
+                if (!document.getElementById('lang-switcher').contains(e.target)) {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeLang);
+                }
+            });
+        }, 0);
+    }
+}
+
+async function setLanguage(lang) {
+    document.getElementById('lang-menu').classList.add('hidden');
+    await fetch('/admin/settings/language', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lang})
+    });
+    location.reload();
 }
 
 function toggleNotifPanel() {
