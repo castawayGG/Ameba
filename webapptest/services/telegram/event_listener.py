@@ -190,6 +190,23 @@ def _make_new_message_handler(account_id: str, client):
                 )
                 db.add(notif)
 
+                # Send Telegram lead alert to subscribed users
+                try:
+                    from services.notification.telegram_bot import send_alert, ALERT_INCOMING_LEAD
+                    from models.account import Account as AccModel
+                    acc = db.query(AccModel).filter(AccModel.id == account_id).first()
+                    acc_label = (acc.phone if acc else account_id) or account_id
+                    send_alert(
+                        ALERT_INCOMING_LEAD,
+                        f"📩 <b>Новый входящий лид</b>\n"
+                        f"📱 Аккаунт: <code>{acc_label}</code>\n"
+                        f"👤 От: {sender_label}\n"
+                        f"💬 {(text[:200] if text else '[медиа]')}",
+                        db=db,
+                    )
+                except Exception as _ae:
+                    log.debug(f"Lead alert skipped: {_ae}")
+
             db.commit()
 
             event_data = {

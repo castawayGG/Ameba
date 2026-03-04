@@ -64,6 +64,36 @@
         </div>
     </div>
 
+    <!-- Proxy alerts -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i data-lucide="network" class="w-4 h-4" style="color: #fbbf24;"></i> Прокси
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('proxy_panel', 'В панели'), ('proxy_telegram', 'В Telegram-бот')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Incoming leads -->
+    <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
+        <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">
+            <i data-lucide="mail" class="w-4 h-4" style="color: #34d399;"></i> Входящие лиды
+        </h3>
+        <div class="space-y-2">
+            {% for key, label in [('lead_panel', 'В панели'), ('lead_telegram', 'В Telegram-бот')] %}
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="{{ key }}" {% if prefs.get(key) %}checked{% endif %} class="w-4 h-4 rounded" style="accent-color: var(--panel-accent);">
+                <span class="text-sm" style="color: var(--panel-text);">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Quiet hours -->
     <div class="rounded-xl border p-5" style="background: var(--panel-surface); border-color: var(--panel-border);">
         <h3 class="text-sm font-semibold mb-4 flex items-center gap-2" style="color: var(--panel-text);">

@@ -1,6 +1,14 @@
 {% extends "admin/base.html" %}
 {% block title %}Аналитика{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{{ url_for('admin.dashboard') }}"><i data-lucide="gauge" class="w-3 h-3 inline"></i> Дашборд</a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Аналитика</span>
+</nav>
+{% endblock %}
+
 {% block header_actions %}
 <div class="flex items-center gap-3">
     <button onclick="refreshFunnel()" class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">
@@ -53,6 +61,47 @@
         <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
             <h3 class="text-sm font-semibold mb-4" style="color:var(--panel-muted);">Топ стран</h3>
             <canvas id="countryChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Campaign ROI + Top Operators -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Campaign ROI -->
+        <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--panel-muted);">
+                <i data-lucide="trending-up" class="w-4 h-4 inline mr-1" style="color:#10b981;"></i>Эффективность кампаний
+            </h3>
+            <div id="campaign-roi-section">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="rounded-lg p-3 text-center" style="background:var(--panel-surface);">
+                        <div id="roi-sent" class="text-2xl font-bold" style="color:#3b82f6;">—</div>
+                        <div class="text-xs mt-1" style="color:var(--panel-muted);">Отправлено</div>
+                    </div>
+                    <div class="rounded-lg p-3 text-center" style="background:var(--panel-surface);">
+                        <div id="roi-failed" class="text-2xl font-bold" style="color:#f87171;">—</div>
+                        <div class="text-xs mt-1" style="color:var(--panel-muted);">Ошибок</div>
+                    </div>
+                    <div class="rounded-lg p-3 text-center" style="background:var(--panel-surface);">
+                        <div id="roi-reply-pct" class="text-2xl font-bold" style="color:#10b981;">—</div>
+                        <div class="text-xs mt-1" style="color:var(--panel-muted);">% ответов</div>
+                    </div>
+                    <div class="rounded-lg p-3 text-center" style="background:var(--panel-surface);">
+                        <div id="roi-success-pct" class="text-2xl font-bold" style="color:#a78bfa;">—</div>
+                        <div class="text-xs mt-1" style="color:var(--panel-muted);">% успеха</div>
+                    </div>
+                </div>
+                <canvas id="campaignRoiChart" height="120"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Operators (accounts by activity) -->
+        <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4 uppercase tracking-wider" style="color:var(--panel-muted);">
+                <i data-lucide="trophy" class="w-4 h-4 inline mr-1" style="color:#f59e0b;"></i>Топ аккаунты сегодня
+            </h3>
+            <div id="top-operators-list" class="space-y-2">
+                <div class="text-center py-4 text-sm" style="color:var(--panel-muted);">Загрузка...</div>
+            </div>
         </div>
     </div>
 </div>
@@ -157,7 +206,88 @@ async function refreshFunnel() {
     buildFunnelChart(f);
 }
 
+// Campaign ROI chart
+let _roiChart = null;
+async function loadCampaignROI() {
+    try {
+        const r = await fetch('/admin/api/dashboard/campaign_stats');
+        const d = await r.json();
+        if (!d.success) return;
+        const sentEl = document.getElementById('roi-sent');
+        const failedEl = document.getElementById('roi-failed');
+        const replyEl = document.getElementById('roi-reply-pct');
+        const successEl = document.getElementById('roi-success-pct');
+        if (sentEl) sentEl.textContent = d.total_sent.toLocaleString();
+        if (failedEl) failedEl.textContent = d.total_failed.toLocaleString();
+        if (replyEl) replyEl.textContent = d.reply_pct + '%';
+        const successPct = d.total_processed > 0 ? Math.round(d.total_sent / d.total_processed * 100) : 0;
+        if (successEl) successEl.textContent = successPct + '%';
+
+        const ctx = document.getElementById('campaignRoiChart');
+        if (!ctx) return;
+        const chartData = {
+            labels: ['Успешно', 'Ошибок', 'Ответили (%)'],
+            datasets: [{
+                data: [d.total_sent, d.total_failed, d.reply_pct],
+                backgroundColor: ['rgba(59,130,246,0.7)', 'rgba(248,113,113,0.7)', 'rgba(16,185,129,0.7)'],
+                borderColor: ['#3b82f6','#f87171','#10b981'],
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        };
+        if (_roiChart) { _roiChart.data = chartData; _roiChart.update(); }
+        else {
+            _roiChart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', font:{size:10} }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8', font:{size:10} }, grid: { color: '#1e3352' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+    } catch(e) {}
+}
+
+// Top operators
+async function loadTopOperators() {
+    try {
+        const r = await fetch('/admin/api/dashboard/leaders');
+        const d = await r.json();
+        if (!d.success) return;
+        const list = document.getElementById('top-operators-list');
+        if (!list) return;
+        if (!d.leaders.length) {
+            list.innerHTML = '<div class="text-center py-4 text-sm" style="color:var(--panel-muted);">Нет активности сегодня</div>';
+            return;
+        }
+        const maxVal = d.leaders[0].sent_today || 1;
+        const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        list.innerHTML = d.leaders.map((l, i) => `
+            <div class="flex items-center gap-3 py-1">
+                <span class="text-xs font-bold w-5 text-right flex-shrink-0" style="color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#a16207':'var(--panel-muted)'};">${i+1}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-0.5">
+                        <span class="text-xs font-medium truncate" style="color:var(--panel-text);">${esc(l.phone)}${l.username?` @${esc(l.username)}`:''}</span>
+                        <span class="text-xs font-bold ml-2 flex-shrink-0" style="color:var(--panel-accent);">${l.sent_today}</span>
+                    </div>
+                    <div class="h-1.5 rounded-full overflow-hidden" style="background:var(--panel-surface);">
+                        <div class="h-1.5 rounded-full" style="width:${Math.round(l.sent_today/maxVal*100)}%;background:var(--panel-accent);"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) {}
+}
+
 // Initial load
 refreshFunnel();
+loadCampaignROI();
+loadTopOperators();
 </script>
 {% endblock %}
