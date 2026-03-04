@@ -1,0 +1,230 @@
+{% extends 'admin/base.html' %}
+{% block title %}Контакты{% endblock %}
+{% block page_title %}Парсинг контактов и диалогов{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <!-- Controls -->
+  <div class="rounded-xl p-4 border flex flex-wrap gap-4 items-end" style="background:var(--panel-card);border-color:var(--panel-border);">
+    <div class="flex-1 min-w-[200px]">
+      <label class="block text-xs font-medium mb-1.5" style="color:var(--panel-muted);">Аккаунт</label>
+      <select id="account-select" class="w-full text-sm rounded-lg px-3 py-2.5 border outline-none" style="background:var(--panel-surface);border-color:var(--panel-border);color:var(--panel-text);">
+        <option value="">— выберите аккаунт —</option>
+        {% for acc in accounts %}
+        <option value="{{ acc.id }}">{{ acc.phone }}{% if acc.username %} (@{{ acc.username }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium mb-1.5" style="color:var(--panel-muted);">Лимит диалогов</label>
+      <input type="number" id="limit-input" value="100" min="10" max="500" class="w-24 text-sm rounded-lg px-3 py-2.5 border outline-none text-center" style="background:var(--panel-surface);border-color:var(--panel-border);color:var(--panel-text);">
+    </div>
+    <div class="flex gap-2">
+      <button onclick="loadDialogs()" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg btn-accent-glow text-white">
+        <i data-lucide="messages-square" class="w-4 h-4"></i> Диалоги
+      </button>
+      <button onclick="parseContacts()" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-colors" style="border-color:var(--panel-accent2);color:var(--panel-accent2);">
+        <i data-lucide="user-search" class="w-4 h-4"></i> Контакты
+      </button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status-bar" class="hidden rounded-lg px-4 py-2.5 text-sm flex items-center gap-2" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);color:var(--panel-accent);">
+    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+    <span id="status-text">Загрузка...</span>
+  </div>
+
+  <!-- Results tabs -->
+  <div id="results-section" class="hidden">
+    <div class="flex items-center gap-4 mb-4">
+      <button id="tab-dialogs" onclick="switchTab('dialogs')" class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors nav-accent-active">
+        <i data-lucide="message-circle" class="w-4 h-4 inline mr-1"></i>Диалоги <span id="dialogs-count" class="ml-1 text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(255,255,255,0.1);">0</span>
+      </button>
+      <button id="tab-contacts" onclick="switchTab('contacts')" class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors text-gray-500 nav-accent-hover">
+        <i data-lucide="contact" class="w-4 h-4 inline mr-1"></i>Контакты <span id="contacts-count" class="ml-1 text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(255,255,255,0.1);">0</span>
+      </button>
+      <div class="flex-1"></div>
+      <button onclick="exportCSV()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i> CSV
+      </button>
+    </div>
+
+    <!-- Dialogs table -->
+    <div id="pane-dialogs">
+      <div class="rounded-xl border overflow-hidden" style="border-color:var(--panel-border);">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead style="background:var(--panel-surface);">
+              <tr>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">#</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Название</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Тип</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Непрочитанных</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Последнее сообщение</th>
+              </tr>
+            </thead>
+            <tbody id="dialogs-tbody" class="divide-y" style="border-color:var(--panel-border);"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contacts table -->
+    <div id="pane-contacts" class="hidden">
+      <div class="rounded-xl border overflow-hidden" style="border-color:var(--panel-border);">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead style="background:var(--panel-surface);">
+              <tr>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">#</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Имя</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Username</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Телефон</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Telegram ID</th>
+                <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Premium</th>
+              </tr>
+            </thead>
+            <tbody id="contacts-tbody" class="divide-y" style="border-color:var(--panel-border);"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dialogsData = [];
+let contactsData = [];
+let currentTab = 'dialogs';
+
+function getAccountId() {
+    return document.getElementById('account-select').value;
+}
+function getLimit() {
+    return parseInt(document.getElementById('limit-input').value) || 100;
+}
+
+function showStatus(msg) {
+    const bar = document.getElementById('status-bar');
+    bar.classList.remove('hidden');
+    document.getElementById('status-text').textContent = msg;
+}
+function hideStatus() {
+    document.getElementById('status-bar').classList.add('hidden');
+}
+
+async function loadDialogs() {
+    const accountId = getAccountId();
+    if (!accountId) { showToast('Выберите аккаунт', 'error'); return; }
+    showStatus('Загружаем диалоги...');
+    try {
+        const r = await fetch('/admin/api/contacts/dialogs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({account_id: accountId, limit: getLimit()})
+        });
+        const d = await r.json();
+        if (!d.success) { showToast(d.error || 'Ошибка', 'error'); hideStatus(); return; }
+        dialogsData = d.dialogs || [];
+        renderDialogs(dialogsData);
+        document.getElementById('dialogs-count').textContent = dialogsData.length;
+        document.getElementById('results-section').classList.remove('hidden');
+        switchTab('dialogs');
+        showToast(`Загружено ${dialogsData.length} диалогов`, 'success');
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    } finally { hideStatus(); }
+}
+
+async function parseContacts() {
+    const accountId = getAccountId();
+    if (!accountId) { showToast('Выберите аккаунт', 'error'); return; }
+    showStatus('Парсим контакты из диалогов...');
+    try {
+        const r = await fetch('/admin/api/contacts/parse', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({account_id: accountId, limit: getLimit()})
+        });
+        const d = await r.json();
+        if (!d.success) { showToast(d.error || 'Ошибка', 'error'); hideStatus(); return; }
+        contactsData = d.contacts || [];
+        renderContacts(contactsData);
+        document.getElementById('contacts-count').textContent = contactsData.length;
+        document.getElementById('results-section').classList.remove('hidden');
+        switchTab('contacts');
+        showToast(`Найдено ${contactsData.length} контактов`, 'success');
+    } catch(e) {
+        showToast('Ошибка запроса', 'error');
+    } finally { hideStatus(); }
+}
+
+function renderDialogs(dialogs) {
+    const tbody = document.getElementById('dialogs-tbody');
+    if (!dialogs.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sm" style="color:var(--panel-muted);">Диалоги не найдены</td></tr>';
+        return;
+    }
+    tbody.innerHTML = dialogs.map((d, i) => `
+        <tr style="border-color:var(--panel-border);">
+            <td class="px-4 py-3 text-xs" style="color:var(--panel-muted);">${i+1}</td>
+            <td class="px-4 py-3 font-medium" style="color:var(--panel-text);">${esc(d.name || d.title || '—')}</td>
+            <td class="px-4 py-3">
+                <span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(37,99,235,0.15);color:var(--panel-accent);">${esc(d.type || 'private')}</span>
+            </td>
+            <td class="px-4 py-3 text-xs ${d.unread_count ? 'font-bold' : ''}" style="color:${d.unread_count ? '#f87171' : 'var(--panel-muted)'};">${d.unread_count || 0}</td>
+            <td class="px-4 py-3 text-xs" style="color:var(--panel-muted);">${esc(d.last_message || '—')}</td>
+        </tr>`).join('');
+}
+
+function renderContacts(contacts) {
+    const tbody = document.getElementById('contacts-tbody');
+    if (!contacts.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-sm" style="color:var(--panel-muted);">Контакты не найдены</td></tr>';
+        return;
+    }
+    tbody.innerHTML = contacts.map((c, i) => `
+        <tr style="border-color:var(--panel-border);">
+            <td class="px-4 py-3 text-xs" style="color:var(--panel-muted);">${i+1}</td>
+            <td class="px-4 py-3 font-medium" style="color:var(--panel-text);">${esc((c.first_name||'') + ' ' + (c.last_name||''))}</td>
+            <td class="px-4 py-3 text-xs" style="color:var(--panel-accent);">${c.username ? '@' + esc(c.username) : '—'}</td>
+            <td class="px-4 py-3 text-xs font-mono" style="color:var(--panel-text);">${esc(c.phone || '—')}</td>
+            <td class="px-4 py-3 text-xs font-mono" style="color:var(--panel-muted);">${c.user_id || '—'}</td>
+            <td class="px-4 py-3 text-xs">${c.premium ? '<span style="color:#a78bfa;">★ Premium</span>' : '—'}</td>
+        </tr>`).join('');
+}
+
+function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('pane-dialogs').classList.toggle('hidden', tab !== 'dialogs');
+    document.getElementById('pane-contacts').classList.toggle('hidden', tab !== 'contacts');
+    document.getElementById('tab-dialogs').className = `text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${tab==='dialogs' ? 'nav-accent-active' : 'text-gray-500 nav-accent-hover'}`;
+    document.getElementById('tab-contacts').className = `text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${tab==='contacts' ? 'nav-accent-active' : 'text-gray-500 nav-accent-hover'}`;
+}
+
+function exportCSV() {
+    const data = currentTab === 'contacts' ? contactsData : dialogsData;
+    if (!data.length) { showToast('Нет данных для экспорта', 'error'); return; }
+    let csv = '';
+    if (currentTab === 'contacts') {
+        csv = 'first_name,last_name,username,phone,user_id,premium\n' +
+            data.map(c => [c.first_name||'', c.last_name||'', c.username||'', c.phone||'', c.user_id||'', c.premium?'1':'0'].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    } else {
+        csv = 'name,type,unread_count,last_message\n' +
+            data.map(d => [d.name||d.title||'', d.type||'', d.unread_count||0, d.last_message||''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    }
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${currentTab}_export.csv`;
+    a.click();
+}
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

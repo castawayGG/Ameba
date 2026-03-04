@@ -173,10 +173,17 @@ function renderChatColumns() {
             </div>
             <div class="p-2 border-t flex-shrink-0" style="border-color: var(--panel-border);">
                 <div class="flex gap-2">
+                    <button onclick="toggleQuickReplies(${idx})" class="p-2 rounded-lg transition-colors flex-shrink-0" style="color: var(--panel-muted);" title="Быстрые ответы">
+                        <i data-lucide="message-square-reply" class="w-4 h-4"></i>
+                    </button>
                     <input id="chat-input-${idx}" type="text" placeholder="Сообщение..." class="flex-1 text-sm rounded-lg px-3 py-2 border outline-none" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text);" onkeydown="if(event.key==='Enter') sendChatMsg(${idx})">
                     <button onclick="sendChatMsg(${idx})" class="px-3 py-2 text-sm rounded-lg font-medium btn-accent-glow text-white flex-shrink-0">
                         <i data-lucide="send" class="w-4 h-4"></i>
                     </button>
+                </div>
+                <div id="qr-panel-${idx}" class="hidden mt-2 rounded-lg border p-2 max-h-32 overflow-y-auto" style="background: var(--panel-surface); border-color: var(--panel-border);">
+                    <div class="text-xs mb-1.5 font-medium" style="color: var(--panel-muted);">Быстрые ответы</div>
+                    <div id="qr-list-${idx}" class="space-y-1"></div>
                 </div>
             </div>
         </div>
@@ -272,5 +279,46 @@ async function loadUnreadCount() {
 loadInbox();
 loadUnreadCount();
 setInterval(() => { loadInbox(); loadUnreadCount(); }, 15000);
+
+// Quick Replies in inbox
+let quickRepliesCache = null;
+async function fetchQuickReplies() {
+    if (quickRepliesCache) return quickRepliesCache;
+    const r = await fetch('/admin/api/quick-replies');
+    const d = await r.json();
+    quickRepliesCache = d.success ? (d.items || []) : [];
+    return quickRepliesCache;
+}
+
+async function toggleQuickReplies(idx) {
+    const panel = document.getElementById(`qr-panel-${idx}`);
+    const list  = document.getElementById(`qr-list-${idx}`);
+    if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        const items = await fetchQuickReplies();
+        if (!items.length) {
+            list.innerHTML = '<div class="text-xs py-1" style="color:var(--panel-muted);">Нет шаблонов. <a href="/admin/quick-replies" class="underline" style="color:var(--panel-accent);">Создать</a></div>';
+        } else {
+            list.innerHTML = items.map((item, i) => `
+                <button data-qr-idx="${idx}" data-qr-content="${item.content.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"
+                        class="qr-btn w-full text-left px-2 py-1 rounded text-xs hover:bg-white/5 transition-colors truncate"
+                        style="color:var(--panel-text);" title="${item.title.replace(/"/g,'&quot;')}">
+                    ${item.shortcut ? `<span style="color:var(--panel-accent);" class="mr-1 font-mono">${item.shortcut.replace(/</g,'&lt;')}</span>` : ''}${item.title.replace(/</g,'&lt;')}
+                </button>`).join('');
+            list.querySelectorAll('.qr-btn').forEach(btn => {
+                btn.addEventListener('click', () => useQuickReply(parseInt(btn.dataset.qrIdx), btn.dataset.qrContent));
+            });
+        }
+        if (window.lucide) lucide.createIcons();
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+function useQuickReply(idx, content) {
+    const input = document.getElementById(`chat-input-${idx}`);
+    if (input) { input.value = content; input.focus(); }
+    document.getElementById(`qr-panel-${idx}`)?.classList.add('hidden');
+}
 </script>
 {% endblock %}
