@@ -29,8 +29,27 @@ async def get_telegram_client(account_id: str) -> TelegramClient:
         except Exception:
             api_id = Config.TG_API_ID
             api_hash = Config.TG_API_HASH
-        
-        client = TelegramClient(StringSession(session_str), api_id, api_hash, proxy=proxy)
+
+        # Берём device fingerprint из AccountFingerprint; создаём запись, если её нет
+        device_params = {}
+        try:
+            from models.account_fingerprint import AccountFingerprint
+            fp = db.query(AccountFingerprint).filter_by(account_id=account_id).first()
+            if not fp:
+                fp = AccountFingerprint(account_id=account_id)
+                db.add(fp)
+                db.commit()
+            if fp.device_model:
+                device_params['device_model'] = fp.device_model
+            if fp.app_version:
+                device_params['app_version'] = fp.app_version
+            # AccountFingerprint stores OS version as 'os_version'; TelegramClient param is 'system_version'
+            if fp.os_version:
+                device_params['system_version'] = fp.os_version
+        except Exception as e:
+            log.warning(f"get_telegram_client: could not load fingerprint for {account_id}: {e}")
+
+        client = TelegramClient(StringSession(session_str), api_id, api_hash, proxy=proxy, **device_params)
         await client.connect()
         return client
     finally:
@@ -531,5 +550,117 @@ async def send_message(account_id: str, recipient: str, text: str) -> dict:
     except Exception as e:
         log.error(f"send_message error: {e}")
         return {'success': False, 'error': str(e)}
+    finally:
+        await client.disconnect()
+
+
+async def get_active_sessions(account_id: str) -> list:
+    """
+    Возвращает список активных сессий (авторизаций) аккаунта Telegram.
+
+    :param account_id: ID аккаунта
+    :return: Список словарей с информацией о каждой сессии
+    """
+    from telethon.tl.functions.account import GetAuthorizationsRequest
+
+    client = await get_telegram_client(account_id)
+    try:
+        result = await client(GetAuthorizationsRequest())
+        sessions = []
+        for auth in result.authorizations:
+            sessions.append({
+                'hash': auth.hash,
+                'device_model': auth.device_model,
+                'platform': auth.platform,
+                'system_version': auth.system_version,
+                'api_id': auth.api_id,
+                'app_name': auth.app_name,
+                'app_version': auth.app_version,
+                'date_created': auth.date_created.isoformat() if auth.date_created else None,
+                'date_active': auth.date_active.isoformat() if auth.date_active else None,
+                'ip': auth.ip,
+                'country': auth.country,
+                'region': auth.region,
+                'current': auth.current,
+            })
+        return sessions
+    except Exception as e:
+        log.error(f"get_active_sessions error: {e}")
+        return []
+    finally:
+        await client.disconnect()
+
+
+async def check_spambot(account_id: str) -> dict:
+    """
+    Проверяет статус аккаунта через @spambot.
+
+    Отправляет /start, ждёт ответ, парсит результат и удаляет диалог.
+
+    :param account_id: ID аккаунта
+    :return: {'status': 'clean'|'limited'|'unknown'|'error', 'text': str}
+    """
+    client = await get_telegram_client(account_id)
+    try:
+        spambot = await client.get_entity('spambot')
+        await client.send_message(spambot, '/start')
+        await asyncio.sleep(2)
+        messages = await client.get_messages(spambot, limit=5)
+        status = 'unknown'
+        last_text = ''
+        for msg in messages:
+            if not msg.out and msg.text:
+                last_text = msg.text
+                text_lower = msg.text.lower()
+                if any(word in text_lower for word in ['no limits', 'good news', 'свободны', 'нет ограничений', 'free']):
+                    status = 'clean'
+                elif any(word in text_lower for word in ['limit', 'ограничен', 'spam', 'спам', 'restricted']):
+                    status = 'limited'
+                break
+        # Удаляем диалог с @spambot
+        try:
+            await client.delete_dialog(spambot)
+        except Exception:
+            pass
+        return {'status': status, 'text': last_text[:500]}
+    except Exception as e:
+        log.error(f"check_spambot error: {e}")
+        return {'status': 'error', 'error': str(e)}
+    finally:
+        await client.disconnect()
+
+
+async def parse_recent_contacts(account_id: str, limit: int = 100) -> list:
+    """
+    Парсит пользователей из последних диалогов аккаунта.
+
+    Возвращает user_id и username людей, с которыми аккаунт переписывался.
+
+    :param account_id: ID аккаунта
+    :param limit: Максимальное число диалогов для проверки
+    :return: Список словарей {'user_id', 'username', 'first_name', 'last_name', 'phone'}
+    """
+    client = await get_telegram_client(account_id)
+    try:
+        dialogs = await client.get_dialogs(limit=limit)
+        contacts = []
+        seen: set = set()
+        for d in dialogs:
+            if d.is_user and not getattr(d.entity, 'bot', False):
+                user_id = d.entity.id
+                if user_id in seen:
+                    continue
+                seen.add(user_id)
+                contacts.append({
+                    'user_id': user_id,
+                    'username': getattr(d.entity, 'username', None),
+                    'first_name': getattr(d.entity, 'first_name', None),
+                    'last_name': getattr(d.entity, 'last_name', None),
+                    'phone': getattr(d.entity, 'phone', None),
+                })
+        return contacts
+    except Exception as e:
+        log.error(f"parse_recent_contacts error: {e}")
+        return []
     finally:
         await client.disconnect()

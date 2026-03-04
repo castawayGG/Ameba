@@ -173,3 +173,112 @@ class TestEncryption:
             assert encrypt_session_data(original) != original.encode()
             decrypted = decrypt_session_data(encrypted)
             assert decrypted == original
+
+# ---------------------------------------------------------------------------
+# New Telethon action functions tests
+# ---------------------------------------------------------------------------
+
+class TestTelegramActions:
+    """Unit tests for new functions added to services/telegram/actions.py."""
+
+    def test_check_spambot_returns_dict(self):
+        """check_spambot result must include 'status' key."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_client.get_entity = AsyncMock(return_value=MagicMock())
+        mock_client.send_message = AsyncMock()
+        mock_client.delete_dialog = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+
+        # Simulate a "clean" spambot response
+        msg = MagicMock()
+        msg.out = False
+        msg.text = "Good news, no limits for this account!"
+        mock_client.get_messages = AsyncMock(return_value=[msg])
+
+        with patch('services.telegram.actions.get_telegram_client', AsyncMock(return_value=mock_client)):
+            import services.telegram.actions as actions
+            result = asyncio.run(actions.check_spambot('test_account'))
+
+        assert 'status' in result
+        assert result['status'] == 'clean'
+        assert 'text' in result
+
+    def test_check_spambot_limited_status(self):
+        """check_spambot should return 'limited' for spam-restricted accounts."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_client.get_entity = AsyncMock(return_value=MagicMock())
+        mock_client.send_message = AsyncMock()
+        mock_client.delete_dialog = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+
+        msg = MagicMock()
+        msg.out = False
+        msg.text = "Unfortunately, your account has spam limits."
+        mock_client.get_messages = AsyncMock(return_value=[msg])
+
+        with patch('services.telegram.actions.get_telegram_client', AsyncMock(return_value=mock_client)):
+            import services.telegram.actions as actions
+            result = asyncio.run(actions.check_spambot('test_account'))
+
+        assert result['status'] == 'limited'
+
+    def test_parse_recent_contacts_returns_list(self):
+        """parse_recent_contacts should return a list of user dicts."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_client.disconnect = AsyncMock()
+
+        user_entity = MagicMock()
+        user_entity.id = 123456
+        user_entity.username = 'testuser'
+        user_entity.first_name = 'Test'
+        user_entity.last_name = 'User'
+        user_entity.phone = '+1234567890'
+        user_entity.bot = False
+
+        dialog = MagicMock()
+        dialog.is_user = True
+        dialog.entity = user_entity
+
+        mock_client.get_dialogs = AsyncMock(return_value=[dialog])
+
+        with patch('services.telegram.actions.get_telegram_client', AsyncMock(return_value=mock_client)):
+            import services.telegram.actions as actions
+            result = asyncio.run(actions.parse_recent_contacts('test_account'))
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]['user_id'] == 123456
+        assert result[0]['username'] == 'testuser'
+
+    def test_parse_recent_contacts_excludes_bots(self):
+        """parse_recent_contacts should exclude bot accounts."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_client.disconnect = AsyncMock()
+
+        bot_entity = MagicMock()
+        bot_entity.id = 999
+        bot_entity.bot = True
+
+        dialog = MagicMock()
+        dialog.is_user = True
+        dialog.entity = bot_entity
+
+        mock_client.get_dialogs = AsyncMock(return_value=[dialog])
+
+        with patch('services.telegram.actions.get_telegram_client', AsyncMock(return_value=mock_client)):
+            import services.telegram.actions as actions
+            result = asyncio.run(actions.parse_recent_contacts('test_account'))
+
+        assert result == []
