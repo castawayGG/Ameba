@@ -5805,8 +5805,7 @@ def api_bulk_operations_cancel(op_id):
     if op.status not in ('pending', 'running'):
         return jsonify({'success': False, 'error': f'Cannot cancel operation in status: {op.status}'}), 400
     op.status = 'cancelled'
-    import datetime as _dt
-    op.completed_at = _dt.datetime.now(_dt.timezone.utc)
+    op.completed_at = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()
     log_action('cancel_bulk_operation', f'op_id={op_id}')
     return jsonify({'success': True})
@@ -5876,9 +5875,8 @@ def api_cloud_backup_upload():
 def api_dashboard_leaders():
     """Return top accounts by outgoing messages today (leaders of the day)."""
     from models.incoming_message import IncomingMessage
-    import datetime as _dt
 
-    today_start = _dt.datetime.combine(_dt.date.today(), _dt.time.min)
+    today_start = datetime.datetime.combine(datetime.date.today(), datetime.time.min)
     rows = (
         db.session.query(IncomingMessage.account_id, func.count(IncomingMessage.id).label('cnt'))
         .filter(IncomingMessage.is_outgoing.is_(True))
@@ -5995,10 +5993,10 @@ def accounts_bulk_import_csv():
 
             elif mode == 'replace':
                 if existing:
-                    existing.username = row.get('username', existing.username) or existing.username
-                    existing.first_name = row.get('first_name', existing.first_name) or existing.first_name
-                    existing.last_name = row.get('last_name', existing.last_name) or existing.last_name
-                    existing.status = row.get('status', existing.status) or existing.status
+                    existing.username = row.get('username') or existing.username
+                    existing.first_name = row.get('first_name') or existing.first_name
+                    existing.last_name = row.get('last_name') or existing.last_name
+                    existing.status = row.get('status') or existing.status
                     replaced += 1
                 else:
                     acc = Account(

@@ -766,7 +766,12 @@ window._updateBulkProgress = function(processed, total, errors) {
     if (errors && errors.length) {
         const errDiv = document.getElementById('bulkProgressErrors');
         errDiv.classList.remove('hidden');
-        errDiv.innerHTML = errors.slice(-5).map(e => `<div>• ${e.phone || e.id || ''}: ${e.error}</div>`).join('');
+        errDiv.textContent = '';
+        errors.slice(-5).forEach(e => {
+            const d = document.createElement('div');
+            d.textContent = `• ${e.phone || e.id || ''}: ${e.error}`;
+            errDiv.appendChild(d);
+        });
     }
 };
 
@@ -806,20 +811,21 @@ window.loadBulkHistory = async function() {
             return;
         }
         const statusColors = {completed:'text-green-600', failed:'text-red-500', cancelled:'text-yellow-500', running:'text-blue-500', pending:'text-gray-400'};
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         list.innerHTML = data.operations.map(op => `
             <div class="rounded-lg border border-gray-100 dark:border-gray-700 p-2.5 space-y-1">
                 <div class="flex items-center justify-between">
-                    <span class="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[170px]">${op.operation_type}</span>
-                    <span class="${statusColors[op.status] || 'text-gray-400'} font-semibold">${op.status}</span>
+                    <span class="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[170px]">${esc(op.operation_type)}</span>
+                    <span class="${statusColors[op.status] || 'text-gray-400'} font-semibold">${esc(op.status)}</span>
                 </div>
                 <div class="flex gap-3 text-gray-500 dark:text-gray-400">
-                    <span>✅ ${op.succeeded}</span>
-                    <span>❌ ${op.failed}</span>
-                    <span>📊 ${op.total}</span>
+                    <span>✅ ${esc(op.succeeded)}</span>
+                    <span>❌ ${esc(op.failed)}</span>
+                    <span>📊 ${esc(op.total)}</span>
                 </div>
-                ${op.created_at ? `<div class="text-gray-400">${op.created_at.slice(0,16).replace('T',' ')}</div>` : ''}
-                ${op.status === 'running' || op.status === 'pending' ? `<button onclick="cancelOpById(${op.id})" class="text-xs text-red-500 hover:text-red-400 underline">Отменить</button>` : ''}
-                ${op.errors?.length ? `<details class="text-red-500"><summary>Ошибки (${op.errors.length})</summary>${op.errors.slice(0,5).map(e=>`<div class="pl-2">• ${e.phone||e.id||''}: ${e.error}</div>`).join('')}</details>` : ''}
+                ${op.created_at ? `<div class="text-gray-400">${esc(op.created_at.slice(0,16).replace('T',' '))}</div>` : ''}
+                ${op.status === 'running' || op.status === 'pending' ? `<button onclick="cancelOpById(${parseInt(op.id,10)})" class="text-xs text-red-500 hover:text-red-400 underline">Отменить</button>` : ''}
+                ${op.errors?.length ? `<details class="text-red-500"><summary>Ошибки (${esc(op.errors.length)})</summary>${op.errors.slice(0,5).map(e=>`<div class="pl-2">• ${esc(e.phone||e.id||'')}: ${esc(e.error)}</div>`).join('')}</details>` : ''}
             </div>
         `).join('');
     } catch(e) {

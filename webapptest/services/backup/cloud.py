@@ -74,7 +74,10 @@ def _upload_google_drive(file_path: Path, credentials_json: str, folder_id: str 
             'Install them with: pip install google-auth google-api-python-client'
         )
 
-    credentials_info = json.loads(credentials_json)
+    try:
+        credentials_info = json.loads(credentials_json)
+    except json.JSONDecodeError as e:
+        raise ValueError(f'Invalid Google credentials JSON format: {e}') from e
     creds = service_account.Credentials.from_service_account_info(
         credentials_info,
         scopes=['https://www.googleapis.com/auth/drive.file'],

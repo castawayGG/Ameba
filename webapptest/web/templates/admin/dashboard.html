@@ -352,13 +352,14 @@ loadChart('week');
             return;
         }
         const medals = ['🥇','🥈','🥉'];
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         list.innerHTML = data.leaders.map((l, i) => `
             <div class="flex items-center px-5 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                <span class="text-lg w-7 flex-shrink-0">${medals[i] || (i+1)+'.'}</span>
+                <span class="text-lg w-7 flex-shrink-0" aria-label="${i+1}">${medals[i] || (i+1)+'.'}</span>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${l.phone}${l.username ? ' @'+l.username : ''}</p>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${esc(l.phone)}${l.username ? ' @'+esc(l.username) : ''}</p>
                 </div>
-                <span class="text-sm font-bold text-blue-600 dark:text-blue-400 ml-3">${l.sent_today} сообщ.</span>
+                <span class="text-sm font-bold text-blue-600 dark:text-blue-400 ml-3">${esc(l.sent_today)}</span>
             </div>
         `).join('');
     } catch(e) {
