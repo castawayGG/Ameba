@@ -1,0 +1,175 @@
+{% extends "admin/base.html" %}
+{% block title %}Авто-импорт номеров{% endblock %}
+{% block breadcrumbs %}
+<nav class="flex items-center gap-2 text-sm text-panel-muted mb-4">
+  <a href="{{ url_for('admin.dashboard') }}" class="hover:text-white transition-colors">Главная</a>
+  <span>/</span>
+  <span class="text-white">Авто-импорт номеров</span>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="p-6 space-y-6 max-w-2xl">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-white">🔌 Авто-импорт номеров</h1>
+  </div>
+  <p class="text-panel-muted text-sm">
+    Загружает список номеров из внешнего HTTP-источника и добавляет их как неактивные аккаунты.
+    Уже существующие номера пропускаются.
+  </p>
+
+  <!-- Settings form -->
+  <div class="bg-panel-card rounded-xl border border-panel-border p-6 space-y-4">
+    <h2 class="text-base font-semibold text-white mb-2">Настройки источника</h2>
+
+    <div>
+      <label class="block text-xs text-panel-muted mb-1">Тип источника</label>
+      <select id="sourceType" class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+        <option value="custom_json" {% if settings.get('number_import_type','custom_json')=='custom_json' %}selected{% endif %}>Custom JSON API</option>
+        <option value="csv_url" {% if settings.get('number_import_type')==' csv_url' %}selected{% endif %}>Remote CSV / TXT URL</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-xs text-panel-muted mb-1">URL источника</label>
+      <input id="sourceUrl" type="url" placeholder="https://api.example.com/numbers"
+             value="{{ settings.get('number_import_url', '') }}"
+             class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+    </div>
+
+    <div>
+      <label class="block text-xs text-panel-muted mb-1">Authorization header (опционально)</label>
+      <input id="authHeader" type="text" placeholder="Bearer TOKEN"
+             value="{{ settings.get('number_import_auth', '') }}"
+             class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+      <p class="text-xs text-panel-muted mt-1">Значение заголовка Authorization. Оставьте пустым, если не нужен.</p>
+    </div>
+
+    <div id="jsonPathRow">
+      <label class="block text-xs text-panel-muted mb-1">JSON path (опционально)</label>
+      <input id="jsonPath" type="text" placeholder="data.items"
+             value="{{ settings.get('number_import_json_path', '') }}"
+             class="w-full px-3 py-2 rounded-lg text-sm bg-panel-surface border border-panel-border text-white">
+      <p class="text-xs text-panel-muted mt-1">Путь через точку к массиву номеров в JSON-ответе. Например: <code>data.phones</code></p>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button onclick="saveSettings()" class="px-4 py-2 rounded-lg text-sm font-medium text-white btn-accent-glow">
+        💾 Сохранить настройки
+      </button>
+      <button onclick="runImport()" id="runBtn" class="px-4 py-2 rounded-lg text-sm font-medium bg-green-700 hover:bg-green-600 text-white">
+        ▶ Запустить импорт
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultBox" class="hidden bg-panel-card rounded-xl border border-panel-border p-5 space-y-2">
+    <h3 class="text-sm font-semibold text-white">Результат импорта</h3>
+    <div id="resultContent" class="text-sm text-panel-muted space-y-1"></div>
+  </div>
+
+  <!-- Help -->
+  <div class="bg-panel-surface rounded-xl border border-panel-border p-5 text-sm text-panel-muted space-y-2">
+    <p class="font-semibold text-white">📖 Поддерживаемые форматы</p>
+    <ul class="list-disc list-inside space-y-1">
+      <li><strong>Custom JSON API</strong> — эндпоинт возвращает JSON-массив строк / объектов с полем <code>phone</code>/<code>number</code>/<code>tel</code>.</li>
+      <li><strong>Remote CSV / TXT URL</strong> — файл с номерами в первой колонке (по одному на строку).</li>
+    </ul>
+    <p class="mt-2">Пример JSON-ответа:</p>
+    <pre class="bg-black/30 rounded p-3 text-xs overflow-x-auto">{"data": {"phones": ["+79001234567", "+79007654321"]}}</pre>
+    <p>JSON path для примера выше: <code>data.phones</code></p>
+  </div>
+</div>
+
+<script>
+  // Hide JSON path row for CSV mode
+  document.getElementById('sourceType').addEventListener('change', function() {
+    document.getElementById('jsonPathRow').style.display =
+      this.value === 'csv_url' ? 'none' : '';
+  });
+  if (document.getElementById('sourceType').value === 'csv_url') {
+    document.getElementById('jsonPathRow').style.display = 'none';
+  }
+
+  async function saveSettings() {
+    const payload = {
+      number_import_url: document.getElementById('sourceUrl').value.trim(),
+      number_import_type: document.getElementById('sourceType').value,
+      number_import_auth: document.getElementById('authHeader').value.trim(),
+      number_import_json_path: document.getElementById('jsonPath').value.trim(),
+    };
+    const r = await fetch('/admin/api/number_import/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.success) {
+      showToast('Настройки сохранены', 'success');
+    } else {
+      showToast(d.error || 'Ошибка сохранения', 'error');
+    }
+  }
+
+  async function runImport() {
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Импортирую…';
+    const resultBox = document.getElementById('resultBox');
+    const resultContent = document.getElementById('resultContent');
+    resultBox.classList.add('hidden');
+
+    const payload = {
+      url: document.getElementById('sourceUrl').value.trim(),
+      source_type: document.getElementById('sourceType').value,
+      auth_header: document.getElementById('authHeader').value.trim() || null,
+      json_path: document.getElementById('jsonPath').value.trim(),
+    };
+
+    try {
+      const r = await fetch('/admin/api/number_import/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      resultBox.classList.remove('hidden');
+      if (d.success) {
+        resultContent.innerHTML = `
+          <p>✅ Загружено номеров: <strong class="text-white">${d.fetched}</strong></p>
+          <p>➕ Добавлено новых: <strong class="text-green-400">${d.added}</strong></p>
+          <p>⏭ Пропущено (дубли): <strong class="text-yellow-400">${d.skipped}</strong></p>
+          ${d.message ? `<p class="text-panel-muted italic">${esc(d.message)}</p>` : ''}
+        `;
+        showToast(`Импорт завершён: +${d.added} аккаунтов`, 'success');
+      } else {
+        resultContent.innerHTML = `<p class="text-red-400">❌ ${esc(d.error || 'Неизвестная ошибка')}</p>`;
+        showToast(d.error || 'Ошибка импорта', 'error');
+      }
+    } catch (err) {
+      resultBox.classList.remove('hidden');
+      resultContent.innerHTML = `<p class="text-red-400">❌ Сетевая ошибка: ${esc(String(err))}</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '▶ Запустить импорт';
+    }
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showToast(msg, type) {
+    // Reuse existing toast if defined in base template, else console.log
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, type);
+    } else {
+      console.log(`[${type}] ${msg}`);
+    }
+  }
+</script>
+{% endblock %}

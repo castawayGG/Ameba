@@ -255,6 +255,9 @@ def accounts():
     per_page = 25
 
     stmt = select(Account).order_by(desc(Account.created_at))
+    # Non-superadmin users see only their own accounts (team isolation)
+    if current_user.role != 'superadmin':
+        stmt = stmt.filter(Account.owner_id == current_user.id)
     if phone_filter:
         stmt = stmt.filter(Account.phone.contains(phone_filter))
     if status_filter:
@@ -748,6 +751,9 @@ def accounts_bulk_delete():
         for aid in ids:
             account = db.session.get(Account, aid)
             if account:
+                # Non-superadmin can only delete their own accounts
+                if current_user.role != 'superadmin' and account.owner_id != current_user.id:
+                    continue
                 db.session.delete(account)
                 deleted += 1
         db.session.commit()
@@ -1008,7 +1014,11 @@ def proxies_bulk_import():
 @login_required
 def export_accounts():
     from services.export.excel import ExcelExporter
-    accounts = db.session.execute(select(Account)).scalars().all()
+    stmt = select(Account)
+    # Non-superadmin users export only their own accounts
+    if current_user.role != 'superadmin':
+        stmt = stmt.filter(Account.owner_id == current_user.id)
+    accounts = db.session.execute(stmt).scalars().all()
     file_data = ExcelExporter.export_accounts(accounts)
     return send_file(
         file_data,
@@ -1897,7 +1907,11 @@ def api_accounts_health_stats():
 @admin_bp.route('/export/accounts/csv')
 @login_required
 def export_accounts_csv():
-    accounts = db.session.query(Account).all()
+    # Non-superadmin users export only their own accounts
+    if current_user.role != 'superadmin':
+        accounts = db.session.query(Account).filter(Account.owner_id == current_user.id).all()
+    else:
+        accounts = db.session.query(Account).all()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['ID', 'Phone', 'Username', 'First Name', 'Last Name', 'Status', 'Premium', 'Created At'])
@@ -1912,7 +1926,11 @@ def export_accounts_csv():
 @admin_bp.route('/export/accounts/txt')
 @login_required
 def export_accounts_txt():
-    accounts = db.session.query(Account).all()
+    # Non-superadmin users export only their own accounts
+    if current_user.role != 'superadmin':
+        accounts = db.session.query(Account).filter(Account.owner_id == current_user.id).all()
+    else:
+        accounts = db.session.query(Account).all()
     phones = '\n'.join(a.phone for a in accounts)
     return send_file(io.BytesIO(phones.encode('utf-8')),
                      mimetype='text/plain', as_attachment=True,
@@ -6126,4 +6144,143 @@ def accounts_bulk_import_csv():
         'deleted': deleted,
         'skipped': skipped,
         'errors': errors,
+    })
+
+
+# ==========================================
+# AUTO-API IMPORT CONNECTOR
+# ==========================================
+
+@admin_bp.route('/number_import')
+@login_required
+def number_import():
+    """Page for importing phone numbers from external HTTP APIs."""
+    from models.panel_settings import PanelSettings
+    keys = [
+        'number_import_url', 'number_import_type',
+        'number_import_auth', 'number_import_json_path',
+    ]
+    settings = {
+        s.key: s.value
+        for s in db.session.query(PanelSettings).filter(PanelSettings.key.in_(keys)).all()
+    }
+    return render_template('admin/number_import.html', settings=settings)
+
+
+@admin_bp.route('/api/number_import/settings', methods=['GET'])
+@login_required
+def api_number_import_settings_get():
+    """Return saved connector settings."""
+    from models.panel_settings import PanelSettings
+    keys = [
+        'number_import_url', 'number_import_type',
+        'number_import_auth', 'number_import_json_path',
+    ]
+    settings = {
+        s.key: s.value
+        for s in db.session.query(PanelSettings).filter(PanelSettings.key.in_(keys)).all()
+    }
+    return jsonify({'success': True, 'settings': settings})
+
+
+@admin_bp.route('/api/number_import/settings', methods=['POST'])
+@login_required
+def api_number_import_settings_save():
+    """Save connector settings."""
+    from models.panel_settings import PanelSettings
+    data = request.get_json() or {}
+    allowed = {
+        'number_import_url', 'number_import_type',
+        'number_import_auth', 'number_import_json_path',
+    }
+    for k, v in data.items():
+        if k not in allowed:
+            continue
+        s = db.session.query(PanelSettings).filter_by(key=k).first()
+        if s:
+            s.value = str(v)
+        else:
+            db.session.add(PanelSettings(key=k, value=str(v)))
+    db.session.commit()
+    log_action('number_import_settings_save', '')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/number_import/run', methods=['POST'])
+@login_required
+def api_number_import_run():
+    """
+    Fetch numbers from the configured external source and create Account rows.
+
+    Request JSON (all optional – fallback to stored PanelSettings):
+      url, source_type, auth_header, json_path
+    """
+    from models.panel_settings import PanelSettings
+    import services.accounts.number_import as _nim
+
+    stored = {
+        s.key: s.value
+        for s in db.session.query(PanelSettings).filter(
+            PanelSettings.key.in_([
+                'number_import_url', 'number_import_type',
+                'number_import_auth', 'number_import_json_path',
+            ])
+        ).all()
+    }
+
+    body = request.get_json() or {}
+    url = body.get('url') or stored.get('number_import_url', '')
+    source_type = body.get('source_type') or stored.get('number_import_type', 'custom_json')
+    auth_header = body.get('auth_header') or stored.get('number_import_auth') or None
+    json_path = body.get('json_path') or stored.get('number_import_json_path', '')
+
+    if not url:
+        return jsonify({'success': False, 'error': 'URL источника не указан'}), 400
+
+    if source_type not in _nim.SUPPORTED_SOURCE_TYPES:
+        return jsonify({'success': False, 'error': f'Неизвестный тип: {source_type}'}), 400
+
+    numbers, error = _nim.fetch_numbers(
+        url=url,
+        source_type=source_type,
+        auth_header=auth_header,
+        json_path=json_path,
+    )
+
+    if error:
+        return jsonify({'success': False, 'error': error}), 502
+
+    if not numbers:
+        return jsonify({'success': True, 'fetched': 0, 'added': 0, 'skipped': 0,
+                        'message': 'Источник вернул пустой список номеров'})
+
+    # Persist new accounts, skipping existing phones
+    added = 0
+    skipped = 0
+    for phone in numbers:
+        exists = db.session.execute(
+            select(Account).filter_by(phone=phone)
+        ).scalar_one_or_none()
+        if exists:
+            skipped += 1
+            continue
+        acc = Account(
+            id=uuid.uuid4().hex,
+            phone=phone,
+            status='inactive',
+            owner_id=current_user.id,
+        )
+        db.session.add(acc)
+        added += 1
+
+    db.session.commit()
+    log_action(
+        'number_import_run',
+        f'source_type={source_type} fetched={len(numbers)} added={added} skipped={skipped}',
+    )
+    return jsonify({
+        'success': True,
+        'fetched': len(numbers),
+        'added': added,
+        'skipped': skipped,
     })
