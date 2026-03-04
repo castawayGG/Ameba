@@ -1,0 +1,201 @@
+{% extends 'admin/base.html' %}
+{% block title %}Быстрые ответы{% endblock %}
+{% block page_title %}Шаблоны быстрых ответов{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('createModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-accent-glow">
+    <i data-lucide="plus" class="w-4 h-4"></i> Новый шаблон
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Create/Edit Modal -->
+<div id="createModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
+  <div class="rounded-xl shadow-xl w-full max-w-lg mx-4 modal-panel" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+    <div class="px-6 py-4 border-b flex justify-between items-center" style="border-color:var(--panel-border);">
+      <h3 id="modal-title" class="text-base font-semibold" style="color:var(--panel-text);">Новый шаблон быстрого ответа</h3>
+      <button onclick="closeModal('createModal')" style="color:var(--panel-muted);" class="hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <input type="hidden" id="edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Название</label>
+          <input type="text" id="qr-title" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="Приветствие">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Категория</label>
+          <select id="qr-category" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);">
+            <option value="general">Общее</option>
+            <option value="greeting">Приветствие</option>
+            <option value="offer">Предложение</option>
+            <option value="followup">Напоминание</option>
+            <option value="closing">Завершение</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Ярлык (команда, необязательно)</label>
+        <input type="text" id="qr-shortcut" class="w-full px-3 py-2 rounded-lg text-sm border" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="/hello">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1" style="color:var(--panel-muted);">Текст ответа</label>
+        <textarea id="qr-content" rows="5" class="w-full px-3 py-2 rounded-lg text-sm border font-mono" style="background:#071220;border-color:var(--panel-border);color:var(--panel-text);" placeholder="Введите текст шаблона..."></textarea>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeModal('createModal')" class="px-4 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">Отмена</button>
+        <button onclick="saveTemplate()" class="px-4 py-2 text-sm rounded-lg btn-accent-glow text-white">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="flex items-center gap-3 mb-4">
+  <select id="cat-filter" onchange="filterByCategory()" class="px-3 py-2 text-sm rounded-lg border" style="background:var(--panel-card);border-color:var(--panel-border);color:var(--panel-text);">
+    <option value="">Все категории</option>
+    {% for cat in categories %}
+    <option value="{{ cat }}">{{ cat }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" id="search-input" oninput="searchTemplates()" placeholder="Поиск..." class="px-3 py-2 text-sm rounded-lg border flex-1 max-w-xs" style="background:var(--panel-card);border-color:var(--panel-border);color:var(--panel-text);">
+  <span id="count-badge" class="text-xs" style="color:var(--panel-muted);">{{ items|length }} шаблонов</span>
+</div>
+
+<!-- Templates grid -->
+<div id="templates-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for item in items %}
+  <div class="qr-card rounded-xl p-4 border flex flex-col gap-2"
+       data-id="{{ item.id }}"
+       data-category="{{ item.category }}"
+       data-title="{{ item.title|lower }}"
+       style="background:var(--panel-card);border-color:var(--panel-border);">
+    <div class="flex items-center justify-between">
+      <span class="text-sm font-semibold" style="color:var(--panel-text);">{{ item.title }}</span>
+      <div class="flex items-center gap-1">
+        <button onclick='editTemplate({{ item.to_dict()|tojson }})' class="p-1.5 rounded-lg transition-colors" style="color:var(--panel-muted);" title="Редактировать">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="copyTemplate({{ item.id }}, this)" class="p-1.5 rounded-lg transition-colors" style="color:var(--panel-muted);" title="Копировать текст">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="deleteTemplate({{ item.id }})" class="p-1.5 rounded-lg transition-colors" style="color:var(--panel-muted);" title="Удалить">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+    {% if item.shortcut %}
+    <div class="text-xs font-mono px-1.5 py-0.5 rounded w-fit" style="background:rgba(37,99,235,0.15);color:var(--panel-accent);">{{ item.shortcut }}</div>
+    {% endif %}
+    <p class="text-xs leading-relaxed flex-1 line-clamp-3" style="color:var(--panel-muted);">{{ item.content }}</p>
+    <div class="text-xs mt-1" style="color:var(--panel-muted);">
+      <span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(255,255,255,0.05);">{{ item.category }}</span>
+    </div>
+  </div>
+  {% else %}
+  <div id="empty-state" class="col-span-3 text-center py-16" style="color:var(--panel-muted);">
+    <i data-lucide="message-square" class="w-10 h-10 mx-auto mb-3 opacity-30"></i>
+    <p class="text-sm">Нет шаблонов. Создайте первый!</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let editingId = null;
+
+function openModal(id) {
+    document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    editingId = null;
+    document.getElementById('edit-id').value = '';
+    document.getElementById('qr-title').value = '';
+    document.getElementById('qr-content').value = '';
+    document.getElementById('qr-shortcut').value = '';
+    document.getElementById('qr-category').value = 'general';
+    document.getElementById('modal-title').textContent = 'Новый шаблон быстрого ответа';
+}
+
+function editTemplate(item) {
+    editingId = item.id;
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('qr-title').value = item.title;
+    document.getElementById('qr-content').value = item.content;
+    document.getElementById('qr-shortcut').value = item.shortcut || '';
+    document.getElementById('qr-category').value = item.category || 'general';
+    document.getElementById('modal-title').textContent = 'Редактировать шаблон';
+    openModal('createModal');
+}
+
+async function saveTemplate() {
+    const title = document.getElementById('qr-title').value.trim();
+    const content = document.getElementById('qr-content').value.trim();
+    if (!title || !content) { showToast('Заполните название и текст', 'error'); return; }
+    const payload = {
+        title,
+        content,
+        category: document.getElementById('qr-category').value,
+        shortcut: document.getElementById('qr-shortcut').value.trim() || null,
+    };
+    const method = editingId ? 'PUT' : 'POST';
+    const url = editingId ? `/admin/api/quick-replies/${editingId}` : '/admin/api/quick-replies';
+    const r = await fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    if (d.success) {
+        showToast(editingId ? 'Шаблон обновлён' : 'Шаблон создан', 'success');
+        closeModal('createModal');
+        setTimeout(() => location.reload(), 600);
+    } else {
+        showToast(d.error || 'Ошибка', 'error');
+    }
+}
+
+async function deleteTemplate(id) {
+    if (!confirm('Удалить шаблон?')) return;
+    const r = await fetch(`/admin/api/quick-replies/${id}`, {method: 'DELETE'});
+    const d = await r.json();
+    if (d.success) {
+        showToast('Шаблон удалён', 'success');
+        document.querySelector(`.qr-card[data-id="${id}"]`)?.remove();
+    } else {
+        showToast(d.error || 'Ошибка', 'error');
+    }
+}
+
+function copyTemplate(id, btn) {
+    const card = document.querySelector(`.qr-card[data-id="${id}"]`);
+    const text = card?.querySelector('p')?.textContent?.trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Скопировано', 'success');
+    });
+}
+
+function filterByCategory() {
+    const cat = document.getElementById('cat-filter').value;
+    const cards = document.querySelectorAll('.qr-card');
+    let visible = 0;
+    cards.forEach(c => {
+        const show = !cat || c.dataset.category === cat;
+        c.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('count-badge').textContent = `${visible} шаблонов`;
+}
+
+function searchTemplates() {
+    const q = document.getElementById('search-input').value.toLowerCase();
+    const cards = document.querySelectorAll('.qr-card');
+    let visible = 0;
+    cards.forEach(c => {
+        const show = !q || c.dataset.title.includes(q) || c.querySelector('p')?.textContent?.toLowerCase()?.includes(q);
+        c.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('count-badge').textContent = `${visible} шаблонов`;
+}
+</script>
+{% endblock %}

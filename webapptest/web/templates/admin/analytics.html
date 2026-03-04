@@ -1,63 +1,65 @@
 {% extends "admin/base.html" %}
 {% block title %}Аналитика{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-3">
+    <button onclick="refreshFunnel()" class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Обновить
+    </button>
+    {% for d in [7, 14, 30, 90] %}
+    <a href="{{ url_for('admin.analytics', days=d) }}" class="px-3 py-1.5 text-sm rounded-lg {% if days == d %}nav-accent-active{% else %}text-gray-400 nav-accent-hover{% endif %}">{{ d }}д</a>
+    {% endfor %}
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="p-6 space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">📊 Аналитика</h1>
-        <div class="flex gap-2">
-            {% for d in [7, 14, 30, 90] %}
-            <a href="{{ url_for('admin.analytics', days=d) }}" class="px-3 py-1 text-sm rounded-lg {% if days == d %}nav-accent-active{% else %}text-gray-400 nav-accent-hover{% endif %}">{{ d }}д</a>
-            {% endfor %}
+<div class="space-y-6">
+    <!-- Live Funnel Cards -->
+    <div id="funnel-cards" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {% set funnel_items = [
+            ('visited',       'Визиты',         'eye',      '#94a3b8'),
+            ('phone_entered', 'Ввели телефон',   'phone',    '#60a5fa'),
+            ('code_entered',  'Ввели код',       'key',      '#fbbf24'),
+            ('logged_in',     'Вошли',           'log-in',   '#34d399'),
+            ('twofa_passed',  '2FA пройдено',    'shield',   '#a78bfa'),
+        ] %}
+        {% for key, label, icon, color in funnel_items %}
+        <div class="rounded-xl p-4 border text-center" style="background:var(--panel-card);border-color:var(--panel-border);">
+            <i data-lucide="{{ icon }}" class="w-5 h-5 mx-auto mb-2" style="color:{{ color }};"></i>
+            <div id="fc-{{ key }}" class="text-3xl font-bold" style="color:{{ color }};">{{ funnel.get(key, 0) if funnel else 0 }}</div>
+            <div class="text-xs mt-1" style="color:var(--panel-muted);">{{ label }}</div>
+            {% if key != 'visited' %}
+            <div id="fp-{{ key }}" class="text-xs mt-1 font-semibold" style="color:{{ color }};"></div>
+            {% endif %}
         </div>
+        {% endfor %}
     </div>
 
-    <!-- Funnel Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
-            <div class="text-3xl font-bold text-white">{{ funnel.visited }}</div>
-            <div class="text-xs text-panel-muted mt-1">Визитов</div>
+    <!-- Conversion Rate -->
+    <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold uppercase tracking-wider" style="color:var(--panel-muted);">Воронка конверсии</h3>
+            <span id="conv-rate" class="text-lg font-bold" style="color:#34d399;">—</span>
         </div>
-        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
-            <div class="text-3xl font-bold text-blue-400">{{ funnel.phone_entered }}</div>
-            <div class="text-xs text-panel-muted mt-1">Ввели телефон</div>
-        </div>
-        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
-            <div class="text-3xl font-bold text-yellow-400">{{ funnel.code_sent }}</div>
-            <div class="text-xs text-panel-muted mt-1">Код отправлен</div>
-        </div>
-        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
-            <div class="text-3xl font-bold text-green-400">{{ funnel.logged_in }}</div>
-            <div class="text-xs text-panel-muted mt-1">Вошли</div>
-        </div>
-        <div class="bg-panel-card rounded-xl p-4 border border-panel-border text-center">
-            <div class="text-3xl font-bold text-emerald-400">{{ funnel.twofa_passed }}</div>
-            <div class="text-xs text-panel-muted mt-1">2FA пройдено</div>
-        </div>
+        <canvas id="funnelChart" height="80"></canvas>
     </div>
 
-    <!-- Charts -->
+    <!-- Charts row -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
-            <h3 class="text-sm font-semibold text-panel-muted mb-4">Визиты за {{ days }} дней</h3>
+        <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--panel-muted);">Визиты за {{ days }} дней</h3>
             <canvas id="visitsChart" height="200"></canvas>
         </div>
-        <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
-            <h3 class="text-sm font-semibold text-panel-muted mb-4">Топ стран</h3>
+        <div class="rounded-xl p-5 border" style="background:var(--panel-card);border-color:var(--panel-border);">
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--panel-muted);">Топ стран</h3>
             <canvas id="countryChart" height="200"></canvas>
         </div>
-    </div>
-
-    <!-- Funnel Chart -->
-    <div class="bg-panel-card rounded-xl p-5 border border-panel-border">
-        <h3 class="text-sm font-semibold text-panel-muted mb-4">Воронка конверсии</h3>
-        <canvas id="funnelChart" height="100"></canvas>
     </div>
 </div>
 
 <script>
 const statsData = {{ stats_over_time | tojson }};
 const countryData = {{ country_dist | tojson }};
-const funnelData = {{ funnel | tojson }};
 
 // Visits chart
 new Chart(document.getElementById('visitsChart'), {
@@ -104,26 +106,58 @@ new Chart(document.getElementById('countryChart'), {
     }
 });
 
-// Funnel chart
-new Chart(document.getElementById('funnelChart'), {
-    type: 'bar',
-    data: {
-        labels: ['Визиты', 'Телефон', 'Код', 'Вошли', '2FA'],
-        datasets: [{
-            label: 'Количество',
-            data: [funnelData.visited, funnelData.phone_entered, funnelData.code_sent, funnelData.logged_in, funnelData.twofa_passed],
-            backgroundColor: ['#6366f1','#3b82f6','#f59e0b','#10b981','#06b6d4'],
-        }]
-    },
-    options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } },
-            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } }
-        }
+// Funnel chart instance
+let funnelChart = null;
+function buildFunnelChart(data) {
+    const labels = ['Визиты', 'Телефон', 'Код', 'Вошли', '2FA'];
+    const values = [data.visited, data.phone_entered, data.code_entered, data.logged_in, data.twofa_passed];
+    const colors = ['#6366f1','#3b82f6','#f59e0b','#10b981','#a78bfa'];
+    if (funnelChart) {
+        funnelChart.data.datasets[0].data = values;
+        funnelChart.update();
+    } else {
+        funnelChart = new Chart(document.getElementById('funnelChart'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{ label: 'Количество', data: values, backgroundColor: colors }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e3352' } }
+                }
+            }
+        });
     }
-});
+}
+
+async function refreshFunnel() {
+    const r = await fetch('/admin/api/funnel/live');
+    const d = await r.json();
+    if (!d.success) return;
+    const f = d.funnel;
+    // Update cards
+    ['visited','phone_entered','code_entered','logged_in','twofa_passed'].forEach(k => {
+        const el = document.getElementById(`fc-${k}`);
+        if (el) el.textContent = f[k] || 0;
+    });
+    // Update percentages
+    const keys = ['phone_entered','code_entered','logged_in','twofa_passed'];
+    keys.forEach(k => {
+        const el = document.getElementById(`fp-${k}`);
+        if (el && f.visited > 0) el.textContent = Math.round((f[k]||0) / f.visited * 100) + '%';
+    });
+    // Conversion rate
+    const conv = document.getElementById('conv-rate');
+    if (conv) conv.textContent = (f.conversion_pct || 0) + '%';
+    buildFunnelChart(f);
+}
+
+// Initial load
+refreshFunnel();
 </script>
 {% endblock %}

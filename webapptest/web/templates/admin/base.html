@@ -208,9 +208,17 @@
                             <i data-lucide="shuffle" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Spintax
                         </a>
+                        <a href="{{ url_for('admin.quick_replies') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.quick_replies' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i data-lucide="message-square-reply" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                            Быстрые ответы
+                        </a>
                         <a href="{{ url_for('admin.parser') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.parser' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="list" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Парсинг
+                        </a>
+                        <a href="{{ url_for('admin.contacts') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.contacts' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i data-lucide="contact" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                            Контакты/Диалоги
                         </a>
                         <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="bot" class="w-4 h-4 mr-3 flex-shrink-0"></i>
@@ -282,6 +290,10 @@
                         <a href="{{ url_for('admin.logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="file-text" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Логи
+                        </a>
+                        <a href="{{ url_for('admin.log_console') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.log_console' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
+                            <i data-lucide="terminal" class="w-4 h-4 mr-3 flex-shrink-0"></i>
+                            Консоль логов
                         </a>
                         <a href="{{ url_for('admin.audit_logs') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.audit_logs' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="clipboard-list" class="w-4 h-4 mr-3 flex-shrink-0"></i>

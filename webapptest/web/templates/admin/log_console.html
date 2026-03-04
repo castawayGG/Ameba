@@ -1,0 +1,163 @@
+{% extends 'admin/base.html' %}
+{% block title %}Консоль логов{% endblock %}
+{% block page_title %}Консоль логов{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <select id="log-level-filter" onchange="applyFilter()" class="px-3 py-2 text-sm rounded-lg border" style="background:var(--panel-card);border-color:var(--panel-border);color:var(--panel-text);">
+    <option value="">Все уровни</option>
+    <option value="DEBUG">DEBUG</option>
+    <option value="INFO">INFO</option>
+    <option value="WARNING">WARNING</option>
+    <option value="ERROR">ERROR</option>
+    <option value="CRITICAL">CRITICAL</option>
+  </select>
+  <button onclick="toggleAutoRefresh()" id="auto-btn" class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors" style="border-color:var(--panel-accent);color:var(--panel-accent);">
+    <i data-lucide="play" class="w-4 h-4" id="auto-icon"></i> Авто
+  </button>
+  <button onclick="clearConsole()" class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border" style="border-color:var(--panel-border);color:var(--panel-muted);">
+    <i data-lucide="trash-2" class="w-4 h-4"></i> Очистить
+  </button>
+  <button onclick="refreshLogs()" class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg btn-accent-glow text-white">
+    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Обновить
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full" style="height: calc(100vh - 180px);">
+  <!-- Stats bar -->
+  <div class="flex items-center gap-4 mb-3 text-xs" style="color:var(--panel-muted);">
+    <span id="total-lines">0 строк</span>
+    <span id="error-count" class="font-medium" style="color:#f87171;"></span>
+    <span id="warn-count" class="font-medium" style="color:#fbbf24;"></span>
+    <div class="flex-1"></div>
+    <label class="flex items-center gap-1.5 cursor-pointer">
+      <input type="checkbox" id="scroll-lock" checked class="rounded" style="accent-color:var(--panel-accent);">
+      <span>Автопрокрутка</span>
+    </label>
+    <span id="last-updated" style="color:var(--panel-muted);"></span>
+  </div>
+
+  <!-- Search / filter -->
+  <div class="mb-3">
+    <input type="text" id="search-filter" oninput="applyFilter()" placeholder="Поиск в логах..." class="w-full px-3 py-2 text-sm rounded-lg border font-mono" style="background:var(--panel-surface);border-color:var(--panel-border);color:var(--panel-text);">
+  </div>
+
+  <!-- Log console -->
+  <div id="log-console" class="flex-1 rounded-xl border overflow-y-auto font-mono text-xs leading-relaxed p-4" style="background:#050d14;border-color:var(--panel-border);color:#94a3b8;">
+    <div class="text-center py-8 opacity-50">
+      <i data-lucide="terminal" class="w-8 h-8 mx-auto mb-2"></i>
+      <p>Нажмите «Обновить» для загрузки логов</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allLines = [];
+let autoRefreshTimer = null;
+let autoRefreshActive = false;
+const REFRESH_INTERVAL = 5000;
+
+const LEVEL_COLORS = {
+    'DEBUG':    '#64748b',
+    'INFO':     '#60a5fa',
+    'SUCCESS':  '#34d399',
+    'WARNING':  '#fbbf24',
+    'WARN':     '#fbbf24',
+    'ERROR':    '#f87171',
+    'CRITICAL': '#ef4444',
+};
+
+async function refreshLogs() {
+    try {
+        const r = await fetch('/admin/api/logs/live?n=500');
+        const d = await r.json();
+        if (!d.success) return;
+        allLines = d.lines;
+        applyFilter();
+        document.getElementById('last-updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+    } catch(e) {
+        console.error('Log fetch error', e);
+    }
+}
+
+function applyFilter() {
+    const levelFilter = document.getElementById('log-level-filter').value.toUpperCase();
+    const searchFilter = document.getElementById('search-filter').value.toLowerCase();
+    const container = document.getElementById('log-console');
+
+    let filtered = allLines;
+    if (levelFilter) {
+        filtered = filtered.filter(l => {
+            const upper = l.toUpperCase();
+            return upper.includes(` | ${levelFilter} | `) || upper.includes(` | ${levelFilter}`) || upper.includes(`[${levelFilter}]`);
+        });
+    }
+    if (searchFilter) {
+        filtered = filtered.filter(l => l.toLowerCase().includes(searchFilter));
+    }
+
+    // Stats
+    const errors = allLines.filter(l => /\| ERROR | \| CRITICAL /i.test(l)).length;
+    const warns  = allLines.filter(l => /\| WARNING | \| WARN /i.test(l)).length;
+    document.getElementById('total-lines').textContent = `${allLines.length} строк`;
+    document.getElementById('error-count').textContent = errors ? `${errors} ошибок` : '';
+    document.getElementById('warn-count').textContent  = warns  ? `${warns} предупреждений` : '';
+
+    if (!filtered.length) {
+        container.innerHTML = '<div class="text-center py-8 opacity-40"><p>Логи не найдены</p></div>';
+        return;
+    }
+
+    const html = filtered.map(line => {
+        let color = '#94a3b8';
+        for (const [lvl, clr] of Object.entries(LEVEL_COLORS)) {
+            if (line.toUpperCase().includes(`| ${lvl}`) || line.toUpperCase().includes(`[${lvl}]`)) {
+                color = clr;
+                break;
+            }
+        }
+        const escaped = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="py-0.5 hover:bg-white/5 rounded px-1" style="color:${color};">${escaped}</div>`;
+    }).join('');
+
+    container.innerHTML = html;
+
+    if (document.getElementById('scroll-lock').checked) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function clearConsole() {
+    allLines = [];
+    document.getElementById('log-console').innerHTML = '<div class="text-center py-8 opacity-40"><p>Консоль очищена</p></div>';
+    document.getElementById('total-lines').textContent = '0 строк';
+    document.getElementById('error-count').textContent = '';
+    document.getElementById('warn-count').textContent = '';
+}
+
+function toggleAutoRefresh() {
+    autoRefreshActive = !autoRefreshActive;
+    const btn = document.getElementById('auto-btn');
+    const icon = document.getElementById('auto-icon');
+    if (autoRefreshActive) {
+        btn.style.background = 'rgba(37,99,235,0.15)';
+        icon.setAttribute('data-lucide', 'pause');
+        lucide.createIcons();
+        autoRefreshTimer = setInterval(refreshLogs, REFRESH_INTERVAL);
+        refreshLogs();
+    } else {
+        btn.style.background = '';
+        icon.setAttribute('data-lucide', 'play');
+        lucide.createIcons();
+        clearInterval(autoRefreshTimer);
+    }
+}
+
+// Initial load
+refreshLogs();
+</script>
+{% endblock %}

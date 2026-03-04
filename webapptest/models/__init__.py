@@ -25,6 +25,7 @@ from models.webhook import Webhook, WebhookDelivery
 from models.note import Note
 from models.api_key import ApiKey
 from models.panel_settings import PanelSettings
+from models.quick_reply import QuickReply
 
 # Список всех моделей для удобного импорта
 __all__ = [
@@ -62,4 +63,5 @@ __all__ = [
     'Note',
     'ApiKey',
     'PanelSettings',
+    'QuickReply',
 ]

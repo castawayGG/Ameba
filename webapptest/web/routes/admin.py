@@ -2968,9 +2968,19 @@ def api_templates_delete(tmpl_id):
 @admin_bp.route('/settings/notifications', methods=['GET', 'POST'])
 @login_required
 def notification_settings():
+    from models.panel_settings import PanelSettings
     if request.method == 'POST':
-        data = request.get_json()
+        data = request.get_json() or {}
         try:
+            # Save Telegram bot settings to PanelSettings
+            for key in ('tg_bot_token', 'tg_chat_id'):
+                val = data.pop(key, None)
+                if val is not None:
+                    row = db.session.query(PanelSettings).filter_by(key=key).first()
+                    if row:
+                        row.value = val
+                    else:
+                        db.session.add(PanelSettings(key=key, value=val))
             current_user.notification_prefs = data
             db.session.commit()
             log_action('update_notification_settings', '')
@@ -2981,7 +2991,38 @@ def notification_settings():
     prefs = getattr(current_user, 'notification_prefs', None) or {}
     from models.account import Account as AccountModel
     accounts = db.session.query(AccountModel).order_by(AccountModel.phone).all()
-    return render_template('admin/notification_settings.html', prefs=prefs, accounts=accounts)
+    def _ps_value(key):
+        row = db.session.query(PanelSettings).filter_by(key=key).first()
+        return row.value if row else ''
+    tg_bot_token = _ps_value('tg_bot_token')
+    tg_chat_id   = _ps_value('tg_chat_id')
+    return render_template('admin/notification_settings.html', prefs=prefs, accounts=accounts,
+                           tg_bot_token=tg_bot_token, tg_chat_id=tg_chat_id)
+
+
+@admin_bp.route('/api/notifications/test_telegram', methods=['POST'])
+@login_required
+@admin_required
+def api_notifications_test_telegram():
+    """Send a test notification via Telegram bot."""
+    data = request.get_json() or {}
+    bot_token = data.get('bot_token', '').strip()
+    chat_id = data.get('chat_id', '').strip()
+    if not bot_token or not chat_id:
+        return jsonify({'success': False, 'error': 'bot_token and chat_id required'}), 400
+    import requests as _req
+    try:
+        resp = _req.post(
+            f'https://api.telegram.org/bot{bot_token}/sendMessage',
+            json={'chat_id': chat_id, 'text': '✅ <b>Ameba</b>: тестовое уведомление работает!', 'parse_mode': 'HTML'},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            log_action('test_telegram_notification', f'chat_id={chat_id}')
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': f'Telegram API error {resp.status_code}: {resp.text}'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==========================================
@@ -4959,35 +5000,6 @@ def api_account_dump_chats(account_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@admin_bp.route('/api/accounts/<account_id>/dump_chats', methods=['POST'])
-@login_required
-@admin_required
-def api_account_dump_chats(account_id):
-    """Дампит все чаты аккаунта в ZIP-архив и возвращает для скачивания."""
-    from models.account import Account
-    data = request.get_json() or {}
-    limit_per_chat = int(data.get('limit_per_chat', 100))
-    account = db.session.get(Account, account_id)
-    if not account:
-        return jsonify({'success': False, 'error': 'Account not found'}), 404
-    try:
-        from services.telegram.actions import dump_all_chats
-        result = run_async(dump_all_chats(account_id, limit_per_chat))
-        if 'error' in result:
-            return jsonify({'success': False, 'error': result['error']}), 500
-        log_action('dump_chats', f'account={account_id} chats={result.get("chat_count", 0)}')
-        import io as _io
-        buf = _io.BytesIO(result['archive'])
-        return send_file(
-            buf,
-            mimetype='application/zip',
-            as_attachment=True,
-            download_name=f'chats_{account_id}.zip',
-        )
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 @admin_bp.route('/api/accounts/<account_id>/active_sessions', methods=['GET'])
 @login_required
 @admin_required
@@ -5206,3 +5218,239 @@ def tools_converter_upload():
             os.unlink(tmp.name)
         except Exception:
             pass
+
+
+# ==========================================
+# QUICK REPLY TEMPLATES
+# ==========================================
+
+@admin_bp.route('/quick-replies')
+@login_required
+def quick_replies():
+    """Quick reply templates management page."""
+    from models.quick_reply import QuickReply
+    items = db.session.query(QuickReply).order_by(QuickReply.category, QuickReply.title).all()
+    categories = sorted(set(r.category for r in items if r.category))
+    return render_template('admin/quick_replies.html', items=items, categories=categories)
+
+
+@admin_bp.route('/api/quick-replies', methods=['GET'])
+@login_required
+def api_quick_replies_list():
+    """Return all quick reply templates as JSON."""
+    from models.quick_reply import QuickReply
+    category = request.args.get('category', '')
+    q = db.session.query(QuickReply)
+    if category:
+        q = q.filter(QuickReply.category == category)
+    items = q.order_by(QuickReply.category, QuickReply.title).all()
+    return jsonify({'success': True, 'items': [r.to_dict() for r in items]})
+
+
+@admin_bp.route('/api/quick-replies', methods=['POST'])
+@login_required
+@admin_required
+def api_quick_replies_create():
+    """Create a new quick reply template."""
+    from models.quick_reply import QuickReply
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    content = (data.get('content') or '').strip()
+    if not title or not content:
+        return jsonify({'success': False, 'error': 'title and content are required'}), 400
+    shortcut = (data.get('shortcut') or '').strip() or None
+    item = QuickReply(
+        title=title,
+        content=content,
+        category=data.get('category', 'general'),
+        shortcut=shortcut,
+        created_by=current_user.id,
+    )
+    try:
+        db.session.add(item)
+        db.session.commit()
+        log_action('quick_reply_create', f'id={item.id} title={title}')
+        return jsonify({'success': True, 'item': item.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/quick-replies/<int:reply_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_quick_replies_update(reply_id):
+    """Update an existing quick reply template."""
+    from models.quick_reply import QuickReply
+    item = db.session.get(QuickReply, reply_id)
+    if not item:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    if 'title' in data:
+        item.title = data['title'].strip()
+    if 'content' in data:
+        item.content = data['content'].strip()
+    if 'category' in data:
+        item.category = data['category']
+    if 'shortcut' in data:
+        item.shortcut = (data['shortcut'] or '').strip() or None
+    try:
+        db.session.commit()
+        log_action('quick_reply_update', f'id={reply_id}')
+        return jsonify({'success': True, 'item': item.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/quick-replies/<int:reply_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_quick_replies_delete(reply_id):
+    """Delete a quick reply template."""
+    from models.quick_reply import QuickReply
+    item = db.session.get(QuickReply, reply_id)
+    if not item:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        log_action('quick_reply_delete', f'id={reply_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# CONTACTS — parsed account contacts
+# ==========================================
+
+@admin_bp.route('/contacts')
+@login_required
+def contacts():
+    """Contacts parsed from account dialogs."""
+    from models.account import Account
+    accounts = db.session.query(Account).filter(Account.status == 'active').order_by(Account.phone).all()
+    return render_template('admin/contacts.html', accounts=accounts)
+
+
+@admin_bp.route('/api/contacts/parse', methods=['POST'])
+@login_required
+@admin_required
+def api_contacts_parse():
+    """Parse contacts from an account's recent dialogs."""
+    from models.account import Account
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    limit = int(data.get('limit', 100))
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'}), 400
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import parse_recent_contacts
+        contacts_list = run_async(parse_recent_contacts(account_id, limit=limit))
+        log_action('parse_contacts', f'account={account_id} found={len(contacts_list)}')
+        return jsonify({'success': True, 'contacts': contacts_list, 'total': len(contacts_list)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/contacts/dialogs', methods=['POST'])
+@login_required
+def api_contacts_dialogs():
+    """Fetch dialogs list for an account."""
+    from models.account import Account
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'}), 400
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import get_dialogs
+        dialogs = run_async(get_dialogs(account_id))
+        return jsonify({'success': True, 'dialogs': dialogs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# LOG CONSOLE — real-time application logs
+# ==========================================
+
+@admin_bp.route('/log-console')
+@login_required
+def log_console():
+    """Real-time application log console page."""
+    return render_template('admin/log_console.html')
+
+
+@admin_bp.route('/api/logs/live')
+@login_required
+def api_logs_live():
+    """Return the last N lines from the application log file as JSON."""
+    import os
+    from core.config import Config
+    n = min(int(request.args.get('n', 200)), 1000)
+    log_path = os.path.join(Config.LOGS_DIR, 'app.log')
+    lines = []
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                all_lines = f.readlines()
+            lines = [l.rstrip('\n') for l in all_lines[-n:]]
+    except Exception as e:
+        lines = [f'Error reading log: {e}']
+    return jsonify({'success': True, 'lines': lines})
+
+
+# ==========================================
+# CONVERSION FUNNEL — real-time victim funnel
+# ==========================================
+
+@admin_bp.route('/api/funnel/live')
+@login_required
+def api_funnel_live():
+    """Return live conversion funnel stats from victims and stats tables."""
+    from models.victim import Victim
+    from models.stat import Stat
+    import datetime
+
+    # Victim-based funnel
+    total = db.session.query(func.count(Victim.id)).scalar() or 0
+    phone_entered = db.session.query(func.count(Victim.id)).filter(
+        Victim.status.in_(['code_sent', 'code_entered', 'logged_in', '2fa_passed'])
+    ).scalar() or 0
+    code_entered = db.session.query(func.count(Victim.id)).filter(
+        Victim.status.in_(['code_entered', 'logged_in', '2fa_passed'])
+    ).scalar() or 0
+    logged_in = db.session.query(func.count(Victim.id)).filter(
+        Victim.status.in_(['logged_in', '2fa_passed'])
+    ).scalar() or 0
+    twofa_passed = db.session.query(func.count(Victim.id)).filter(
+        Victim.status == '2fa_passed'
+    ).scalar() or 0
+
+    # Last 7 days trend from Stat table
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+    recent_stats = db.session.query(Stat).filter(Stat.date >= since.date()).order_by(Stat.date).all()
+    trend = [{'date': str(s.date), 'visits': s.visits, 'logins': s.successful_logins} for s in recent_stats]
+
+    conversion_pct = round(logged_in / total * 100, 1) if total > 0 else 0.0
+
+    return jsonify({
+        'success': True,
+        'funnel': {
+            'visited': total,
+            'phone_entered': phone_entered,
+            'code_entered': code_entered,
+            'logged_in': logged_in,
+            'twofa_passed': twofa_passed,
+            'conversion_pct': conversion_pct,
+        },
+        'trend': trend,
+    })
