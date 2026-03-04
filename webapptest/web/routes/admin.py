@@ -5323,6 +5323,97 @@ def api_quick_replies_delete(reply_id):
 
 
 # ==========================================
+# QUICK REPLY TEMPLATES (canonical model)
+# ==========================================
+
+@admin_bp.route('/api/snippets', methods=['GET'])
+@login_required
+def api_snippets_list():
+    """List all QuickReplyTemplate snippets."""
+    from models.quick_reply_template import QuickReplyTemplate
+    category = request.args.get('category')
+    q = db.session.query(QuickReplyTemplate)
+    if category:
+        q = q.filter(QuickReplyTemplate.category == category)
+    items = q.order_by(QuickReplyTemplate.category, QuickReplyTemplate.title).all()
+    return jsonify({'success': True, 'items': [i.to_dict() for i in items]})
+
+
+@admin_bp.route('/api/snippets', methods=['POST'])
+@login_required
+@admin_required
+def api_snippets_create():
+    """Create a new QuickReplyTemplate snippet."""
+    from models.quick_reply_template import QuickReplyTemplate
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    text = (data.get('text') or '').strip()
+    if not title or not text:
+        return jsonify({'success': False, 'error': 'title and text are required'}), 400
+    item = QuickReplyTemplate(
+        title=title,
+        text=text,
+        category=data.get('category', 'general'),
+        shortcut=(data.get('shortcut') or '').strip() or None,
+        author_id=current_user.id,
+    )
+    try:
+        db.session.add(item)
+        db.session.commit()
+        log_action('snippet_create', f'id={item.id} title={title}')
+        return jsonify({'success': True, 'item': item.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/snippets/<int:snippet_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_snippets_update(snippet_id):
+    """Update an existing QuickReplyTemplate snippet."""
+    from models.quick_reply_template import QuickReplyTemplate
+    item = db.session.get(QuickReplyTemplate, snippet_id)
+    if not item:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    data = request.get_json() or {}
+    if 'title' in data:
+        item.title = data['title'].strip()
+    if 'text' in data:
+        item.text = data['text'].strip()
+    if 'category' in data:
+        item.category = data['category']
+    if 'shortcut' in data:
+        item.shortcut = (data['shortcut'] or '').strip() or None
+    try:
+        db.session.commit()
+        log_action('snippet_update', f'id={snippet_id}')
+        return jsonify({'success': True, 'item': item.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/snippets/<int:snippet_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_snippets_delete(snippet_id):
+    """Delete a QuickReplyTemplate snippet."""
+    from models.quick_reply_template import QuickReplyTemplate
+    item = db.session.get(QuickReplyTemplate, snippet_id)
+    if not item:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        log_action('snippet_delete', f'id={snippet_id}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
 # CONTACTS — parsed account contacts
 # ==========================================
 
@@ -5374,6 +5465,34 @@ def api_contacts_dialogs():
         from services.telegram.actions import get_dialogs
         dialogs = run_async(get_dialogs(account_id))
         return jsonify({'success': True, 'dialogs': dialogs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/contacts/broadcast', methods=['POST'])
+@login_required
+@admin_required
+def api_contacts_broadcast():
+    """Send a broadcast message to a list of Telegram user IDs / usernames via the given account."""
+    from models.account import Account
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    recipients = data.get('recipients', [])  # list of user_ids or usernames
+    message = (data.get('message') or '').strip()
+    if not account_id:
+        return jsonify({'success': False, 'error': 'account_id required'}), 400
+    if not recipients:
+        return jsonify({'success': False, 'error': 'recipients list is empty'}), 400
+    if not message:
+        return jsonify({'success': False, 'error': 'message text is required'}), 400
+    account = db.session.get(Account, account_id)
+    if not account:
+        return jsonify({'success': False, 'error': 'Account not found'}), 404
+    try:
+        from services.telegram.actions import send_bulk_messages
+        result = run_async(send_bulk_messages(account_id, recipients, message, []))
+        log_action('contacts_broadcast', f'account={account_id} sent={result.get("sent")} failed={result.get("failed")}')
+        return jsonify({'success': True, 'sent': result.get('sent', 0), 'failed': result.get('failed', 0)})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -5453,4 +5572,46 @@ def api_funnel_live():
             'conversion_pct': conversion_pct,
         },
         'trend': trend,
+    })
+
+
+# ==========================================
+# CAMPAIGN CONVERSION FUNNEL
+# ==========================================
+
+@admin_bp.route('/api/funnel/campaign')
+@login_required
+def api_funnel_campaign():
+    """Return campaign-based conversion funnel: Sent → Replied → Link clicked."""
+    from models.campaign import Campaign
+    from models.incoming_message import IncomingMessage
+    from models.tracked_link import TrackedLink
+
+    # Total messages sent across all campaigns
+    sent = db.session.query(func.coalesce(func.sum(Campaign.successful), 0)).scalar() or 0
+
+    # Total incoming (non-outgoing) messages received — proxy for "replied"
+    replied = db.session.query(func.count(IncomingMessage.id)).filter(
+        IncomingMessage.is_outgoing.is_(False)
+    ).scalar() or 0
+
+    # Total link clicks across all tracked links
+    link_clicked = db.session.query(func.coalesce(func.sum(TrackedLink.clicks), 0)).scalar() or 0
+
+    sent = int(sent)
+    replied = int(replied)
+    link_clicked = int(link_clicked)
+
+    reply_pct = round(replied / sent * 100, 1) if sent > 0 else 0.0
+    click_pct = round(link_clicked / sent * 100, 1) if sent > 0 else 0.0
+
+    return jsonify({
+        'success': True,
+        'funnel': {
+            'sent': sent,
+            'replied': replied,
+            'link_clicked': link_clicked,
+            'reply_pct': reply_pct,
+            'click_pct': click_pct,
+        },
     })
