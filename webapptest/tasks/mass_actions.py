@@ -79,6 +79,19 @@ def run_campaign(campaign_id: int):
         campaign.status = 'completed'
         campaign.completed_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Send campaign completion alert to subscribed users
+        try:
+            from services.notification.telegram_bot import send_alert, ALERT_CAMPAIGN_DONE
+            send_alert(
+                ALERT_CAMPAIGN_DONE,
+                f"✅ <b>Кампания завершена</b>\n"
+                f"📌 <code>{campaign.name}</code>\n"
+                f"✉️ Отправлено: {campaign.successful} / Ошибок: {campaign.failed}",
+                db=db,
+            )
+        except Exception as _alert_err:
+            log.debug(f"Campaign done alert skipped: {_alert_err}")
         
     except Exception as e:
         log.error(f"run_campaign error for ID {campaign_id}: {e}")

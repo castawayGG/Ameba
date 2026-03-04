@@ -58,7 +58,8 @@ async def check_proxy_task(proxy_id: int):
             return
 
         success, speed, error = await test_proxy(proxy)
-        
+
+        prev_status = proxy.status
         proxy.status = 'working' if success else 'dead'
         proxy.last_check = datetime.now(timezone.utc)
         if success:
@@ -76,6 +77,20 @@ async def check_proxy_task(proxy_id: int):
             proxy.last_error = error[:500]  # обрезаем до 500 символов
         db.commit()
         log.info(f"Proxy {proxy_id} checked: status={proxy.status}, speed={speed}ms")
+
+        # Send alert if proxy just went down (status changed from working to dead)
+        if not success and prev_status in ('working', 'active'):
+            try:
+                from services.notification.telegram_bot import send_alert, ALERT_PROXY_DOWN
+                send_alert(
+                    ALERT_PROXY_DOWN,
+                    f"⚠️ <b>Прокси упал</b>\n"
+                    f"🌐 <code>{proxy.host}:{proxy.port}</code>\n"
+                    f"❌ Ошибка: {error or 'unknown'}",
+                    db=db,
+                )
+            except Exception as _ae:
+                log.debug(f"Proxy down alert skipped: {_ae}")
     except Exception as e:
         log.error(f"Error checking proxy {proxy_id}: {e}")
     finally:

@@ -55,6 +55,21 @@ def check_all_sessions(self):
                     }
                     account.status = status_map.get(new_status, 'inactive')
                     account.status_detail = result.get('reason', '')
+
+                    # Send ban alert when account is detected as banned
+                    if account.status == 'banned':
+                        try:
+                            from services.notification.telegram_bot import send_alert, ALERT_ACCOUNT_BAN
+                            send_alert(
+                                ALERT_ACCOUNT_BAN,
+                                f"🚫 <b>Аккаунт заблокирован</b>\n"
+                                f"📱 <code>{account.phone}</code>\n"
+                                f"👤 @{account.username or '—'}\n"
+                                f"❌ Причина: {result.get('reason', 'banned')}",
+                                db=db,
+                            )
+                        except Exception as _ae:
+                            log.debug(f"Account ban alert skipped: {_ae}")
                 db.commit()
 
                 # Пишем лог действия над аккаунтом

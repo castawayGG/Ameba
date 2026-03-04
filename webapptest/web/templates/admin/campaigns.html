@@ -2,6 +2,14 @@
 {% block title %}Кампании{% endblock %}
 {% block page_title %}Кампании{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{{ url_for('admin.dashboard') }}"><i data-lucide="gauge" class="w-3 h-3 inline"></i> Дашборд</a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Кампании</span>
+</nav>
+{% endblock %}
+
 {% block header_actions %}
 <button onclick="document.getElementById('createCampaignModal').classList.remove('hidden')"
         class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">

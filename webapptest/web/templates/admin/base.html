@@ -354,6 +354,12 @@
                 <h1 class="text-base font-semibold text-gray-800">{% block page_title %}{% endblock %}</h1>
             </div>
             <div class="flex items-center gap-2">
+                <!-- Global search trigger -->
+                <button id="global-search-btn" onclick="openGlobalSearch()" class="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);background:var(--panel-surface);" title="Глобальный поиск (Ctrl+K)">
+                    <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    <span class="text-xs">Поиск</span>
+                    <kbd class="hidden lg:inline text-[10px] px-1 py-0.5 rounded" style="background:var(--panel-card);border:1px solid var(--panel-border);">⌘K</kbd>
+                </button>
                 <!-- Language switcher -->
                 <div class="relative" id="lang-switcher">
                     <button onclick="toggleLangMenu()" class="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50 text-xs font-semibold" title="Язык / Language" style="min-width:36px;">
@@ -394,6 +400,7 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
+            {% block breadcrumbs %}{% endblock %}
             {% block content %}{% endblock %}
         </div>
         {% block scripts %}{% endblock %}
@@ -842,6 +849,198 @@ window.cancelOpById = async function(opId) {
 
 // expose showToast globally for use in page-specific scripts
 window._showToast = window.showToast;
+</script>
+
+<!-- ==========================================
+     GLOBAL SEARCH MODAL (Ctrl/Cmd+K)
+     ========================================== -->
+<div id="global-search-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-20 px-4" style="background:rgba(0,0,0,0.45);" onclick="if(event.target===this)closeGlobalSearch()">
+    <div class="w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl" style="background:var(--panel-card);border:1px solid var(--panel-border);">
+        <!-- Input -->
+        <div class="flex items-center gap-3 px-4 py-3.5 border-b" style="border-color:var(--panel-border);">
+            <i data-lucide="search" class="w-4 h-4 flex-shrink-0" style="color:var(--panel-muted);"></i>
+            <input id="global-search-input" type="text" placeholder="Поиск по аккаунтам, кампаниям, диалогам..." autocomplete="off"
+                class="flex-1 bg-transparent outline-none text-sm" style="color:var(--panel-text);"
+                oninput="runGlobalSearch(this.value)">
+            <kbd class="text-[10px] px-1.5 py-0.5 rounded" style="background:var(--panel-surface);border:1px solid var(--panel-border);color:var(--panel-muted);">Esc</kbd>
+        </div>
+        <!-- Results -->
+        <div id="global-search-results" class="max-h-80 overflow-y-auto py-2">
+            <div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted);">Начните вводить для поиска...</div>
+        </div>
+        <!-- Footer -->
+        <div class="px-4 py-2 border-t flex items-center gap-4 text-xs" style="border-color:var(--panel-border);color:var(--panel-muted);">
+            <span><kbd class="px-1 rounded" style="background:var(--panel-surface);border:1px solid var(--panel-border);">↑↓</kbd> навигация</span>
+            <span><kbd class="px-1 rounded" style="background:var(--panel-surface);border:1px solid var(--panel-border);">↵</kbd> открыть</span>
+            <span><kbd class="px-1 rounded" style="background:var(--panel-surface);border:1px solid var(--panel-border);">Esc</kbd> закрыть</span>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Global Search ──
+let _searchTimer = null;
+let _searchResults = [];
+let _searchIdx = -1;
+
+function openGlobalSearch() {
+    const modal = document.getElementById('global-search-modal');
+    modal.classList.remove('hidden');
+    const input = document.getElementById('global-search-input');
+    input.value = '';
+    input.focus();
+    _searchResults = [];
+    _searchIdx = -1;
+    document.getElementById('global-search-results').innerHTML = '<div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted);">Начните вводить для поиска...</div>';
+    if (window.lucide) lucide.createIcons({ el: modal });
+}
+
+function closeGlobalSearch() {
+    document.getElementById('global-search-modal').classList.add('hidden');
+}
+
+function runGlobalSearch(q) {
+    clearTimeout(_searchTimer);
+    if (!q || q.length < 2) {
+        document.getElementById('global-search-results').innerHTML = '<div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted);">Начните вводить для поиска...</div>';
+        _searchResults = [];
+        return;
+    }
+    document.getElementById('global-search-results').innerHTML = '<div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted);">Поиск...</div>';
+    _searchTimer = setTimeout(async () => {
+        try {
+            const r = await fetch('/admin/api/search?q=' + encodeURIComponent(q));
+            const d = await r.json();
+            if (!d.success) return;
+            _searchResults = d.results || [];
+            _searchIdx = -1;
+            renderSearchResults();
+        } catch(e) {}
+    }, 250);
+}
+
+function renderSearchResults() {
+    const container = document.getElementById('global-search-results');
+    if (!_searchResults.length) {
+        container.innerHTML = '<div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted);">Ничего не найдено</div>';
+        return;
+    }
+    const typeIcons = {account:'send', campaign:'megaphone', dialog:'message-square', user:'user'};
+    const typeLabels = {account:'Аккаунт', campaign:'Кампания', dialog:'Диалог', user:'Пользователь'};
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    container.innerHTML = _searchResults.map((r, i) => `
+        <a href="${esc(r.url)}" onclick="closeGlobalSearch()" data-idx="${i}"
+           class="search-result-item flex items-center gap-3 px-4 py-2.5 transition-colors cursor-pointer ${_searchIdx === i ? 'search-result-active' : ''}"
+           style="color:var(--panel-text);">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background:var(--panel-surface);border:1px solid var(--panel-border);">
+                <i data-lucide="${typeIcons[r.type] || 'file'}" class="w-3.5 h-3.5" style="color:var(--panel-accent);"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">${esc(r.title)}</div>
+                <div class="text-xs truncate" style="color:var(--panel-muted);">${esc(typeLabels[r.type] || r.type)}${r.subtitle ? ' · ' + esc(r.subtitle) : ''}</div>
+            </div>
+        </a>
+    `).join('');
+    if (window.lucide) lucide.createIcons({ el: container });
+}
+
+// Keyboard navigation in search
+document.addEventListener('keydown', function(e) {
+    // Ctrl+K / Cmd+K — open search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const modal = document.getElementById('global-search-modal');
+        if (modal.classList.contains('hidden')) openGlobalSearch();
+        else closeGlobalSearch();
+        return;
+    }
+    const modal = document.getElementById('global-search-modal');
+    if (modal.classList.contains('hidden')) return;
+    if (e.key === 'Escape') { closeGlobalSearch(); return; }
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _searchIdx = Math.min(_searchIdx + 1, _searchResults.length - 1);
+        _highlightSearchResult();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _searchIdx = Math.max(_searchIdx - 1, 0);
+        _highlightSearchResult();
+    } else if (e.key === 'Enter' && _searchIdx >= 0 && _searchResults[_searchIdx]) {
+        e.preventDefault();
+        window.location.href = _searchResults[_searchIdx].url;
+        closeGlobalSearch();
+    }
+});
+
+function _highlightSearchResult() {
+    document.querySelectorAll('.search-result-item').forEach((el, i) => {
+        if (i === _searchIdx) {
+            el.style.background = 'var(--panel-surface)';
+            el.scrollIntoView({block: 'nearest'});
+        } else {
+            el.style.background = '';
+        }
+    });
+}
+</script>
+
+<style>
+/* Search result hover */
+.search-result-item:hover { background: var(--panel-surface) !important; }
+/* Breadcrumbs */
+.breadcrumbs { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--panel-muted, #9ca3af); margin-bottom: 16px; flex-wrap: wrap; }
+.breadcrumbs a { color: var(--panel-muted, #9ca3af); text-decoration: none; transition: color .15s; }
+.breadcrumbs a:hover { color: var(--panel-accent, #3b82f6); }
+.breadcrumbs .bc-sep { color: var(--panel-border, #1e2636); }
+.breadcrumbs .bc-current { color: var(--panel-text, #fff); font-weight: 500; }
+/* Scroll-map minimap */
+.scroll-map-container { position: relative; }
+.scroll-map-track {
+    position: absolute; right: -10px; top: 0; bottom: 0; width: 4px;
+    border-radius: 2px; background: var(--panel-border, #1e2636); z-index: 5; pointer-events: none;
+}
+.scroll-map-thumb {
+    position: absolute; right: 0; width: 4px; border-radius: 2px;
+    background: var(--panel-accent, #3b82f6); opacity: 0.7; min-height: 20px; transition: opacity .2s;
+}
+</style>
+
+<script>
+// ── Scroll-map minimap for overflow tables ──
+function initScrollMaps() {
+    document.querySelectorAll('.has-scroll-map').forEach(function(el) {
+        if (el.dataset.scrollMapInit) return;
+        el.dataset.scrollMapInit = '1';
+        el.classList.add('scroll-map-container');
+        if (el.scrollHeight <= el.clientHeight + 8) return; // 8px threshold: skip tiny overflow (border/padding)
+
+        const track = document.createElement('div');
+        track.className = 'scroll-map-track';
+        const thumb = document.createElement('div');
+        thumb.className = 'scroll-map-thumb';
+        track.appendChild(thumb);
+        el.style.position = el.style.position || 'relative';
+        el.appendChild(track);
+
+        function updateThumb() {
+            const scrollRatio = el.scrollTop / (el.scrollHeight - el.clientHeight);
+            const trackH = track.clientHeight;
+            const thumbH = Math.max(20, trackH * el.clientHeight / el.scrollHeight);
+            thumb.style.height = thumbH + 'px';
+            thumb.style.top = (scrollRatio * (trackH - thumbH)) + 'px';
+        }
+        el.addEventListener('scroll', updateThumb, {passive: true});
+        updateThumb();
+    });
+}
+document.addEventListener('DOMContentLoaded', initScrollMaps);
+// Re-run after PJAX navigation
+if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(function() { initScrollMaps(); }).observe(
+        document.getElementById('main-area') || document.body,
+        {childList: true, subtree: false}
+    );
+}
 </script>
 </body>
 </html>

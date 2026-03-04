@@ -5569,6 +5569,81 @@ def api_logs_live():
 
 
 # ==========================================
+# GLOBAL SEARCH — accounts, campaigns, contacts
+# ==========================================
+
+@admin_bp.route('/api/search')
+@login_required
+def api_global_search():
+    """Global search across accounts, campaigns, and contacts/dialogs."""
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify({'success': True, 'results': []})
+
+    results = []
+    limit = 5  # max results per category
+    safe_q = q.replace('%', r'\%').replace('_', r'\_')  # escape LIKE wildcards
+
+    # Search accounts
+    try:
+        acc_stmt = (
+            select(Account)
+            .filter(or_(
+                Account.phone.ilike(f'%{safe_q}%'),
+                Account.username.ilike(f'%{safe_q}%'),
+            ))
+            .limit(limit)
+        )
+        for acc in db.session.execute(acc_stmt).scalars().all():
+            results.append({
+                'type': 'account',
+                'title': acc.phone,
+                'subtitle': f'@{acc.username}' if acc.username else acc.status,
+                'url': url_for('admin.account_detail', account_id=acc.id),
+            })
+    except Exception:
+        pass
+
+    # Search campaigns
+    try:
+        camp_stmt = (
+            select(Campaign)
+            .filter(Campaign.name.ilike(f'%{safe_q}%'))
+            .limit(limit)
+        )
+        for c in db.session.execute(camp_stmt).scalars().all():
+            results.append({
+                'type': 'campaign',
+                'title': c.name,
+                'subtitle': c.status,
+                'url': url_for('admin.campaign_detail', campaign_id=c.id),
+            })
+    except Exception:
+        pass
+
+    # Search incoming messages / dialogs
+    try:
+        from models.incoming_message import IncomingMessage
+        msg_stmt = (
+            select(IncomingMessage)
+            .filter(IncomingMessage.text.ilike(f'%{safe_q}%'))
+            .order_by(desc(IncomingMessage.created_at))
+            .limit(limit)
+        )
+        for msg in db.session.execute(msg_stmt).scalars().all():
+            results.append({
+                'type': 'dialog',
+                'title': f'Диалог #{msg.id}',
+                'subtitle': (msg.text or '')[:60],
+                'url': url_for('admin.inbox'),
+            })
+    except Exception:
+        pass
+
+    return jsonify({'success': True, 'results': results})
+
+
+# ==========================================
 # CONVERSION FUNNEL — real-time victim funnel
 # ==========================================
 

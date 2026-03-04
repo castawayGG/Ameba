@@ -2,6 +2,14 @@
 {% block title %}Аккаунты{% endblock %}
 {% block page_title %}Аккаунты Telegram{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{{ url_for('admin.dashboard') }}"><i data-lucide="gauge" class="w-3 h-3 inline"></i> Дашборд</a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Аккаунты</span>
+</nav>
+{% endblock %}
+
 {% block header_actions %}
 <button onclick="checkAllSessions()" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
     <i data-lucide="rotate-cw" class="w-4 h-4 mr-1.5 text-blue-400"></i>Проверить сессии
