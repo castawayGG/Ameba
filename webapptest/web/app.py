@@ -61,6 +61,10 @@ def create_app(test_config=None):
     login_manager.init_app(app)
     limiter.init_app(app)
 
+    # Initialize flask-sock (a fresh Sock per app for the app-factory pattern)
+    from flask_sock import Sock
+    sock = Sock(app)
+
     login_manager.login_view = 'admin.login'
     login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
     login_manager.user_loader(load_user)
@@ -95,10 +99,12 @@ def create_app(test_config=None):
     from web.routes.public import public_bp
     from web.routes.admin import admin_bp
     from web.routes.api import api_bp
+    from web.routes.ws import register_ws
 
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
+    register_ws(sock)
 
     with app.app_context():
         try:

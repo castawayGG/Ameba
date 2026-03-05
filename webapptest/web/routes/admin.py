@@ -61,6 +61,20 @@ def create_notification(title, message, type='info', category='security', user_i
         )
         db.session.add(notif)
         db.session.commit()
+        # Push real-time notification via WebSocket (if client is connected)
+        if user_id is not None:
+            try:
+                from web.ws_manager import broadcast_to_user
+                broadcast_to_user(user_id, 'notification_new', {
+                    'id': notif.id,
+                    'title': title,
+                    'message': message,
+                    'type': type,
+                    'category': category,
+                    'related_url': related_url,
+                })
+            except Exception:
+                pass
     except Exception as e:
         db.session.rollback()
         log.error(f"create_notification error: {e}")
@@ -723,16 +737,30 @@ def user_update_permissions(user_id):
 @admin_bp.route('/accounts/<account_id>/delete', methods=['POST'])
 @login_required
 def account_delete(account_id):
-    """Удаление аккаунта"""
+    """Soft-delete: schedule account for deletion with undo window."""
     account = db.session.get(Account, account_id)
     if not account:
         return jsonify({'success': False, 'error': 'Аккаунт не найден'}), 404
     try:
+        from web.pending_deletes import register_pending, UNDO_TTL_SECONDS
+
         phone = account.phone
-        db.session.delete(account)
-        db.session.commit()
-        log_action("account_delete", f"Удалён аккаунт: {phone}")
-        return jsonify({'success': True})
+        entity_data = {'id': account_id, 'phone': phone}
+
+        def do_delete():
+            a = db.session.get(Account, account_id)
+            if a:
+                db.session.delete(a)
+                db.session.commit()
+
+        token = register_pending(current_user.id, 'account', account_id, entity_data, do_delete)
+        log_action("account_delete", f"Запланировано удаление аккаунта: {phone}")
+        return jsonify({
+            'success': True,
+            'undo_token': token,
+            'expires_in': UNDO_TTL_SECONDS,
+            'message': f'Аккаунт {phone} будет удалён',
+        })
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -889,16 +917,30 @@ def proxies_upload():
 @admin_bp.route('/proxies/<int:proxy_id>/delete', methods=['POST'])
 @login_required
 def proxy_delete(proxy_id):
-    """Удаление прокси"""
+    """Soft-delete: schedule proxy for deletion with undo window."""
     proxy = db.session.get(Proxy, proxy_id)
     if not proxy:
         return jsonify({'success': False, 'error': 'Прокси не найден'}), 404
     try:
+        from web.pending_deletes import register_pending, UNDO_TTL_SECONDS
+
         addr = f"{proxy.host}:{proxy.port}"
-        db.session.delete(proxy)
-        db.session.commit()
-        log_action("proxy_delete", f"Удалён прокси: {addr}")
-        return jsonify({'success': True})
+        entity_data = {'id': proxy_id, 'host': proxy.host, 'port': proxy.port}
+
+        def do_delete():
+            p = db.session.get(Proxy, proxy_id)
+            if p:
+                db.session.delete(p)
+                db.session.commit()
+
+        token = register_pending(current_user.id, 'proxy', proxy_id, entity_data, do_delete)
+        log_action("proxy_delete", f"Запланировано удаление прокси: {addr}")
+        return jsonify({
+            'success': True,
+            'undo_token': token,
+            'expires_in': UNDO_TTL_SECONDS,
+            'message': f'Прокси {addr} будет удалён',
+        })
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -4480,6 +4522,51 @@ def profile():
                            recent_actions=recent_actions,
                            sessions=sessions,
                            total_actions=total_actions)
+
+
+# ==========================================
+# THEME PREFERENCE
+# ==========================================
+@admin_bp.route('/api/set_theme', methods=['POST'])
+@login_required
+def api_set_theme():
+    """Save the user's preferred UI theme (dark / light)."""
+    data = request.get_json() or {}
+    theme = data.get('theme', 'dark')
+    allowed = {'dark', 'light'}
+    if theme not in allowed:
+        return jsonify({'success': False, 'error': 'Invalid theme'}), 400
+    current_user.theme = theme
+    db.session.commit()
+    return jsonify({'success': True, 'theme': theme})
+
+
+# ==========================================
+# UNDO / PENDING-DELETE API
+# ==========================================
+@admin_bp.route('/api/pending_delete/<token>/confirm', methods=['POST'])
+@login_required
+def api_pending_delete_confirm(token):
+    """Execute the deferred deletion. Called by the client timer."""
+    from web.pending_deletes import confirm_delete
+    entity_type = confirm_delete(token, current_user.id)
+    if entity_type is None:
+        # Already confirmed, cancelled, or expired — treat as success
+        return jsonify({'success': True})
+    log_action(f'{entity_type}_delete_confirmed', f'token={token}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/pending_delete/<token>/cancel', methods=['POST'])
+@login_required
+def api_pending_delete_cancel(token):
+    """Cancel a pending deletion (undo). The item stays in the DB."""
+    from web.pending_deletes import cancel_delete
+    entity_data = cancel_delete(token, current_user.id)
+    if entity_data is None:
+        return jsonify({'success': False, 'error': 'Token not found or already processed'}), 404
+    log_action('delete_cancelled', f'token={token}')
+    return jsonify({'success': True, 'entity_data': entity_data})
 
 
 # ==========================================
