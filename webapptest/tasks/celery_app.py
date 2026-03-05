@@ -37,11 +37,6 @@ celery_app.conf.update(
             'task': 'tasks.session_checker.check_all_sessions',
             'schedule': Config.PROXY_REFRESH_HOURS * 3600,
         },
-        # Автозагрузка бесплатных прокси каждые N часов
-        'auto-load-proxies': {
-            'task': 'tasks.proxy_autoloader.auto_load_proxies',
-            'schedule': Config.PROXY_REFRESH_HOURS * 3600,
-        },
         # Проверка всех прокси каждые 2 часа
         'check-all-proxies': {
             'task': 'tasks.proxy_checker.check_all_proxies',

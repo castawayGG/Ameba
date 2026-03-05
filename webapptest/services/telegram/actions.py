@@ -50,8 +50,20 @@ async def get_telegram_client(account_id: str) -> TelegramClient:
             log.warning(f"get_telegram_client: could not load fingerprint for {account_id}: {e}")
 
         client = TelegramClient(StringSession(session_str), api_id, api_hash, proxy=proxy, **device_params)
-        await client.connect()
-        return client
+        try:
+            await client.connect()
+            return client
+        except Exception as e:
+            if proxy is None:
+                raise
+            log.warning(f"get_telegram_client: proxy connection failed for {account_id} ({e}), retrying without proxy")
+            try:
+                await client.disconnect()
+            except Exception as disc_err:
+                log.debug(f"get_telegram_client: error disconnecting proxy client for {account_id}: {disc_err}")
+            client = TelegramClient(StringSession(session_str), api_id, api_hash, **device_params)
+            await client.connect()
+            return client
     finally:
         db.close()
 
