@@ -236,10 +236,10 @@
                     <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Телефон</th>
                     <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Username</th>
                     <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
-                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Premium</th>
-                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Сессия</th>
-                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Добавлен</th>
-                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Примечание</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Premium</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Сессия</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Добавлен</th>
+                    <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Примечание</th>
                     <th class="px-4 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действия</th>
                 </tr>
             </thead>
@@ -452,13 +452,16 @@ async function bulkDelete() {
     else showToast('Ошибка удаления', 'error');
 }
 
-// Single delete
+// Single delete (with undo)
 async function deleteAccount(id, btn) {
     if (!confirm('Удалить аккаунт?')) return;
     const row = btn.closest('tr');
-    const res = await fetch(`/admin/accounts/${id}/delete`, {method: 'POST'});
-    if (res.ok) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); showToast('Аккаунт удалён'); }
-    else showToast('Ошибка', 'error');
+    await deleteWithUndo(
+        `/admin/accounts/${id}/delete`,
+        'Аккаунт удалён',
+        () => { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 350); },
+        () => { row.style.opacity = '1'; showToast('Удаление отменено', 'success'); }
+    );
 }
 
 // Notes

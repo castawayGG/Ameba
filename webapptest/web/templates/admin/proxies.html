@@ -63,13 +63,13 @@
                     </th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">IP:Порт</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Тип</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Страна</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Страна</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Статус</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Health</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Скорость</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Описание</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Включён</th>
-                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700">Проверен</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Health</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Скорость</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Описание</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Включён</th>
+                    <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 hide-mobile">Проверен</th>
                     <th class="px-5 py-3 font-medium border-b border-gray-200 dark:border-gray-700 text-right">Действия</th>
                 </tr>
             </thead>
@@ -313,9 +313,12 @@ async function toggleProxy(id, btn) {
 async function deleteProxy(id, btn) {
     if (!confirm('Удалить прокси?')) return;
     const row = btn.closest('tr');
-    const res = await fetch(`/admin/proxies/${id}/delete`, {method: 'POST'});
-    if (res.ok) { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 300); showToast('Прокси удалён'); }
-    else showToast('Ошибка', 'error');
+    await deleteWithUndo(
+        `/admin/proxies/${id}/delete`,
+        'Прокси удалён',
+        () => { row.style.opacity = '0'; row.style.transition = 'opacity 0.3s'; setTimeout(() => row.remove(), 350); },
+        () => { row.style.opacity = '1'; showToast('Удаление отменено', 'success'); }
+    );
 }
 
 function editDesc(span) {

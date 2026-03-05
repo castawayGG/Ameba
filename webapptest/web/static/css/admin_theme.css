@@ -1,9 +1,10 @@
 /* ─────────────────────────────────────────────────────────────────
  * admin_theme.css — Minimalist black-and-blue theme for the admin panel
  * Loaded by web/templates/admin/base.html via url_for('static', …)
+ * Supports dark (default) and light theme via .light-theme on <html>
  * ───────────────────────────────────────────────────────────────── */
 
-/* Minimalist black-and-blue CSS variables */
+/* ── Dark theme variables (default) ── */
 :root {
     --panel-bg:        #050505;
     --panel-surface:   #0a0a0a;
@@ -14,8 +15,78 @@
     --panel-accent-g1: #3b82f6;
     --panel-accent-g2: #06b6d4;
     --panel-text:      #ffffff;
-    --panel-muted:     #e2e8f0;
+    --panel-muted:     #94a3b8;
 }
+
+/* ── Light theme variables ── */
+html.light-theme {
+    --panel-bg:        #f8fafc;
+    --panel-surface:   #ffffff;
+    --panel-card:      #f1f5f9;
+    --panel-border:    #e2e8f0;
+    --panel-accent:    #2563eb;
+    --panel-accent2:   #1d4ed8;
+    --panel-accent-g1: #3b82f6;
+    --panel-accent-g2: #0891b2;
+    --panel-text:      #0f172a;
+    --panel-muted:     #64748b;
+}
+
+/* ── Light theme specific overrides ── */
+html.light-theme body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
+html.light-theme input,
+html.light-theme select,
+html.light-theme textarea {
+    background: var(--panel-surface) !important;
+    border-color: var(--panel-border) !important;
+    color: var(--panel-text) !important;
+}
+html.light-theme input::placeholder { color: var(--panel-muted) !important; }
+html.light-theme [class*="bg-gray-800"],
+html.light-theme [class*="bg-gray-900"] { background: var(--panel-card) !important; }
+html.light-theme [class*="bg-gray-700"] { background: var(--panel-card) !important; }
+html.light-theme [class*="text-white"] { color: var(--panel-text) !important; }
+html.light-theme [class*="text-gray-100"] { color: var(--panel-text) !important; }
+html.light-theme [class*="border-gray-700"],
+html.light-theme [class*="border-gray-600"] { border-color: var(--panel-border) !important; }
+html.light-theme [class*="bg-gray-700\/50"],
+html.light-theme [class*="bg-gray-700\/40"] { background: rgba(226,232,240,0.9) !important; }
+html.light-theme [class*="hover:bg-gray-700\/30"]:hover { background: rgba(37,99,235,0.06) !important; }
+html.light-theme .nav-accent-active {
+    background: rgba(37,99,235,0.10) !important;
+    color: #2563eb !important;
+    border-left: 2px solid var(--panel-accent) !important;
+}
+html.light-theme .nav-accent-hover:hover { background: rgba(0,0,0,0.04) !important; color: var(--panel-text) !important; }
+html.light-theme .nav-accent-hover { color: var(--panel-muted); }
+html.light-theme .nav-group-header { color: var(--panel-muted); }
+html.light-theme .nav-group-header:hover { color: var(--panel-text); background: rgba(0,0,0,0.04); }
+html.light-theme ::-webkit-scrollbar-thumb { background: var(--panel-border); }
+html.light-theme ::-webkit-scrollbar-thumb:hover { background: var(--panel-accent); }
+
+/* ── Light theme scoped Tailwind overrides ── */
+html.light-theme#html-root body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
+html.light-theme#html-root .bg-gray-50 { background: var(--panel-bg) !important; }
+html.light-theme#html-root .bg-gray-100 { background: rgba(0,0,0,0.03) !important; }
+html.light-theme#html-root .bg-white { background: var(--panel-surface) !important; }
+html.light-theme#html-root .bg-gray-200 { background: rgba(0,0,0,0.05) !important; }
+html.light-theme#html-root .text-gray-900 { color: var(--panel-text) !important; }
+html.light-theme#html-root .text-gray-800 { color: var(--panel-text) !important; }
+html.light-theme#html-root .text-gray-700 { color: #334155 !important; }
+html.light-theme#html-root .text-gray-600 { color: #475569 !important; }
+html.light-theme#html-root .text-gray-500 { color: var(--panel-muted) !important; }
+html.light-theme#html-root .text-gray-400 { color: var(--panel-muted) !important; }
+html.light-theme#html-root .border-gray-100 { border-color: var(--panel-border) !important; }
+html.light-theme#html-root .border-gray-200 { border-color: var(--panel-border) !important; }
+html.light-theme#html-root .border-gray-300 { border-color: #cbd5e1 !important; }
+html.light-theme#html-root .hover\:bg-gray-50:hover { background: rgba(0,0,0,0.03) !important; }
+html.light-theme#html-root .hover\:bg-gray-100:hover { background: rgba(0,0,0,0.05) !important; }
+html.light-theme#html-root .hover\:text-gray-600:hover { color: var(--panel-text) !important; }
+html.light-theme#html-root .hover\:text-gray-700:hover { color: var(--panel-text) !important; }
+html.light-theme#html-root .hover\:text-gray-900:hover { color: var(--panel-text) !important; }
+html.light-theme#html-root aside#sidebar { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
+html.light-theme#html-root header { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
+html.light-theme#html-root main { background: var(--panel-bg) !important; }
 
 /* Dark palette applied to the entire admin panel */
 body { background: var(--panel-bg) !important; color: var(--panel-text) !important; }
@@ -233,3 +304,94 @@ input::placeholder { color: var(--panel-muted) !important; }
 #html-root aside#sidebar { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
 #html-root header { background: var(--panel-surface) !important; border-color: var(--panel-border) !important; }
 #html-root main { background: var(--panel-bg) !important; }
+
+/* ─────────────────────────────────────────────────────────────────
+ * Mobile-responsive improvements
+ * ───────────────────────────────────────────────────────────────── */
+
+/* Responsive table wrapper — horizontal scroll on small screens */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.table-responsive table {
+    min-width: 600px;
+}
+
+/* Mobile: hide less-important table columns */
+@media (max-width: 640px) {
+    .hide-mobile { display: none !important; }
+    .table-responsive table { min-width: 400px; }
+    /* Make stat cards single column */
+    .mobile-stack { flex-direction: column !important; }
+    /* Full-width buttons on mobile */
+    .mobile-full { width: 100% !important; }
+    /* Reduce padding on mobile */
+    .flex-1.overflow-auto.p-4.lg\:p-6 { padding: 0.75rem !important; }
+}
+
+/* Undo toast styles */
+#undo-toast-container {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+.undo-toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: all;
+    animation: toastIn 0.3s ease forwards;
+    background: var(--panel-surface);
+    border: 1px solid var(--panel-border);
+    color: var(--panel-text);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    min-width: 280px;
+    max-width: 420px;
+}
+.undo-toast .undo-btn {
+    margin-left: auto;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: var(--panel-accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.undo-toast .undo-btn:hover { background: var(--panel-accent2); }
+.undo-toast .undo-countdown {
+    font-size: 11px;
+    color: var(--panel-muted);
+    min-width: 28px;
+    text-align: center;
+}
+.undo-toast.undo-toast-leave { animation: toastOut 0.3s ease forwards; }
+
+/* WebSocket status indicator */
+#ws-status {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6b7280;
+    display: inline-block;
+    transition: background 0.3s;
+    flex-shrink: 0;
+}
+#ws-status.ws-connected { background: #10b981; }
+#ws-status.ws-error { background: #ef4444; }

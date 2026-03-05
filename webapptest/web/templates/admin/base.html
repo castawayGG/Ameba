@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" id="html-root">
+<html lang="ru" id="html-root" data-theme="{{ current_user.theme if current_user and current_user.is_authenticated else 'dark' }}" class="{{ 'light-theme' if current_user and current_user.is_authenticated and current_user.theme == 'light' else '' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -374,12 +374,18 @@
                         <button onclick="setLanguage('en')" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" style="color: var(--panel-text);">🇬🇧 English</button>
                     </div>
                 </div>
+                <!-- Theme toggle -->
+                <button id="theme-toggle-btn" onclick="toggleTheme()" class="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50" title="Переключить тему">
+                    <i id="theme-icon" data-lucide="{{ 'sun' if current_user and current_user.is_authenticated and current_user.theme == 'light' else 'moon' }}" class="w-4 h-4"></i>
+                </button>
                 <!-- Notification bell -->
                 <div class="relative" id="notif-bell-wrapper">
                     <button onclick="toggleNotifPanel()" class="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-50" title="Уведомления">
                         <i data-lucide="bell" class="w-4 h-4"></i>
                         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 font-bold"></span>
                     </button>
+                    <!-- WebSocket connection status dot -->
+                    <span id="ws-status" title="Статус соединения"></span>
                     <div id="notif-panel" class="hidden absolute right-0 top-10 w-80 rounded-2xl z-50 overflow-hidden" style="background: var(--panel-card); border: 1px solid var(--panel-border); box-shadow: 0 8px 24px rgba(17,24,39,0.08);">
                         <div class="flex items-center justify-between px-4 py-3" style="border-bottom: 1px solid var(--panel-border);">
                             <span class="text-sm font-semibold" style="color: var(--panel-text);">Уведомления</span>
@@ -412,6 +418,9 @@
 
     <!-- Toast container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Undo toast container (centered bottom) -->
+    <div id="undo-toast-container"></div>
 
     <script>
         function openSidebar() {
@@ -602,40 +611,139 @@
     })();
     </script>
 <script>
-// Notification center
-async function loadNotifications() {
+// ── Real-time notifications via WebSocket (replaces polling) ──
+let _ws = null;
+let _wsReconnectDelay = 2000;
+let _wsReconnectTimer = null;
+let _prevInboxUnreadCount = null;
+
+// Cached notifications list for when the panel is opened
+let _cachedNotifications = [];
+let _cachedUnread = 0;
+
+function _wsConnect() {
+    const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${location.host}/ws/notifications`;
+    const wsStatus = document.getElementById('ws-status');
+
     try {
-        const r = await fetch('/admin/api/notifications');
-        const d = await r.json();
-        if (!d.success) return;
-        const badge = document.getElementById('notif-badge');
-        const list = document.getElementById('notif-list');
-        if (d.unread > 0) {
-            badge.textContent = d.unread > 99 ? '99+' : d.unread;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+        _ws = new WebSocket(wsUrl);
+    } catch(e) {
+        _wsScheduleReconnect();
+        return;
+    }
+
+    _ws.onopen = function() {
+        _wsReconnectDelay = 2000;
+        if (wsStatus) { wsStatus.classList.add('ws-connected'); wsStatus.classList.remove('ws-error'); }
+    };
+
+    _ws.onmessage = function(event) {
+        try {
+            const msg = JSON.parse(event.data);
+            _wsHandleMessage(msg);
+        } catch(e) {}
+    };
+
+    _ws.onclose = function() {
+        if (wsStatus) { wsStatus.classList.remove('ws-connected'); }
+        _wsScheduleReconnect();
+    };
+
+    _ws.onerror = function() {
+        if (wsStatus) { wsStatus.classList.add('ws-error'); }
+    };
+}
+
+function _wsScheduleReconnect() {
+    clearTimeout(_wsReconnectTimer);
+    _wsReconnectTimer = setTimeout(function() {
+        _wsConnect();
+    }, _wsReconnectDelay);
+    _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, 30000);
+}
+
+function _wsHandleMessage(msg) {
+    if (msg.type === 'ping') return;
+
+    if (msg.type === 'notification') {
+        // Full notification list update (sent on connect)
+        _cachedNotifications = msg.notifications || [];
+        _cachedUnread = msg.unread || 0;
+        _updateNotifBadge(_cachedUnread);
+        const panel = document.getElementById('notif-panel');
+        if (panel && !panel.classList.contains('hidden')) {
+            _renderNotifications(_cachedNotifications);
         }
-        if (d.notifications.length === 0) {
-            list.innerHTML = '<div class="px-4 py-6 text-center text-sm text-panel-muted">Нет уведомлений</div>';
-            return;
+    }
+
+    if (msg.type === 'notification_new') {
+        // Incremental: new notification pushed in real-time
+        _cachedUnread++;
+        _updateNotifBadge(_cachedUnread);
+        _cachedNotifications.unshift({
+            id: msg.id, title: msg.title, message: msg.message,
+            type: msg.type_val || msg.type, category: msg.category,
+            is_read: false, related_url: msg.related_url,
+        });
+        const panel = document.getElementById('notif-panel');
+        if (panel && !panel.classList.contains('hidden')) {
+            _renderNotifications(_cachedNotifications);
         }
-        const typeColors = {info: 'text-blue-400', warning: 'text-yellow-400', error: 'text-red-400', success: 'text-green-400'};
-        const html = d.notifications.map(n => `
-            <div class="px-4 py-3 ${n.is_read ? 'opacity-60' : ''}">
-                <div class="flex items-start gap-2">
-                    <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 ${typeColors[n.type] || 'text-blue-400'} flex-shrink-0"></i>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium text-panel-text truncate">${n.title}</p>
-                        <p class="text-xs text-panel-muted mt-0.5 line-clamp-2">${n.message}</p>
-                        ${n.related_url ? `<a href="${n.related_url}" class="text-xs text-panel-accent hover:underline">Перейти →</a>` : ''}
-                    </div>
+        showToast(msg.title || 'Новое уведомление', 'info');
+    }
+
+    if (msg.type === 'inbox_count') {
+        const count = msg.count || 0;
+        const badge = document.getElementById('nav-inbox-badge');
+        if (badge) {
+            if (count > 0) { badge.textContent = count > 99 ? '99+' : count; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
+        if (_prevInboxUnreadCount !== null && count > _prevInboxUnreadCount) {
+            showToast('Новое входящее сообщение', 'info');
+        }
+        _prevInboxUnreadCount = count;
+    }
+
+    if (msg.type === 'alert') {
+        showToast(msg.message || 'Системное уведомление', msg.level || 'warning');
+    }
+}
+
+function _updateNotifBadge(unread) {
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    if (unread > 0) {
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+const _notifTypeColors = {info: 'text-blue-400', warning: 'text-yellow-400', error: 'text-red-400', success: 'text-green-400'};
+function _renderNotifications(notifications) {
+    const list = document.getElementById('notif-list');
+    if (!list) return;
+    if (!notifications.length) {
+        list.innerHTML = '<div class="px-4 py-6 text-center text-sm" style="color:var(--panel-muted)">Нет уведомлений</div>';
+        return;
+    }
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    list.innerHTML = notifications.map(n => `
+        <div class="px-4 py-3 ${n.is_read ? 'opacity-60' : ''}">
+            <div class="flex items-start gap-2">
+                <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 ${_notifTypeColors[n.type] || 'text-blue-400'} flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium truncate" style="color:var(--panel-text)">${esc(n.title)}</p>
+                    <p class="text-xs mt-0.5 line-clamp-2" style="color:var(--panel-muted)">${esc(n.message)}</p>
+                    ${n.related_url ? `<a href="${esc(n.related_url)}" class="text-xs hover:underline" style="color:var(--panel-accent)">Перейти →</a>` : ''}
                 </div>
             </div>
-        `).join('');
-        list.innerHTML = html;
-        if (window.lucide) lucide.createIcons({ el: list });
-    } catch(e) {}
+        </div>
+    `).join('');
+    if (window.lucide) lucide.createIcons({ el: list });
 }
 
 function toggleLangMenu() {
@@ -666,12 +774,17 @@ async function setLanguage(lang) {
 function toggleNotifPanel() {
     const panel = document.getElementById('notif-panel');
     panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) loadNotifications();
+    if (!panel.classList.contains('hidden')) {
+        _renderNotifications(_cachedNotifications);
+    }
 }
 
 async function markAllRead() {
     await fetch('/admin/api/notifications/mark_read', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'}});
-    loadNotifications();
+    _cachedUnread = 0;
+    _updateNotifBadge(0);
+    _cachedNotifications = _cachedNotifications.map(n => ({...n, is_read: true}));
+    _renderNotifications(_cachedNotifications);
 }
 
 // Close notif panel when clicking outside
@@ -682,29 +795,126 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Poll for notifications every 30s
-loadNotifications();
-setInterval(loadNotifications, 30000);
+// Start WebSocket connection
+_wsConnect();
 
-// Poll inbox unread count every 15s
-let _prevInboxUnreadCount = null;
-async function loadInboxUnreadCount() {
-    try {
-        const r = await fetch('/admin/api/inbox/unread_count');
-        const d = await r.json();
-        const badge = document.getElementById('nav-inbox-badge');
-        if (badge) {
-            if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.classList.remove('hidden'); }
-            else badge.classList.add('hidden');
-        }
-        if (_prevInboxUnreadCount !== null && d.count > _prevInboxUnreadCount) {
-            showToast('Новое входящее сообщение', 'info');
-        }
-        _prevInboxUnreadCount = d.count;
-    } catch(e) {}
+// ── Theme toggle ──
+function toggleTheme() {
+    const html = document.getElementById('html-root');
+    const isLight = html.classList.contains('light-theme');
+    const newTheme = isLight ? 'dark' : 'light';
+    if (newTheme === 'light') {
+        html.classList.add('light-theme');
+    } else {
+        html.classList.remove('light-theme');
+    }
+    html.setAttribute('data-theme', newTheme);
+    // Update icon
+    const icon = document.getElementById('theme-icon');
+    if (icon) {
+        icon.setAttribute('data-lucide', newTheme === 'light' ? 'sun' : 'moon');
+        if (window.lucide) lucide.createIcons({ el: icon.parentElement });
+    }
+    // Persist on server
+    fetch('/admin/api/set_theme', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({theme: newTheme})
+    }).catch(() => {});
 }
-loadInboxUnreadCount();
-setInterval(loadInboxUnreadCount, 15000);
+
+// ── Undo delete helper ──
+function deleteWithUndo(deleteUrl, message, onRemoveFromDOM, onRestore) {
+    const csrfToken = '{{ csrf_token() if csrf_token is defined else "" }}';
+    return fetch(deleteUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+    }).then(r => r.json()).then(data => {
+        if (!data.success) {
+            showToast(data.error || 'Ошибка удаления', 'error');
+            return data;
+        }
+        // Optimistically remove from DOM
+        if (typeof onRemoveFromDOM === 'function') onRemoveFromDOM();
+
+        const token = data.undo_token;
+        const ttl = (data.expires_in || 10) * 1000;
+        let cancelled = false;
+        let confirmed = false;
+
+        // Show undo toast
+        const toastId = 'undo-' + Date.now();
+        const container = document.getElementById('undo-toast-container');
+        const toastEl = document.createElement('div');
+        toastEl.className = 'undo-toast';
+        toastEl.id = toastId;
+        toastEl.innerHTML = `
+            <span>${message || data.message || 'Удалено'}</span>
+            <span class="undo-countdown" id="${toastId}-cd">${Math.ceil(ttl/1000)}</span>
+            <button class="undo-btn" onclick="window._undoCancel('${token}','${toastId}')">Отмена</button>
+        `;
+        container.appendChild(toastEl);
+
+        // Countdown timer
+        let remaining = ttl;
+        const TICK = 1000;
+        const interval = setInterval(() => {
+            remaining -= TICK;
+            const cdEl = document.getElementById(toastId + '-cd');
+            if (cdEl) cdEl.textContent = Math.max(0, Math.ceil(remaining/1000));
+            if (remaining <= 0) {
+                clearInterval(interval);
+                if (!cancelled && !confirmed) {
+                    confirmed = true;
+                    _confirmDelete(token, toastId);
+                }
+            }
+        }, TICK);
+
+        // Store cancel handler
+        window._undoPending = window._undoPending || {};
+        window._undoPending[token] = {cancel: () => {
+            cancelled = true;
+            clearInterval(interval);
+            _dismissUndoToast(toastId);
+            fetch(`/admin/api/pending_delete/${token}/cancel`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            }).then(() => {
+                if (typeof onRestore === 'function') onRestore();
+            }).catch(() => {});
+        }};
+
+        return data;
+    }).catch(e => {
+        showToast('Ошибка: ' + e.message, 'error');
+        return {success: false};
+    });
+}
+
+function _confirmDelete(token, toastId) {
+    const csrfToken = '{{ csrf_token() if csrf_token is defined else "" }}';
+    fetch(`/admin/api/pending_delete/${token}/confirm`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+    }).catch(() => {});
+    _dismissUndoToast(toastId);
+}
+
+function _dismissUndoToast(toastId) {
+    const el = document.getElementById(toastId);
+    if (el) {
+        el.classList.add('undo-toast-leave');
+        setTimeout(() => el.remove(), 300);
+    }
+}
+
+window._undoCancel = function(token, toastId) {
+    if (window._undoPending && window._undoPending[token]) {
+        window._undoPending[token].cancel();
+        delete window._undoPending[token];
+    }
+};
 </script>
 
 <!-- ==========================================
