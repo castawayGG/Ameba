@@ -930,6 +930,8 @@ def proxy_delete(proxy_id):
         def do_delete():
             p = db.session.get(Proxy, proxy_id)
             if p:
+                db.session.query(Account).filter(Account.proxy_id == proxy_id).update({'proxy_id': None}, synchronize_session=False)
+                db.session.flush()
                 db.session.delete(p)
                 db.session.commit()
 
@@ -987,6 +989,8 @@ def proxies_bulk_delete():
     if not ids:
         return jsonify({'success': False, 'error': 'Список ID пуст'}), 400
     try:
+        db.session.query(Account).filter(Account.proxy_id.in_(ids)).update({'proxy_id': None}, synchronize_session=False)
+        db.session.flush()
         deleted = db.session.query(Proxy).filter(Proxy.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         log_action('proxies_bulk_delete', f'Удалено прокси: {deleted}')
@@ -1004,6 +1008,8 @@ def proxies_delete_all():
     try:
         count = db.session.query(Proxy).count()
         log_action('proxies_delete_all', f'Попытка удаления всех прокси: {count}')
+        db.session.query(Account).update({'proxy_id': None}, synchronize_session=False)
+        db.session.flush()
         deleted = db.session.query(Proxy).delete(synchronize_session=False)
         db.session.commit()
         return jsonify({'success': True, 'deleted': deleted})
