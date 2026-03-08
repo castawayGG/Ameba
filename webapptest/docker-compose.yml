@@ -34,6 +34,11 @@ services:
     command: sh -c "alembic upgrade head && gunicorn -w 4 --worker-class=gthread --threads=4 -b 0.0.0.0:8000 --forwarded-allow-ips='*' web.app:app"
     env_file:
       - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://telegram_user:changeme@postgres:5432/telegram_panel}
     volumes:
       - ./sessions:/app/sessions
       - ./logs:/app/logs
@@ -58,6 +63,11 @@ services:
     command: celery -A tasks.celery_app worker --loglevel=info
     env_file:
       - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://telegram_user:changeme@postgres:5432/telegram_panel}
     volumes:
       - ./sessions:/app/sessions
       - ./logs:/app/logs
@@ -76,6 +86,11 @@ services:
     command: celery -A tasks.celery_app beat --loglevel=info
     env_file:
       - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://telegram_user:changeme@postgres:5432/telegram_panel}
     volumes:
       - ./sessions:/app/sessions
       - ./logs:/app/logs

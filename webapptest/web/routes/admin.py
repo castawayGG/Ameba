@@ -3592,7 +3592,7 @@ def api_live_stream():
     events = []
     try:
         import redis
-        r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
+        r = redis.from_url(Config.REDIS_URL)
         raw = r.lrange('live_events_log', 0, 19)
         for item in raw:
             try:
@@ -3611,7 +3611,7 @@ def api_live_stats():
     try:
         from core.config import Config
         import redis
-        r = redis.from_url(Config.CELERY_BROKER_URL or 'redis://localhost:6379/0')
+        r = redis.from_url(Config.REDIS_URL)
         keys = r.scan_iter('live:visitor:*')
         active_visitors = sum(1 for _ in keys)
         return jsonify({'success': True, 'active_visitors': active_visitors})
