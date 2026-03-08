@@ -26,8 +26,17 @@ from models.note import Note
 from models.api_key import ApiKey
 from models.panel_settings import PanelSettings
 from models.quick_reply import QuickReply
+from models.quick_reply_template import QuickReplyTemplate
 from models.macro import Macro
 from models.bulk_operation import BulkOperation
+from models.task import Task
+from models.account_log import AccountLog
+from models.api_credential import ApiCredential
+from models.antidetect_profile import AntidetectProfile
+from models.cooldown import CooldownRule, CooldownLog
+from models.spintax_template import SpintaxTemplate
+from models.parse_task import ParseTask
+from models.ab_test import ABTest, ABTestVisit
 
 # Список всех моделей для удобного импорта
 __all__ = [
@@ -66,6 +75,17 @@ __all__ = [
     'ApiKey',
     'PanelSettings',
     'QuickReply',
+    'QuickReplyTemplate',
     'Macro',
     'BulkOperation',
+    'Task',
+    'AccountLog',
+    'ApiCredential',
+    'AntidetectProfile',
+    'CooldownRule',
+    'CooldownLog',
+    'SpintaxTemplate',
+    'ParseTask',
+    'ABTest',
+    'ABTestVisit',
 ]
