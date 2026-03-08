@@ -238,10 +238,19 @@ async def send_message_to_chat(account_id: str, chat_id: int, text: str, reply_t
     """Отправить сообщение в конкретный чат."""
     client = await get_telegram_client(account_id)
     try:
-        entity = await client.get_entity(chat_id)
+        # Try resolving entity by ID; fall back to direct int peer for user IDs
+        try:
+            entity = await client.get_entity(int(chat_id))
+        except (ValueError, TypeError):
+            entity = int(chat_id)
+        except Exception as _ge:
+            # Last resort: send directly using the raw integer peer (e.g. FloodWait, PeerIdInvalid)
+            log.debug(f"get_entity fallback for chat {chat_id}: {_ge}")
+            entity = int(chat_id)
         msg = await client.send_message(entity, text, reply_to=reply_to)
         return {'success': True, 'message_id': msg.id}
     except Exception as e:
+        log.error(f"send_message_to_chat error account={account_id} chat={chat_id}: {e}")
         return {'success': False, 'error': str(e)}
     finally:
         await client.disconnect()

