@@ -124,7 +124,7 @@ function onFileSelected(input) {
 function submitUpload(e) {
     e.preventDefault();
     const fileInput = document.getElementById('media-file-input');
-    if (!fileInput.files[0]) { alert('Выберите файл'); return; }
+    if (!fileInput.files[0]) { showToast('Выберите файл', 'error'); return; }
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
     formData.append('description', document.getElementById('media-description').value);
@@ -148,9 +148,9 @@ function submitUpload(e) {
     xhr.onload = () => {
         const resp = JSON.parse(xhr.responseText);
         if (resp.success) { location.reload(); }
-        else { alert('Ошибка: ' + (resp.error || 'Неизвестная ошибка')); btn.disabled = false; progress.classList.add('hidden'); }
+        else { showToast('Ошибка: ' + (resp.error || 'Неизвестная ошибка'), 'error'); btn.disabled = false; progress.classList.add('hidden'); }
     };
-    xhr.onerror = () => { alert('Ошибка загрузки'); btn.disabled = false; progress.classList.add('hidden'); };
+    xhr.onerror = () => { showToast('Ошибка загрузки', 'error'); btn.disabled = false; progress.classList.add('hidden'); };
     xhr.send(formData);
 }
 
@@ -164,7 +164,7 @@ function copyMediaUrl(fileId) {
 function deleteMedia(fileId, btn) {
     if (!confirm('Удалить файл?')) return;
     fetch('/admin/media/' + fileId + '/delete', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json()).then(d => { if (d.success) location.reload(); else alert(d.error); });
+        .then(r => r.json()).then(d => { if (d.success) location.reload(); else showToast(d.error, 'error'); });
 }
 </script>
 {% endblock %}

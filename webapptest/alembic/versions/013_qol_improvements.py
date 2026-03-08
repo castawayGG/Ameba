@@ -94,7 +94,6 @@ def _partition_account_logs():
       5. Удалить legacy-таблицу
     """
     from datetime import date, timedelta
-    from dateutil.relativedelta import relativedelta  # noqa: F401 – stdlib не достаточно
 
     conn = op.get_bind()
 
@@ -122,7 +121,10 @@ def _partition_account_logs():
     today = date.today()
     months_to_create = []
     for delta in range(-2, 2):  # -2, -1, 0, +1
-        first_of_month = (today.replace(day=1) + timedelta(days=32 * delta)).replace(day=1)
+        # Safely compute first day of a month relative to today
+        total_months = today.year * 12 + today.month - 1 + delta
+        year, month = divmod(total_months, 12)
+        first_of_month = date(year, month + 1, 1)
         months_to_create.append(first_of_month)
 
     for m_start in months_to_create:

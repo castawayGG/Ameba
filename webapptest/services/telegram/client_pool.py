@@ -74,7 +74,12 @@ class ClientPool:
         return client
 
     async def remove_client(self, account_id: str):
-        """Удаляет клиента из пула и закрывает соединение."""
+        """Удаляет клиента из пула и закрывает соединение.
+
+        Блокировка (lock) удаляется вместе с клиентом: если вызывающий код
+        владеет блокировкой, он должен освободить её до вызова remove_client,
+        либо не вызывать get_client с тем же account_id после освобождения.
+        """
         if account_id in self._clients:
             try:
                 await self._clients[account_id].disconnect()
@@ -82,7 +87,11 @@ class ClientPool:
                 log.warning(f"Error while disconnecting client {account_id}: {e}")
             del self._clients[account_id]
             self._last_used.pop(account_id, None)
-            self._locks.pop(account_id, None)
+            # Remove the lock only if it is not currently acquired to avoid
+            # silently dropping a lock held by concurrent code.
+            lock = self._locks.get(account_id)
+            if lock is not None and not lock.locked():
+                del self._locks[account_id]
 
     async def close_all(self):
         """Закрывает всех клиентов в пуле (например, при завершении работы)."""

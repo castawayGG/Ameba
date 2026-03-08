@@ -410,7 +410,6 @@ async function openTagsPanel(accountId, peerId, btn) {
         fetch(`/api/dialog-tags?account_id=${encodeURIComponent(accountId)}&peer_id=${encodeURIComponent(peerId)}`).then(r => r.json()),
     ]);
     const activeTags = new Set(dialogResp.map(dt => dt.tag_id));
-
     panel = document.createElement('div');
     panel.id = panelId;
     panel.className = 'absolute z-50 rounded-xl border shadow-xl p-3 min-w-[180px]';
@@ -444,7 +443,6 @@ async function openTagsPanel(accountId, peerId, btn) {
                 if (cb.checked) {
                     await fetch('/api/dialog-tags', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accId,peer_id:pId,tag_id:tagId})});
                 } else {
-                    // Find dialog tag id to delete
                     const list = await fetch(`/api/dialog-tags?account_id=${encodeURIComponent(accId)}&peer_id=${encodeURIComponent(pId)}`).then(r=>r.json());
                     const dt = list.find(d => d.tag_id === tagId);
                     if (dt) await fetch(`/api/dialog-tags/${dt.id}`, {method:'DELETE'});

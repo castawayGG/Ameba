@@ -6513,7 +6513,45 @@ def media_upload():
         'video/mp4', 'video/webm',
         'audio/ogg', 'audio/mpeg', 'audio/mp3',
     }
-    mime = file.mimetype or mimetypes.guess_type(file.filename)[0] or 'application/octet-stream'
+    # Magic-byte signatures for server-side MIME detection (not client-provided header)
+    _MAGIC = {
+        b'\xff\xd8\xff': 'image/jpeg',
+        b'\x89PNG': 'image/png',
+        b'GIF87a': 'image/gif',
+        b'GIF89a': 'image/gif',
+        b'RIFF': 'video/webm',      # also used for WebP/WebM; refined below
+        b'\x1aE\xdf\xa3': 'video/webm',
+        b'\x00\x00\x00': None,      # mp4 — handled separately (ftyp box)
+    }
+
+    header = file.read(12)
+    file.seek(0)
+
+    def detect_mime(hdr: bytes) -> str:
+        if hdr[:3] == b'\xff\xd8\xff':
+            return 'image/jpeg'
+        if hdr[:4] == b'\x89PNG':
+            return 'image/png'
+        if hdr[:6] in (b'GIF87a', b'GIF89a'):
+            return 'image/gif'
+        if hdr[:4] == b'RIFF':
+            # RIFF container: WebP starts with RIFF????WEBP
+            if hdr[8:12] == b'WEBP':
+                return 'image/webp'
+            return 'video/webm'
+        if hdr[:4] == b'\x1aE\xdf\xa3':
+            return 'video/webm'
+        # MP4: ftyp box at byte 4-7
+        if hdr[4:8] in (b'ftyp', b'moov', b'mdat', b'free'):
+            return 'video/mp4'
+        if hdr[:4] == b'OggS':
+            return 'audio/ogg'
+        if hdr[:3] == b'ID3' or hdr[:2] in (b'\xff\xfb', b'\xff\xf3', b'\xff\xf2'):
+            return 'audio/mpeg'
+        # Fall back to filename-based detection
+        return mimetypes.guess_type(file.filename)[0] or 'application/octet-stream'
+
+    mime = detect_mime(header)
     if mime not in allowed_mimes:
         return jsonify({'success': False, 'error': f'Тип файла не поддерживается: {mime}'}), 400
 

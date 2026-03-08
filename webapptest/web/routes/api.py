@@ -239,7 +239,7 @@ def get_dialog_tags():
         .filter(DialogTag.account_id == account_id, DialogTag.peer_id == peer_id)
         .all()
     )
-    return jsonify([{'tag_id': dt.id, 'name': ct.name, 'color': ct.color} for dt, ct in rows])
+    return jsonify([{'id': dt.id, 'tag_id': ct.id, 'name': ct.name, 'color': ct.color} for dt, ct in rows])
 
 
 @api_bp.route('/dialog-tags', methods=['POST'])
