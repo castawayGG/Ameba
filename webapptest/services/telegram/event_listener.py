@@ -288,10 +288,12 @@ async def start_listener():
             reconnect_counter = 0
             db = SessionLocal()
             try:
-                current_ids = set(db.query(Account.id).filter(
-                    Account.status == 'active',
-                    Account.session_data.isnot(None)
-                ).scalars().all())
+                current_ids = set(
+                    row[0] for row in db.query(Account.id).filter(
+                        Account.status == 'active',
+                        Account.session_data.isnot(None)
+                    ).all()
+                )
             finally:
                 db.close()
 

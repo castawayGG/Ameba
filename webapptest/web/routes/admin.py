@@ -1277,6 +1277,52 @@ def api_credentials_toggle(cred_id):
     return jsonify({'success': True, 'enabled': cred.enabled})
 
 
+@admin_bp.route('/settings/api_credentials/<int:cred_id>/verify', methods=['POST'])
+@login_required
+@admin_required
+def api_credentials_verify(cred_id):
+    """Проверка пары API ID + API Hash через Telegram (с прокси если настроен)."""
+    cred = db.session.get(ApiCredential, cred_id)
+    if not cred:
+        return jsonify({'success': False, 'error': 'Не найдено'}), 404
+    try:
+        import asyncio
+        import io
+        from telethon import TelegramClient
+        from telethon.sessions import StringSession
+
+        async def _verify():
+            # Try to get a proxy if available
+            proxy = None
+            try:
+                from models.proxy import Proxy
+                p = db.session.query(Proxy).filter_by(enabled=True).first()
+                if p:
+                    proxy = p.to_telethon_tuple()
+            except Exception:
+                pass
+            client = TelegramClient(
+                StringSession(),
+                int(cred.api_id),
+                cred.api_hash,
+                proxy=proxy,
+            )
+            try:
+                await client.connect()
+                return client.is_connected()
+            finally:
+                await client.disconnect()
+
+        ok = asyncio.run(_verify())
+        status = 'valid' if ok else 'unreachable'
+        log_action("api_credential_verify", f"API ID {cred.api_id}: {status}")
+        log.info(f"API credential {cred.api_id} verification result: {status}")
+        return jsonify({'success': True, 'valid': ok, 'status': status})
+    except Exception as e:
+        log.error(f"api_credentials_verify error for cred {cred_id}: {e}")
+        return jsonify({'success': False, 'valid': False, 'error': str(e)})
+
+
 # ==========================================
 # 12. ИСТОРИЯ ДЕЙСТВИЙ ПО АККАУНТУ
 # ==========================================
@@ -2482,6 +2528,7 @@ def api_inbox():
     return jsonify({'success': True, 'total': total, 'messages': [{
         'id': m.id,
         'account_id': m.account_id,
+        'tg_message_id': m.tg_message_id,
         'sender_tg_id': m.sender_tg_id,
         'sender_username': m.sender_username,
         'sender_name': m.sender_name,
@@ -2558,6 +2605,18 @@ def api_inbox_assign_chat():
     )
     db.session.add(notif)
     db.session.commit()
+    # Send Telegram bot notification on handover
+    try:
+        from services.notification.telegram_bot import send_notification
+        send_notification(
+            f"🔄 <b>Смена оператора</b>\n"
+            f"👤 Назначен: <b>{assignee.username}</b>\n"
+            f"📱 Аккаунт: <code>{account_id}</code>\n"
+            f"💬 Chat ID: <code>{chat_id}</code>\n"
+            f"🔁 Передал: {current_user.username}"
+        )
+    except Exception as _nb:
+        log.debug(f"Handover bot notification skipped: {_nb}")
     return jsonify({'success': True})
 
 
@@ -2577,7 +2636,7 @@ def account_dialogs(account_id):
         return jsonify({'success': False, 'error': str(e)})
 
 
-@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/messages')
+@admin_bp.route('/accounts/<account_id>/chat/<path:chat_id>/messages')
 @login_required
 @admin_required
 def account_chat_messages(account_id, chat_id):
@@ -2586,13 +2645,13 @@ def account_chat_messages(account_id, chat_id):
         from services.telegram.actions import get_chat_messages
         limit = int(request.args.get('limit', 50))
         offset_id = int(request.args.get('offset_id', 0))
-        result = asyncio.run(get_chat_messages(account_id, chat_id, limit=limit, offset_id=offset_id))
+        result = asyncio.run(get_chat_messages(account_id, int(chat_id), limit=limit, offset_id=offset_id))
         return jsonify({'success': True, 'messages': result})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 
-@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/send', methods=['POST'])
+@admin_bp.route('/accounts/<account_id>/chat/<path:chat_id>/send', methods=['POST'])
 @login_required
 @admin_required
 def account_chat_send(account_id, chat_id):
@@ -2604,21 +2663,21 @@ def account_chat_send(account_id, chat_id):
     try:
         import asyncio
         from services.telegram.actions import send_message_to_chat
-        result = asyncio.run(send_message_to_chat(account_id, chat_id, text, reply_to=reply_to))
+        result = asyncio.run(send_message_to_chat(account_id, int(chat_id), text, reply_to=reply_to))
         log_action('send_message', f'account={account_id} chat={chat_id}')
         return jsonify(result)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 
-@admin_bp.route('/accounts/<account_id>/chat/<int:chat_id>/read', methods=['POST'])
+@admin_bp.route('/accounts/<account_id>/chat/<path:chat_id>/read', methods=['POST'])
 @login_required
 @admin_required
 def account_chat_read(account_id, chat_id):
     try:
         import asyncio
         from services.telegram.actions import mark_chat_read
-        result = asyncio.run(mark_chat_read(account_id, chat_id))
+        result = asyncio.run(mark_chat_read(account_id, int(chat_id)))
         log_action('mark_chat_read', f'account={account_id} chat={chat_id}')
         return jsonify({'success': result})
     except Exception as e:
@@ -2636,6 +2695,42 @@ def account_groups(account_id):
         return jsonify({'success': True, 'groups': result})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@admin_bp.route('/accounts/<account_id>/media/<int:tg_message_id>')
+@login_required
+def account_media_download(account_id, tg_message_id):
+    """Download a media file (photo/document) from a Telegram message and serve it."""
+    import asyncio
+    import io as _io
+    try:
+        async def _fetch():
+            from services.telegram.actions import get_telegram_client
+            client = await get_telegram_client(account_id)
+            try:
+                msgs = await client.get_messages(None, ids=tg_message_id)
+                if not msgs or not msgs.media:
+                    return None, None
+                buf = _io.BytesIO()
+                await client.download_media(msgs, file=buf)
+                buf.seek(0)
+                mime = 'image/jpeg'
+                if hasattr(msgs.media, 'document') and msgs.media.document:
+                    for attr in (msgs.media.document.attributes or []):
+                        pass
+                    mime = msgs.media.document.mime_type or mime
+                return buf.read(), mime
+            finally:
+                await client.disconnect()
+
+        data, mime = asyncio.run(_fetch())
+        if not data:
+            return jsonify({'error': 'No media'}), 404
+        from flask import Response
+        return Response(data, mimetype=mime)
+    except Exception as e:
+        log.error(f"account_media_download error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @admin_bp.route('/accounts/<account_id>/groups/<int:group_id>/leave', methods=['POST'])
@@ -3223,9 +3318,11 @@ def proxies_bulk_check():
     try:
         from tasks.proxy_checker import check_all_proxies
         task = check_all_proxies.delay()
+        log.info(f"Proxy bulk check started by {current_user.username}, task_id={task.id}")
         log_action('bulk_check_proxies', 'Started mass proxy check')
         return jsonify({'success': True, 'task_id': task.id})
     except Exception as e:
+        log.error(f"proxies_bulk_check error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 
