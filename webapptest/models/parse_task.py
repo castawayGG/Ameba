@@ -8,7 +8,7 @@ class ParseTask(Base):
     name = Column(String(200))
     source_type = Column(String(30))
     source_link = Column(String(500))
-    account_id = Column(String(64), ForeignKey('accounts.id'))
+    account_id = Column(String(64), ForeignKey('accounts.id', ondelete='SET NULL'))
     status = Column(String(30), default='pending')
     total_parsed = Column(Integer, default=0)
     filters = Column(JSON)

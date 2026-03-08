@@ -21,7 +21,7 @@ class WarmingSession(Base):
     __tablename__ = 'warming_sessions'
 
     id = Column(Integer, primary_key=True)
-    account_id = Column(String(32), ForeignKey('accounts.id'), nullable=False)
+    account_id = Column(String(32), ForeignKey('accounts.id', ondelete='CASCADE'), nullable=False)
     scenario_id = Column(Integer, ForeignKey('warming_scenarios.id'), nullable=False)
     status = Column(String(20), default='pending')  # pending, running, completed, failed
     started_at = Column(DateTime, nullable=True)
