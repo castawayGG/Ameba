@@ -19,7 +19,7 @@ class CooldownRule(Base):
 class CooldownLog(Base):
     __tablename__ = 'cooldown_logs'
     id = Column(Integer, primary_key=True)
-    account_id = Column(String(64), ForeignKey('accounts.id'))
+    account_id = Column(String(64), ForeignKey('accounts.id', ondelete='CASCADE'))
     action_type = Column(String(50))
     performed_at = Column(DateTime, server_default=func.now())
     delay_applied = Column(Integer)

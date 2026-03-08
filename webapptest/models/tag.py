@@ -5,8 +5,8 @@ from core.database import Base
 account_tags = Table(
     'account_tags',
     Base.metadata,
-    Column('account_id', String(32), ForeignKey('accounts.id')),
-    Column('tag_id', Integer, ForeignKey('tags.id'))
+    Column('account_id', String(32), ForeignKey('accounts.id', ondelete='CASCADE')),
+    Column('tag_id', Integer, ForeignKey('tags.id', ondelete='CASCADE'))
 )
 
 

@@ -987,6 +987,10 @@ def proxies_bulk_delete():
     if not ids:
         return jsonify({'success': False, 'error': 'Список ID пуст'}), 400
     try:
+        # Null out proxy_id on accounts that reference these proxies before deleting
+        db.session.query(Account).filter(Account.proxy_id.in_(ids)).update(
+            {'proxy_id': None}, synchronize_session=False
+        )
         deleted = db.session.query(Proxy).filter(Proxy.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         log_action('proxies_bulk_delete', f'Удалено прокси: {deleted}')
@@ -1004,6 +1008,10 @@ def proxies_delete_all():
     try:
         count = db.session.query(Proxy).count()
         log_action('proxies_delete_all', f'Попытка удаления всех прокси: {count}')
+        # Null out proxy_id on all accounts before deleting proxies
+        db.session.query(Account).filter(Account.proxy_id.isnot(None)).update(
+            {'proxy_id': None}, synchronize_session=False
+        )
         deleted = db.session.query(Proxy).delete(synchronize_session=False)
         db.session.commit()
         return jsonify({'success': True, 'deleted': deleted})
@@ -1550,7 +1558,7 @@ def tasks():
 @admin_required
 def task_cancel(task_id):
     try:
-        from tasks.celery_app import celery as celery_app
+        from tasks.celery_app import celery_app
         celery_app.control.revoke(task_id, terminate=True)
         task = db.session.query(Task).filter(Task.task_id == task_id).first()
         if task:

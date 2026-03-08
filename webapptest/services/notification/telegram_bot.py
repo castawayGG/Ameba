@@ -75,7 +75,7 @@ def send_alert(alert_type: str, message: str, db=None) -> None:
         from models.notification import Notification
         from sqlalchemy import select
 
-        users = db.session.execute(select(User).filter_by(is_active=True)).scalars().all()
+        users = db.execute(select(User).filter_by(is_active=True)).scalars().all()
         for user in users:
             prefs = user.notification_prefs or {}
 
@@ -90,7 +90,7 @@ def send_alert(alert_type: str, message: str, db=None) -> None:
                         type='warning' if alert_type in (ALERT_ACCOUNT_BAN, ALERT_PROXY_DOWN) else 'info',
                         category='system',
                     )
-                    db.session.add(notif)
+                    db.add(notif)
                 except Exception as e:
                     log.error(f"send_alert panel error for user {user.id}: {e}")
 
@@ -102,11 +102,11 @@ def send_alert(alert_type: str, message: str, db=None) -> None:
                 if bot_token and chat_id:
                     _send_telegram_raw(message, bot_token, chat_id)
 
-        db.session.commit()
+        db.commit()
     except Exception as e:
         log.error(f"send_alert error: {e}")
         try:
-            db.session.rollback()
+            db.rollback()
         except Exception:
             pass
         # Fall back to global notification
