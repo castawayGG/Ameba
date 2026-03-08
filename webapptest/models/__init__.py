@@ -26,6 +26,7 @@ from models.note import Note
 from models.api_key import ApiKey
 from models.panel_settings import PanelSettings
 from models.quick_reply import QuickReply
+from models.quick_reply_template import QuickReplyTemplate
 from models.macro import Macro
 from models.bulk_operation import BulkOperation
 
@@ -66,6 +67,7 @@ __all__ = [
     'ApiKey',
     'PanelSettings',
     'QuickReply',
+    'QuickReplyTemplate',
     'Macro',
     'BulkOperation',
 ]

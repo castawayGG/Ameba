@@ -15,6 +15,7 @@ celery_app = Celery(
         'tasks.event_listener_task',
         'tasks.automation_runner',
         'tasks.scheduled_reports',
+        'tasks.parser',
     ]
 )
 
