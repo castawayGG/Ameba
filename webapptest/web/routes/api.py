@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_login import login_required
+from flask_login import login_required, current_user
 from web.middlewares.auth import admin_required
 from web.extensions import db
 from models.account import Account
@@ -7,6 +7,7 @@ from models.proxy import Proxy
 from models.campaign import Campaign
 from models.stat import Stat
 from models.task import Task
+from models.chat_tag import ChatTag, DialogTag
 from services.telegram.actions import send_bulk_messages, join_group, change_account_password, enable_2fa
 from tasks.celery_app import celery_app
 from celery.result import AsyncResult
@@ -15,7 +16,8 @@ import datetime
 
 api_bp = Blueprint('api', __name__)
 
-# -------------------- Задачи (Celery) --------------------
+# -------------------- Task Center (Celery) --------------------
+
 @api_bp.route('/tasks/<task_id>/status', methods=['GET'])
 @login_required
 @admin_required
@@ -27,6 +29,52 @@ def task_status(task_id):
         'status': task.status,
         'result': task.result if task.ready() else None
     })
+
+
+@api_bp.route('/tasks/active', methods=['GET'])
+@login_required
+@admin_required
+def tasks_active():
+    """
+    Список активных и недавно выполненных Celery-задач.
+    Возвращает задачи из таблицы Task с прогрессом.
+    """
+    tasks = (
+        db.session.query(Task)
+        .filter(Task.status.in_(['PENDING', 'STARTED', 'RECEIVED', 'RETRY',
+                                  'pending', 'running']))
+        .order_by(Task.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    result = []
+    for t in tasks:
+        celery_result = AsyncResult(t.task_id, app=celery_app) if t.task_id else None
+        result.append({
+            'id': t.id,
+            'task_id': t.task_id,
+            'name': t.name,
+            'status': celery_result.status if celery_result else t.status,
+            'progress': None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+        })
+    return jsonify(result)
+
+
+@api_bp.route('/tasks/<task_id>/revoke', methods=['POST'])
+@login_required
+@admin_required
+def task_revoke(task_id):
+    """Отзыв (отмена) фоновой Celery-задачи."""
+    terminate = (request.get_json() or {}).get('terminate', False)
+    celery_app.control.revoke(task_id, terminate=terminate)
+    # Обновляем статус в БД, если задача есть
+    db_task = db.session.query(Task).filter_by(task_id=task_id).first()
+    if db_task:
+        db_task.status = 'REVOKED'
+        db.session.commit()
+    return jsonify({'success': True, 'task_id': task_id})
+
 
 # -------------------- Действия с аккаунтами (асинхронные) --------------------
 @api_bp.route('/accounts/<account_id>/send_message', methods=['POST'])
@@ -133,3 +181,107 @@ def daily_stats():
             'phones': stat.phone_submissions if stat else 0
         })
     return jsonify(stats[::-1])  # от старых к новым
+
+
+# -------------------- CRM: теги диалогов (Inbox) --------------------
+
+@api_bp.route('/chat-tags', methods=['GET'])
+@login_required
+@admin_required
+def list_chat_tags():
+    """Список всех доступных тегов для диалогов."""
+    tags = db.session.query(ChatTag).order_by(ChatTag.name).all()
+    return jsonify([{'id': t.id, 'name': t.name, 'color': t.color} for t in tags])
+
+
+@api_bp.route('/chat-tags', methods=['POST'])
+@login_required
+@admin_required
+def create_chat_tag():
+    """Создание нового тега."""
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'name обязателен'}), 400
+    if db.session.query(ChatTag).filter_by(name=name).first():
+        return jsonify({'success': False, 'error': 'Тег с таким именем уже существует'}), 409
+    tag = ChatTag(name=name, color=data.get('color', '#6B7280'))
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify({'success': True, 'id': tag.id, 'name': tag.name, 'color': tag.color}), 201
+
+
+@api_bp.route('/chat-tags/<int:tag_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_chat_tag(tag_id):
+    """Удаление тега (и всех его привязок к диалогам)."""
+    tag = db.session.get(ChatTag, tag_id)
+    if not tag:
+        return jsonify({'success': False, 'error': 'Тег не найден'}), 404
+    db.session.delete(tag)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.route('/dialog-tags', methods=['GET'])
+@login_required
+@admin_required
+def get_dialog_tags():
+    """Получить теги конкретного диалога (account_id + peer_id)."""
+    account_id = request.args.get('account_id')
+    peer_id = request.args.get('peer_id')
+    if not account_id or not peer_id:
+        return jsonify({'success': False, 'error': 'account_id и peer_id обязательны'}), 400
+    rows = (
+        db.session.query(DialogTag, ChatTag)
+        .join(ChatTag, DialogTag.tag_id == ChatTag.id)
+        .filter(DialogTag.account_id == account_id, DialogTag.peer_id == peer_id)
+        .all()
+    )
+    return jsonify([{'tag_id': dt.id, 'name': ct.name, 'color': ct.color} for dt, ct in rows])
+
+
+@api_bp.route('/dialog-tags', methods=['POST'])
+@login_required
+@admin_required
+def add_dialog_tag():
+    """Добавить тег к диалогу."""
+    data = request.get_json() or {}
+    account_id = data.get('account_id')
+    peer_id = data.get('peer_id')
+    tag_id = data.get('tag_id')
+    if not account_id or not peer_id or not tag_id:
+        return jsonify({'success': False, 'error': 'account_id, peer_id и tag_id обязательны'}), 400
+    # Проверяем, что тег существует
+    tag = db.session.get(ChatTag, tag_id)
+    if not tag:
+        return jsonify({'success': False, 'error': 'Тег не найден'}), 404
+    # Избегаем дублирования
+    existing = db.session.query(DialogTag).filter_by(
+        account_id=account_id, peer_id=str(peer_id), tag_id=tag_id
+    ).first()
+    if existing:
+        return jsonify({'success': True, 'id': existing.id})
+    dt = DialogTag(
+        account_id=account_id,
+        peer_id=str(peer_id),
+        tag_id=tag_id,
+        created_by=current_user.username if current_user.is_authenticated else None,
+    )
+    db.session.add(dt)
+    db.session.commit()
+    return jsonify({'success': True, 'id': dt.id}), 201
+
+
+@api_bp.route('/dialog-tags/<int:dt_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def remove_dialog_tag(dt_id):
+    """Убрать тег с диалога."""
+    dt = db.session.get(DialogTag, dt_id)
+    if not dt:
+        return jsonify({'success': False, 'error': 'Привязка не найдена'}), 404
+    db.session.delete(dt)
+    db.session.commit()
+    return jsonify({'success': True})

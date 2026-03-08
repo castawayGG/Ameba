@@ -6,6 +6,18 @@ from web.extensions import db, login_manager, limiter, migrate
 from web.middlewares.auth import load_user
 from web.middlewares.ip_whitelist import whitelist_middleware
 
+# Инициализация Sentry (если задан SENTRY_DSN)
+if Config.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=Config.SENTRY_DSN,
+        integrations=[FlaskIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
+
 # Импорт всех моделей обязателен до db.create_all()
 from models.user import User
 from models.account import Account
@@ -36,6 +48,8 @@ from models.webhook import Webhook, WebhookDelivery
 from models.note import Note
 from models.api_key import ApiKey
 from models.panel_settings import PanelSettings
+from models.media_file import MediaFile
+from models.chat_tag import ChatTag, DialogTag
 
 
 def create_app(test_config=None):

@@ -6481,3 +6481,95 @@ def api_number_import_run():
         'added': added,
         'skipped': skipped,
     })
+
+
+# -------------------- Медиатека (/admin/media) --------------------
+
+@admin_bp.route('/media')
+@login_required
+@admin_required
+def media_library():
+    """Централизованная медиатека — список загруженных файлов."""
+    from models.media_file import MediaFile
+    files = db.session.query(MediaFile).order_by(MediaFile.created_at.desc()).all()
+    return render_template('admin/media.html', files=files)
+
+
+@admin_bp.route('/media/upload', methods=['POST'])
+@login_required
+@admin_required
+def media_upload():
+    """Загрузка медиафайла в библиотеку."""
+    import mimetypes
+    from werkzeug.utils import secure_filename
+    from models.media_file import MediaFile
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'error': 'Файл не выбран'}), 400
+
+    allowed_mimes = {
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'video/mp4', 'video/webm',
+        'audio/ogg', 'audio/mpeg', 'audio/mp3',
+    }
+    mime = file.mimetype or mimetypes.guess_type(file.filename)[0] or 'application/octet-stream'
+    if mime not in allowed_mimes:
+        return jsonify({'success': False, 'error': f'Тип файла не поддерживается: {mime}'}), 400
+
+    original_name = secure_filename(file.filename)
+    ext = os.path.splitext(original_name)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    media_dir = Config.MEDIA_DIR
+    os.makedirs(media_dir, exist_ok=True)
+    save_path = os.path.join(media_dir, unique_name)
+    file.save(save_path)
+    size_bytes = os.path.getsize(save_path)
+
+    media_file = MediaFile(
+        filename=unique_name,
+        original_name=original_name,
+        mime_type=mime,
+        size_bytes=size_bytes,
+        description=request.form.get('description', ''),
+        uploaded_by=current_user.username,
+    )
+    db.session.add(media_file)
+    db.session.commit()
+    log_action('media_upload', f'file={original_name} size={size_bytes}')
+    return jsonify({'success': True, 'id': media_file.id, 'filename': unique_name})
+
+
+@admin_bp.route('/media/<int:file_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def media_delete(file_id):
+    """Удаление медиафайла из библиотеки и с диска."""
+    from models.media_file import MediaFile
+    media_file = db.session.get(MediaFile, file_id)
+    if not media_file:
+        return jsonify({'success': False, 'error': 'Файл не найден'}), 404
+    file_path = os.path.join(Config.MEDIA_DIR, media_file.filename)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except OSError as e:
+        log.warning(f"media_delete: could not remove file {file_path}: {e}")
+    db.session.delete(media_file)
+    db.session.commit()
+    log_action('media_delete', f'file={media_file.original_name}')
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/media/<int:file_id>/serve')
+@login_required
+def media_serve(file_id):
+    """Отдача медиафайла для предпросмотра."""
+    from models.media_file import MediaFile
+    media_file = db.session.get(MediaFile, file_id)
+    if not media_file:
+        return '', 404
+    file_path = os.path.join(Config.MEDIA_DIR, media_file.filename)
+    if not os.path.exists(file_path):
+        return '', 404
+    return send_file(file_path, mimetype=media_file.mime_type)
