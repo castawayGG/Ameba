@@ -18,7 +18,7 @@ def upgrade() -> None:
     op.create_table(
         'landing_pages',
         sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('slug', sa.String(100), unique=True, nullable=False, index=True),
+        sa.Column('slug', sa.String(100), unique=True, nullable=False),
         sa.Column('name', sa.String(200), nullable=False),
         sa.Column('html_content', sa.Text(), nullable=False),
         sa.Column('css_content', sa.Text(), nullable=True),
@@ -36,7 +36,7 @@ def upgrade() -> None:
     op.create_table(
         'victims',
         sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('phone', sa.String(20), nullable=False, index=True),
+        sa.Column('phone', sa.String(20), nullable=False),
         sa.Column('tg_id', sa.String(20), nullable=True),
         sa.Column('username', sa.String(50), nullable=True),
         sa.Column('first_name', sa.String(100), nullable=True),
@@ -61,7 +61,7 @@ def upgrade() -> None:
     op.create_table(
         'tracked_links',
         sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('short_code', sa.String(20), unique=True, nullable=False, index=True),
+        sa.Column('short_code', sa.String(20), unique=True, nullable=False),
         sa.Column('destination_url', sa.String(2000), nullable=False),
         sa.Column('campaign_id', sa.Integer(), sa.ForeignKey('campaigns.id'), nullable=True),
         sa.Column('clicks', sa.Integer(), server_default='0'),
@@ -105,6 +105,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table('automations')
     op.drop_table('link_clicks')
+    op.drop_index('ix_tracked_links_short_code', 'tracked_links')
     op.drop_table('tracked_links')
+    op.drop_index('ix_victims_phone', 'victims')
     op.drop_table('victims')
+    op.drop_index('ix_landing_pages_slug', 'landing_pages')
     op.drop_table('landing_pages')

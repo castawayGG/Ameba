@@ -97,8 +97,8 @@ def send_alert(alert_type: str, message: str, db=None) -> None:
             # Telegram notification
             tg_key = _get_pref_key(alert_type, 'telegram')
             if prefs.get(tg_key, False):
-                bot_token = prefs.get('tg_bot_token') or getattr(Config, 'NOTIFICATION_BOT_TOKEN', None)
-                chat_id = prefs.get('tg_chat_id') or getattr(Config, 'NOTIFICATION_CHAT_ID', None)
+                bot_token = user.tg_bot_token or getattr(Config, 'NOTIFICATION_BOT_TOKEN', None)
+                chat_id = user.tg_chat_id or getattr(Config, 'NOTIFICATION_CHAT_ID', None)
                 if bot_token and chat_id:
                     _send_telegram_raw(message, bot_token, chat_id)
 

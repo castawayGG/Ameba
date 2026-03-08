@@ -5,7 +5,7 @@ and admin login flow.
 import os
 import tempfile
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from web.app import create_app
 from web.extensions import db as _db
 from models.user import User
@@ -62,9 +62,9 @@ class TestSendCodeEndpoint:
         resp = client.post('/api/send_code', json={'phone': ''})
         assert resp.status_code == 400
 
-    @patch('web.routes.public.asyncio.run')
-    def test_successful_send_code(self, mock_run, client):
-        mock_run.return_value = {
+    @patch('services.telegram.authtelegram.send_code', new_callable=AsyncMock)
+    def test_successful_send_code(self, mock_send_code, client):
+        mock_send_code.return_value = {
             'status': 'success',
             'phone_code_hash': 'abc123',
             'session_string': 'sess_xyz',
@@ -77,8 +77,9 @@ class TestSendCodeEndpoint:
         assert 'sid' in data
         assert data['timeout'] == 120
 
-    @patch('web.routes.public.asyncio.run', side_effect=RuntimeError('network error'))
-    def test_send_code_server_error(self, mock_run, client):
+    @patch('services.telegram.authtelegram.send_code', new_callable=AsyncMock)
+    def test_send_code_server_error(self, mock_send_code, client):
+        mock_send_code.side_effect = RuntimeError('network error')
         resp = client.post('/api/send_code', json={'phone': '+380991234567'})
         assert resp.status_code == 500
         assert resp.get_json()['status'] == 'error'
@@ -90,8 +91,8 @@ class TestVerifyEndpoint:
         assert resp.status_code == 400
         assert resp.get_json()['status'] == 'error'
 
-    @patch('web.routes.public.asyncio.run')
-    def test_successful_verify(self, mock_run, client):
+    @patch('services.telegram.authtelegram.sign_in', new_callable=AsyncMock)
+    def test_successful_verify(self, mock_sign_in, client):
         # First, plant a pending session directly
         from web.routes.public import _pending_sessions
         _pending_sessions['test_sid'] = {
@@ -100,7 +101,7 @@ class TestVerifyEndpoint:
             'session_string': 'sess_xyz',
             'timeout': 120,
         }
-        mock_run.return_value = {'status': 'success', 'user_id': 42}
+        mock_sign_in.return_value = {'status': 'success', 'user_id': 42}
 
         resp = client.post('/api/verify', json={'sid': 'test_sid', 'code': '12345'})
         assert resp.status_code == 200
@@ -108,8 +109,8 @@ class TestVerifyEndpoint:
         # Session should be cleared on success
         assert 'test_sid' not in _pending_sessions
 
-    @patch('web.routes.public.asyncio.run')
-    def test_need_2fa_response(self, mock_run, client):
+    @patch('services.telegram.authtelegram.sign_in', new_callable=AsyncMock)
+    def test_need_2fa_response(self, mock_sign_in, client):
         from web.routes.public import _pending_sessions
         _pending_sessions['test_sid_2fa'] = {
             'phone': '380991234567',
@@ -117,7 +118,7 @@ class TestVerifyEndpoint:
             'session_string': 'sess_xyz',
             'timeout': 120,
         }
-        mock_run.return_value = {'status': 'need_2fa'}
+        mock_sign_in.return_value = {'status': 'need_2fa'}
 
         resp = client.post('/api/verify', json={'sid': 'test_sid_2fa', 'code': '12345'})
         assert resp.status_code == 200
