@@ -337,7 +337,7 @@ setInterval(() => { loadInbox(); loadUnreadCount(); refreshOpenColumns(); }, 150
             } catch (_) {}
         };
         ws.onclose = function() { setTimeout(connectInboxWS, 5000); };
-        ws.onerror = function() { ws.close(); };
+        ws.onerror = function(e) { console.log('[inbox ws] connection error, retrying in 5s', e); ws.close(); };
     } catch(_) {}
 })();
 

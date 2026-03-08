@@ -1311,7 +1311,10 @@ def api_credentials_verify(cred_id):
                 await client.connect()
                 return client.is_connected()
             finally:
-                await client.disconnect()
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
 
         ok = asyncio.run(_verify())
         status = 'valid' if ok else 'unreachable'
@@ -2708,6 +2711,7 @@ def account_media_download(account_id, tg_message_id):
             from services.telegram.actions import get_telegram_client
             client = await get_telegram_client(account_id)
             try:
+                # Pass None as entity to let Telethon infer peer from message ID
                 msgs = await client.get_messages(None, ids=tg_message_id)
                 if not msgs or not msgs.media:
                     return None, None
@@ -2716,12 +2720,13 @@ def account_media_download(account_id, tg_message_id):
                 buf.seek(0)
                 mime = 'image/jpeg'
                 if hasattr(msgs.media, 'document') and msgs.media.document:
-                    for attr in (msgs.media.document.attributes or []):
-                        pass
                     mime = msgs.media.document.mime_type or mime
                 return buf.read(), mime
             finally:
-                await client.disconnect()
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
 
         data, mime = asyncio.run(_fetch())
         if not data:

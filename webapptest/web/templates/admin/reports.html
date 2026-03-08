@@ -16,9 +16,9 @@
       HTML Отчёт
     </h2>
     <p class="text-xs mb-4" style="color:var(--panel-muted);">Полный отчёт системы в формате HTML с таблицами</p>
-    <a href="/admin/api/reports/generate" onclick="downloadReport(event, this.href)" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
+    <button onclick="downloadReport('/admin/api/reports/generate')" class="block w-full px-4 py-2 text-sm font-medium text-white text-center rounded-lg btn-accent-glow">
       <i data-lucide="download" class="w-4 h-4 mr-2"></i>Скачать отчёт
-    </a>
+    </button>
   </div>
 
   <!-- Excel Отчёт -->
@@ -84,8 +84,7 @@
 </div>
 
 <script>
-async function downloadReport(evt, url) {
-  evt.preventDefault();
+async function downloadReport(url) {
   try {
     const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
     if (!res.ok) { const d = await res.json().catch(() => ({})); showToast('Ошибка: ' + (d.error || res.status), 'danger'); return; }
