@@ -2528,7 +2528,7 @@ def api_inbox():
     elif is_read == '1':
         q = q.filter(IncomingMessage.is_read == True)
     if private_only == '1':
-        q = q.filter(IncomingMessage.chat_type.in_(['private', None, '']))
+        q = q.filter(or_(IncomingMessage.chat_type.in_(['private', '']), IncomingMessage.chat_type.is_(None)))
     q = q.order_by(desc(IncomingMessage.created_at))
     total = q.count()
     items = q.offset((page - 1) * limit).limit(limit).all()

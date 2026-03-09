@@ -525,6 +525,8 @@
         // ── Page-scoped interval registry — cleared on every PJAX navigation ──
         window._pageIntervals = window._pageIntervals || [];
         var _origSetInterval = window.setInterval;
+        // Expose on window so page-persistent scripts (e.g. global task badge) can bypass the wrapper
+        window._origSetInterval = _origSetInterval;
         window.setInterval = function(fn, delay) {
             var id = _origSetInterval.apply(window, arguments);
             window._pageIntervals.push(id);
@@ -1108,7 +1110,16 @@ window._showToast = window.showToast;
 // Polls /api/tasks/active every 15 s and shows a badge in the header
 // when there are running tasks. Independent of PJAX page navigation.
 (function() {
-    var _globalTaskTimer = null;
+    // Use the original (unwrapped) setInterval so PJAX cleanup doesn't clear this timer
+    var _nativeSetInterval = window._origSetInterval || window.setInterval;
+
+    function _pluralTasks(n) {
+        // Russian plural: 1 задача, 2-4 задачи, 5+ задач
+        var mod10 = n % 10, mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return n + ' задача';
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return n + ' задачи';
+        return n + ' задач';
+    }
 
     function _pollGlobalTasks() {
         fetch('/api/tasks/active')
@@ -1121,7 +1132,7 @@ window._showToast = window.showToast;
                 var cnt = document.getElementById('global-tasks-count');
                 if (!btn || !cnt) return;
                 if (running.length > 0) {
-                    cnt.textContent = running.length + ' задач';
+                    cnt.textContent = _pluralTasks(running.length);
                     btn.classList.remove('hidden');
                     btn.classList.add('flex');
                 } else {
@@ -1133,9 +1144,7 @@ window._showToast = window.showToast;
     }
 
     _pollGlobalTasks();
-    _globalTaskTimer = setInterval(_pollGlobalTasks, 15000);
-    // Store in a separate non-page key so PJAX cleanup doesn't clear it
-    window._globalTaskTimer = _globalTaskTimer;
+    _nativeSetInterval(_pollGlobalTasks, 15000);
 })();
 </script>
 

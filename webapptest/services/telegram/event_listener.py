@@ -39,7 +39,7 @@ def _publish_status():
         return
     try:
         payload = json.dumps({'connected': len(_clients), 'running': _running})
-        r.set(_REDIS_STATUS_KEY, payload, ex=300)  # expire after 5 minutes
+        r.set(_REDIS_STATUS_KEY, payload, ex=60)  # expire after 60 seconds
     except Exception:
         pass
 

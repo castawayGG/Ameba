@@ -247,7 +247,7 @@ async def send_message_to_chat(account_id: str, chat_id: int, text: str, reply_t
             log.debug(f"get_entity fallback for chat {chat_id}: {_ge}")
             # Refresh dialog cache so Telethon learns the access_hash for user entities
             try:
-                await client.get_dialogs()
+                await client.get_dialogs(limit=100)
                 entity = await client.get_entity(int(chat_id))
             except Exception as _de:
                 log.debug(f"get_dialogs fallback failed for chat {chat_id}: {_de}")
