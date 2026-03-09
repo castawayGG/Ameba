@@ -1,4 +1,5 @@
 import asyncio
+import json
 from core.logger import log
 from core.database import SessionLocal
 from models.account import Account
@@ -18,6 +19,30 @@ except ImportError:
 _clients = {}
 _running = False
 
+_REDIS_STATUS_KEY = 'listener:status'
+
+
+def _get_redis():
+    """Return a Redis client or None if Redis is unavailable."""
+    try:
+        import redis as _redis
+        from core.config import Config
+        return _redis.from_url(Config.REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+    except Exception:
+        return None
+
+
+def _publish_status():
+    """Write current listener status to Redis so Flask can read it."""
+    r = _get_redis()
+    if not r:
+        return
+    try:
+        payload = json.dumps({'connected': len(_clients), 'running': _running})
+        r.set(_REDIS_STATUS_KEY, payload, ex=300)  # expire after 5 minutes
+    except Exception:
+        pass
+
 
 def get_listener_status() -> dict:
     db = SessionLocal()
@@ -30,6 +55,22 @@ def get_listener_status() -> dict:
         total = 0
     finally:
         db.close()
+
+    # Try to read live status from Redis (written by the Celery worker process)
+    try:
+        r = _get_redis()
+        if r:
+            raw = r.get(_REDIS_STATUS_KEY)
+            if raw:
+                data = json.loads(raw)
+                return {
+                    'connected': data.get('connected', 0),
+                    'total_active': total,
+                    'running': data.get('running', False),
+                }
+    except Exception:
+        pass
+
     return {
         'connected': len(_clients),
         'total_active': total,
@@ -253,6 +294,7 @@ async def _connect_account(account_id: str) -> bool:
         client.add_event_handler(_make_message_read_handler(account_id), events.MessageRead())
         client.add_event_handler(_make_user_update_handler(account_id), events.UserUpdate())
         client.add_event_handler(_make_chat_action_handler(account_id), events.ChatAction())
+        _publish_status()
         return True
     except Exception as e:
         log.error(f"_connect_account {account_id} error: {e}")
@@ -262,6 +304,7 @@ async def _connect_account(account_id: str) -> bool:
 async def start_listener():
     global _running
     _running = True
+    _publish_status()
     log.info("Event listener starting...")
 
     db = SessionLocal()
@@ -278,6 +321,7 @@ async def start_listener():
         await _connect_account(acc_id)
 
     log.info(f"Event listener connected to {len(_clients)} accounts")
+    _publish_status()
 
     reconnect_counter = 0
     while _running:
@@ -315,6 +359,8 @@ async def start_listener():
                     except Exception:
                         await _connect_account(acc_id)
 
+            _publish_status()
+
 
 async def stop_listener():
     global _running
@@ -325,4 +371,5 @@ async def stop_listener():
         except Exception:
             pass
     _clients.clear()
+    _publish_status()
     log.info("Event listener stopped")

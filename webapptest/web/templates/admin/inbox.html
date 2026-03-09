@@ -72,6 +72,7 @@
 <script>
 let inboxUnreadOnly = false;
 let inboxContactsOnly = false;
+let inboxPrivateOnly = true;  // default: show only private chats
 // Split-view state: array of {accountId, senderId, name, chatId}
 const MAX_COLUMNS = 3;
 let chatColumns = []; // [{accountId, senderId, name, chatId}]
@@ -97,6 +98,8 @@ async function loadInbox() {
     const params = new URLSearchParams({page: 1, limit: 100});
     if (accId) params.set('account_id', accId);
     if (inboxUnreadOnly) params.set('is_read', '0');
+    // Pass private_only flag to API — server filters out groups/channels
+    params.set('private_only', inboxPrivateOnly ? '1' : '0');
     const r = await fetch('/admin/api/inbox?' + params);
     const d = await r.json();
     if (!d.success) return;

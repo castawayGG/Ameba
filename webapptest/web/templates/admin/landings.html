@@ -28,6 +28,9 @@
           <button type="button" onclick="loadTemplate('telegram-premium')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#FFD700';this.style.color='#FFD700'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">👑 TG Premium</button>
           <button type="button" onclick="loadTemplate('nft')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#a855f7';this.style.color='#a855f7'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🎨 NFT Drop</button>
           <button type="button" onclick="loadTemplate('diya')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#0057B8';this.style.color='#64a8ff'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🇺🇦 Дія Виплата</button>
+          <button type="button" onclick="loadTemplate('monobank')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#1A1A1A';this.style.color='#aaa'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🏦 Monobank</button>
+          <button type="button" onclick="loadTemplate('privat24')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#006DB7';this.style.color='#60a8ff'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🏧 ПриватБанк</button>
+          <button type="button" onclick="loadTemplate('prize')" class="tpl-card px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors" style="background:#071220;border-color:var(--panel-border);color:var(--panel-muted);" onmouseover="this.style.borderColor='#f59e0b';this.style.color='#f59e0b'" onmouseout="this.style.borderColor='var(--panel-border)';this.style.color='var(--panel-muted)'">🎁 Виграш Призу</button>
         </div>
         <div id="tplLoadStatus" class="text-xs mt-1" style="color:var(--panel-muted);display:none;"></div>
       </div>
@@ -189,46 +192,57 @@
 <script>
 const CSRF = '{{ csrf_token() if csrf_token is defined else "" }}';
 
-document.getElementById('createLandingForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  try {
-    const r = await fetch('/admin/api/landings', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify({
-        name: document.getElementById('cl_name').value,
-        slug: document.getElementById('cl_slug').value,
-        language: document.getElementById('cl_language').value,
-        theme: document.getElementById('cl_theme').value,
-        html_content: document.getElementById('cl_html_content').value
-      })
+// Attach form submit handlers only once (guard against PJAX re-execution)
+(function() {
+  const cf = document.getElementById('createLandingForm');
+  if (cf && !cf.dataset.handlerAttached) {
+    cf.dataset.handlerAttached = '1';
+    cf.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      try {
+        const r = await fetch('/admin/api/landings', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({
+            name: document.getElementById('cl_name').value,
+            slug: document.getElementById('cl_slug').value,
+            language: document.getElementById('cl_language').value,
+            theme: document.getElementById('cl_theme').value,
+            html_content: document.getElementById('cl_html_content').value
+          })
+        });
+        const d = await r.json();
+        if (d.success || r.ok) { showToast('Лендинг создан', 'success'); closeModal('createLandingModal'); setTimeout(() => location.reload(), 800); }
+        else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
+      } catch(err) { showToast('Ошибка сети', 'error'); }
     });
-    const d = await r.json();
-    if (d.success || r.ok) { showToast('Лендинг создан', 'success'); closeModal('createLandingModal'); setTimeout(() => location.reload(), 800); }
-    else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
-  } catch(err) { showToast('Ошибка сети', 'error'); }
-});
+  }
 
-document.getElementById('editLandingForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const id = document.getElementById('el_id').value;
-  try {
-    const r = await fetch('/admin/api/landings/' + id, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify({
-        name: document.getElementById('el_name').value,
-        slug: document.getElementById('el_slug').value,
-        language: document.getElementById('el_language').value,
-        theme: document.getElementById('el_theme').value,
-        html_content: document.getElementById('el_html_content').value
-      })
+  const ef = document.getElementById('editLandingForm');
+  if (ef && !ef.dataset.handlerAttached) {
+    ef.dataset.handlerAttached = '1';
+    ef.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const id = document.getElementById('el_id').value;
+      try {
+        const r = await fetch('/admin/api/landings/' + id, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({
+            name: document.getElementById('el_name').value,
+            slug: document.getElementById('el_slug').value,
+            language: document.getElementById('el_language').value,
+            theme: document.getElementById('el_theme').value,
+            html_content: document.getElementById('el_html_content').value
+          })
+        });
+        const d = await r.json();
+        if (d.success || r.ok) { showToast('Сохранено', 'success'); closeModal('editLandingModal'); setTimeout(() => location.reload(), 800); }
+        else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
+      } catch(err) { showToast('Ошибка сети', 'error'); }
     });
-    const d = await r.json();
-    if (d.success || r.ok) { showToast('Сохранено', 'success'); closeModal('editLandingModal'); setTimeout(() => location.reload(), 800); }
-    else showToast('Ошибка: ' + (d.error || r.statusText), 'error');
-  } catch(err) { showToast('Ошибка сети', 'error'); }
-});
+  }
+})();
 
 function editLanding(id, name, slug, language, theme, html_content) {
   document.getElementById('el_id').value = id;
