@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Dict, Optional
+from collections import OrderedDict
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from core.config import Config
@@ -8,26 +8,34 @@ from services.proxy.manager import get_proxy_for_request
 from utils.encryption import decrypt_session_data
 from core.logger import log
 
+# Idle timeout after which an unused client is automatically disconnected (10 minutes)
+_IDLE_TIMEOUT_SECONDS = 600
+
+
 class ClientPool:
     """
-    Пул клиентов Telethon для управления множеством аккаунтов.
-    Позволяет повторно использовать клиентов, автоматически переподключаться,
-    ограничивает максимальное количество одновременно активных клиентов.
+    LRU-пул клиентов Telethon для управления множеством аккаунтов.
+    Хранит активные клиенты в OrderedDict (LRU-порядок).
+    Клиенты, неактивные более 10 минут, автоматически отключаются.
     """
     def __init__(self, max_clients: int = 200):
-        self._clients: Dict[str, TelegramClient] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
-        self._last_used: Dict[str, float] = {}
+        self._clients: OrderedDict[str, TelegramClient] = OrderedDict()
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._last_used: dict[str, float] = {}
         self.max_clients = max_clients
 
     async def get_client(self, account_id: str, session_data: bytes = None, proxy=None) -> TelegramClient:
         """
-        Получить клиента для аккаунта.
-        Если клиент уже есть в пуле, возвращает его (предварительно проверяя соединение).
-        Если нет, создаёт нового клиента, используя переданные session_data и прокси.
+        Получить клиента для аккаунта (LRU-стратегия вытеснения).
+        Если клиент уже есть в пуле, переносит его в конец (как недавно использованный)
+        и возвращает его. Если нет — создаёт нового клиента.
         """
-        # Если клиент уже есть в пуле
+        # Вытесняем клиентов, превысивших порог бездействия
+        await self.cleanup_old_clients(_IDLE_TIMEOUT_SECONDS)
+
         if account_id in self._clients:
+            # Перемещаем в конец для LRU-порядка
+            self._clients.move_to_end(account_id)
             client = self._clients[account_id]
             self._last_used[account_id] = time.time()
             # Проверяем, не отключился ли клиент
@@ -41,9 +49,9 @@ class ClientPool:
                     return await self.get_client(account_id, session_data, proxy)
             return client
 
-        # Если достигнут лимит, удаляем самый старый неиспользуемый клиент
+        # Если достигнут лимит, вытесняем наименее недавно использованный (первый в OrderedDict)
         if len(self._clients) >= self.max_clients:
-            oldest = min(self._last_used, key=self._last_used.get)
+            oldest = next(iter(self._clients))
             await self.remove_client(oldest)
 
         # Создаём нового клиента
@@ -66,15 +74,24 @@ class ClientPool:
         return client
 
     async def remove_client(self, account_id: str):
-        """Удаляет клиента из пула и закрывает соединение."""
+        """Удаляет клиента из пула и закрывает соединение.
+
+        Блокировка (lock) удаляется вместе с клиентом: если вызывающий код
+        владеет блокировкой, он должен освободить её до вызова remove_client,
+        либо не вызывать get_client с тем же account_id после освобождения.
+        """
         if account_id in self._clients:
             try:
                 await self._clients[account_id].disconnect()
             except Exception as e:
                 log.warning(f"Error while disconnecting client {account_id}: {e}")
             del self._clients[account_id]
-            if account_id in self._last_used:
-                del self._last_used[account_id]
+            self._last_used.pop(account_id, None)
+            # Remove the lock only if it is not currently acquired to avoid
+            # silently dropping a lock held by concurrent code.
+            lock = self._locks.get(account_id)
+            if lock is not None and not lock.locked():
+                del self._locks[account_id]
 
     async def close_all(self):
         """Закрывает всех клиентов в пуле (например, при завершении работы)."""
@@ -90,19 +107,21 @@ class ClientPool:
             self._locks[account_id] = asyncio.Lock()
         return self._locks[account_id]
 
-    async def cleanup_old_clients(self, max_idle_seconds: int = 3600):
+    async def cleanup_old_clients(self, max_idle_seconds: int = _IDLE_TIMEOUT_SECONDS):
         """
         Удаляет клиентов, которые не использовались дольше указанного времени.
-        Можно запускать периодически из фоновой задачи.
+        Вызывается автоматически при каждом обращении к get_client,
+        а также может запускаться периодически из фоновой задачи.
         """
         now = time.time()
-        to_remove = []
-        for account_id, last_used in self._last_used.items():
-            if now - last_used > max_idle_seconds:
-                to_remove.append(account_id)
+        to_remove = [
+            account_id for account_id, last_used in self._last_used.items()
+            if now - last_used > max_idle_seconds
+        ]
         for account_id in to_remove:
             await self.remove_client(account_id)
-        log.info(f"Cleaned up {len(to_remove)} idle clients")
+        if to_remove:
+            log.info(f"LRU client pool: evicted {len(to_remove)} idle client(s)")
 
 # Глобальный экземпляр пула клиентов
 client_pool = ClientPool(max_clients=200)

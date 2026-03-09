@@ -1,0 +1,170 @@
+{% extends 'admin/base.html' %}
+{% block title %}Медиатека{% endblock %}
+{% block page_title %}Медиатека{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{{ url_for('admin.dashboard') }}"><i data-lucide="gauge" class="w-3 h-3 inline"></i> Дашборд</a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Медиатека</span>
+</nav>
+{% endblock %}
+
+{% block header_actions %}
+<button onclick="openModal('uploadModal')" class="flex items-center text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-4 py-2 transition-colors">
+    <i data-lucide="upload" class="w-4 h-4 mr-1.5"></i>Загрузить файл
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Upload Modal -->
+<div id="uploadModal" class="hidden fixed inset-0 bg-black/60 z-40 flex items-center justify-center modal-backdrop" onclick="if(event.target===this)closeModal('uploadModal')">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-md p-6 modal-panel">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white"><i data-lucide="upload" class="w-4 h-4 mr-2 text-blue-500 inline"></i>Загрузить медиафайл</h3>
+            <button onclick="closeModal('uploadModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <form id="uploadForm" onsubmit="submitUpload(event)">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Файл</label>
+                <div id="media-drop-zone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors" onclick="document.getElementById('media-file-input').click()">
+                    <i data-lucide="image" class="w-8 h-8 text-gray-400 mx-auto mb-2"></i>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Перетащите файл или <span class="text-blue-500">нажмите для выбора</span></p>
+                    <p class="text-xs text-gray-400 mt-1">JPEG, PNG, GIF, WebP, MP4, WebM, OGG, MP3</p>
+                    <p id="selected-file-name" class="text-xs text-blue-500 mt-2 font-medium hidden"></p>
+                </div>
+                <input type="file" id="media-file-input" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/ogg,audio/mpeg" class="hidden" onchange="onFileSelected(this)">
+            </div>
+            <div class="mb-5">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание (необязательно)</label>
+                <input type="text" id="media-description" placeholder="Краткое описание файла..." class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div id="upload-progress" class="hidden mb-4">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Загрузка...</span>
+                    <span id="upload-pct">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div id="upload-bar" class="bg-blue-500 h-2 rounded-full transition-all" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" id="upload-btn" class="flex-1 bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700 transition-colors">Загрузить</button>
+                <button type="button" onclick="closeModal('uploadModal')" class="px-4 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- File Grid -->
+{% if files %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    {% for f in files %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden group">
+        <!-- Preview -->
+        <div class="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden relative">
+            {% if f.is_image %}
+            <img src="{{ url_for('admin.media_serve', file_id=f.id) }}" alt="{{ f.original_name }}" class="w-full h-full object-cover">
+            {% elif f.is_video %}
+            <video src="{{ url_for('admin.media_serve', file_id=f.id) }}" class="w-full h-full object-cover" preload="metadata"></video>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="p-2 bg-black/50 rounded-full"><i data-lucide="play" class="w-6 h-6 text-white"></i></span>
+            </div>
+            {% elif f.is_audio %}
+            <div class="flex flex-col items-center justify-center p-4">
+                <i data-lucide="music" class="w-10 h-10 text-blue-400 mb-2"></i>
+                <audio controls class="w-full" style="max-width:160px">
+                    <source src="{{ url_for('admin.media_serve', file_id=f.id) }}" type="{{ f.mime_type }}">
+                </audio>
+            </div>
+            {% else %}
+            <i data-lucide="file" class="w-10 h-10 text-gray-400"></i>
+            {% endif %}
+            <!-- Overlay actions -->
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <a href="{{ url_for('admin.media_serve', file_id=f.id) }}" target="_blank" class="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors" title="Открыть">
+                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                </a>
+                <button onclick="copyMediaUrl({{ f.id }})" class="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors" title="Копировать URL">
+                    <i data-lucide="copy" class="w-4 h-4 text-white"></i>
+                </button>
+                <button onclick="deleteMedia({{ f.id }}, this)" class="p-2 bg-red-500/60 rounded-lg hover:bg-red-500/80 transition-colors" title="Удалить">
+                    <i data-lucide="trash-2" class="w-4 h-4 text-white"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Info -->
+        <div class="p-2">
+            <p class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title="{{ f.original_name }}">{{ f.original_name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ f.size_human }}</p>
+            {% if f.description %}
+            <p class="text-xs text-gray-500 mt-0.5 truncate" title="{{ f.description }}">{{ f.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+    <i data-lucide="image" class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4"></i>
+    <p class="text-lg font-medium text-gray-500 dark:text-gray-400">Медиатека пуста</p>
+    <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Загрузите первый файл, нажав кнопку выше</p>
+</div>
+{% endif %}
+
+<script>
+function onFileSelected(input) {
+    const name = input.files[0]?.name;
+    if (name) {
+        document.getElementById('selected-file-name').textContent = name;
+        document.getElementById('selected-file-name').classList.remove('hidden');
+    }
+}
+
+function submitUpload(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('media-file-input');
+    if (!fileInput.files[0]) { showToast('Выберите файл', 'error'); return; }
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('description', document.getElementById('media-description').value);
+
+    const btn = document.getElementById('upload-btn');
+    const progress = document.getElementById('upload-progress');
+    const bar = document.getElementById('upload-bar');
+    const pct = document.getElementById('upload-pct');
+    btn.disabled = true;
+    progress.classList.remove('hidden');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '{{ url_for("admin.media_upload") }}');
+    xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) {
+            const p = Math.round(ev.loaded / ev.total * 100);
+            bar.style.width = p + '%';
+            pct.textContent = p + '%';
+        }
+    };
+    xhr.onload = () => {
+        const resp = JSON.parse(xhr.responseText);
+        if (resp.success) { location.reload(); }
+        else { showToast('Ошибка: ' + (resp.error || 'Неизвестная ошибка'), 'error'); btn.disabled = false; progress.classList.add('hidden'); }
+    };
+    xhr.onerror = () => { showToast('Ошибка загрузки', 'error'); btn.disabled = false; progress.classList.add('hidden'); };
+    xhr.send(formData);
+}
+
+function copyMediaUrl(fileId) {
+    const url = location.origin + '/admin/media/' + fileId + '/serve';
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('URL скопирован');
+    });
+}
+
+function deleteMedia(fileId, btn) {
+    if (!confirm('Удалить файл?')) return;
+    fetch('/admin/media/' + fileId + '/delete', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json()).then(d => { if (d.success) location.reload(); else showToast(d.error, 'error'); });
+}
+</script>
+{% endblock %}

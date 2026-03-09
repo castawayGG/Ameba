@@ -1,6 +1,18 @@
 from celery import Celery
 from core.config import Config
 
+# Инициализация Sentry для Celery (если задан SENTRY_DSN)
+if Config.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=Config.SENTRY_DSN,
+        integrations=[CeleryIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
+
 celery_app = Celery(
     'tasks',
     broker=Config.CELERY_BROKER_URL,
@@ -15,6 +27,7 @@ celery_app = Celery(
         'tasks.event_listener_task',
         'tasks.automation_runner',
         'tasks.scheduled_reports',
+        'tasks.queue_monitor',
     ]
 )
 
@@ -41,6 +54,11 @@ celery_app.conf.update(
         'check-all-proxies': {
             'task': 'tasks.proxy_checker.check_all_proxies',
             'schedule': 7200,
+        },
+        # Мониторинг длины очереди Celery каждые 5 минут
+        'monitor-celery-queue': {
+            'task': 'tasks.queue_monitor.check_queue_length',
+            'schedule': 300,
         },
     },
 )

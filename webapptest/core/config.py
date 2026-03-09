@@ -74,13 +74,21 @@ class Config:
     CLOAKING_ENABLED = os.getenv('CLOAKING_ENABLED', 'false').lower() == 'true'
     DNS_ROTATION_ENABLED = os.getenv('DNS_ROTATION_ENABLED', 'false').lower() == 'true'
 
+    # Sentry error tracking
+    SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+
+    # Celery queue monitoring
+    CELERY_QUEUE_ALERT_THRESHOLD = int(os.getenv('CELERY_QUEUE_ALERT_THRESHOLD', 100))
+
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SESSIONS_DIR = os.path.join(BASE_DIR, 'sessions')
     LOGS_DIR = os.path.join(BASE_DIR, 'logs')
     BACKUPS_DIR = os.path.join(BASE_DIR, 'backups')
+    MEDIA_DIR = os.path.join(BASE_DIR, 'media')
 
     # Создаём директории, если их нет
     os.makedirs(SESSIONS_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
     os.makedirs(BACKUPS_DIR, exist_ok=True)
+    os.makedirs(MEDIA_DIR, exist_ok=True)

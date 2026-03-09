@@ -389,5 +389,98 @@ function useQuickReply(idx, content) {
     if (input) { input.value = resolveSpintax(content); input.focus(); }
     document.getElementById(`qr-panel-${idx}`)?.classList.add('hidden');
 }
+
+// ---- CRM: Dialog Tags ----
+let chatTagsCache = null;
+
+async function fetchChatTags() {
+    if (chatTagsCache) return chatTagsCache;
+    const r = await fetch('/api/chat-tags');
+    chatTagsCache = await r.json();
+    return chatTagsCache;
+}
+
+async function openTagsPanel(accountId, peerId, btn) {
+    const panelId = `tags-panel-${accountId}-${peerId}`.replace(/[^a-z0-9\-_]/gi, '_');
+    let panel = document.getElementById(panelId);
+    if (panel) { panel.remove(); chatTagsCache = null; return; }
+
+    const [allTags, dialogResp] = await Promise.all([
+        fetchChatTags(),
+        fetch(`/api/dialog-tags?account_id=${encodeURIComponent(accountId)}&peer_id=${encodeURIComponent(peerId)}`).then(r => r.json()),
+    ]);
+    const activeTags = new Set(dialogResp.map(dt => dt.tag_id));
+    panel = document.createElement('div');
+    panel.id = panelId;
+    panel.className = 'absolute z-50 rounded-xl border shadow-xl p-3 min-w-[180px]';
+    panel.style.cssText = 'background:var(--panel-card);border-color:var(--panel-border);top:100%;left:0;margin-top:4px;';
+
+    const esc = s => String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    if (!allTags.length) {
+        panel.innerHTML = `<p class="text-xs" style="color:var(--panel-muted)">Нет тегов. <a href="/admin/settings" class="underline" style="color:var(--panel-accent)">Создать в настройках</a></p>`;
+    } else {
+        panel.innerHTML = `
+            <p class="text-xs font-semibold mb-2" style="color:var(--panel-muted);">Теги диалога</p>
+            <div class="space-y-1">
+            ${allTags.map(t => `
+                <label class="flex items-center gap-2 cursor-pointer text-xs hover:bg-white/5 rounded px-1 py-0.5 transition-colors" style="color:var(--panel-text);">
+                    <input type="checkbox" class="tag-cb" data-tag-id="${t.id}" data-account="${esc(accountId)}" data-peer="${esc(peerId)}" ${activeTags.has(t.id) ? 'checked' : ''}>
+                    <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background:${esc(t.color)};"></span>
+                    ${esc(t.name)}
+                </label>
+            `).join('')}
+            </div>
+            <div class="mt-2 pt-2 border-t" style="border-color:var(--panel-border);">
+                <input type="text" id="${panelId}-new" placeholder="Новый тег..." class="w-full text-xs px-2 py-1 rounded border" style="background:var(--panel-surface);border-color:var(--panel-border);color:var(--panel-text);">
+                <button onclick="createAndAddTag('${esc(accountId)}','${esc(peerId)}','${panelId}')" class="mt-1 w-full text-xs py-1 rounded" style="background:var(--panel-accent);color:#fff;">+ Добавить</button>
+            </div>`;
+        panel.querySelectorAll('.tag-cb').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                const tagId = parseInt(cb.dataset.tagId);
+                const accId = cb.dataset.account;
+                const pId = cb.dataset.peer;
+                if (cb.checked) {
+                    await fetch('/api/dialog-tags', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accId,peer_id:pId,tag_id:tagId})});
+                } else {
+                    const list = await fetch(`/api/dialog-tags?account_id=${encodeURIComponent(accId)}&peer_id=${encodeURIComponent(pId)}`).then(r=>r.json());
+                    const dt = list.find(d => d.tag_id === tagId);
+                    if (dt) await fetch(`/api/dialog-tags/${dt.id}`, {method:'DELETE'});
+                }
+                renderDialogTags(accId, pId);
+            });
+        });
+    }
+
+    btn.parentElement.style.position = 'relative';
+    btn.parentElement.appendChild(panel);
+    document.addEventListener('click', function closePanel(e) {
+        if (!panel.contains(e.target) && e.target !== btn) { panel.remove(); document.removeEventListener('click', closePanel); }
+    });
+}
+
+async function createAndAddTag(accountId, peerId, panelId) {
+    const input = document.getElementById(`${panelId}-new`);
+    const name = (input?.value || '').trim();
+    if (!name) return;
+    chatTagsCache = null;
+    const r = await fetch('/api/chat-tags', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    const d = await r.json();
+    if (d.success) {
+        await fetch('/api/dialog-tags', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accountId,peer_id:peerId,tag_id:d.id})});
+        document.getElementById(panelId)?.remove();
+        renderDialogTags(accountId, peerId);
+    } else {
+        alert(d.error || 'Ошибка');
+    }
+}
+
+async function renderDialogTags(accountId, peerId) {
+    const containerId = `dialog-tags-${accountId}-${peerId}`.replace(/[^a-z0-9\-_]/gi, '_');
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const list = await fetch(`/api/dialog-tags?account_id=${encodeURIComponent(accountId)}&peer_id=${encodeURIComponent(peerId)}`).then(r=>r.json());
+    container.innerHTML = list.map(t => `<span class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full" style="background:${t.color}22;color:${t.color};">${t.name}</span>`).join('');
+}
 </script>
 {% endblock %}

@@ -25,3 +25,4 @@ requests==2.31.0
 Flask-Migrate==4.0.5
 qrcode[pil]==8.2
 pillow==12.1.1
+sentry-sdk[flask,celery,sqlalchemy]==2.20.0
