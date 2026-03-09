@@ -125,10 +125,6 @@
                             Массовые операции
                             <span class="badge-new">NEW</span>
                         </a>
-                        <a href="{{ url_for('admin.warming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.warming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i data-lucide="flame" class="w-4 h-4 mr-3 flex-shrink-0"></i>
-                            Прогрев
-                        </a>
                         <a href="{{ url_for('admin.antidetect') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.antidetect' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="shield" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Антидетект
@@ -235,11 +231,6 @@
                         <a href="{{ url_for('admin.number_import') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.number_import' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="plug" class="w-4 h-4 mr-3 flex-shrink-0"></i>
                             Авто-импорт номеров
-                        </a>
-                        <a href="{{ url_for('admin.ai_farming') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.ai_farming' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
-                            <i data-lucide="bot" class="w-4 h-4 mr-3 flex-shrink-0"></i>
-                            AI Фарминг
-                            <span class="badge-new">NEW</span>
                         </a>
                         <a href="{{ url_for('admin.reports') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-colors {% if request.endpoint == 'admin.reports' %}nav-accent-active{% else %}text-gray-500 nav-accent-hover{% endif %}">
                             <i data-lucide="bar-chart-2" class="w-4 h-4 mr-3 flex-shrink-0"></i>
@@ -362,6 +353,11 @@
                 <h1 class="text-base font-semibold text-gray-800">{% block page_title %}{% endblock %}</h1>
             </div>
             <div class="flex items-center gap-2">
+                <!-- Global task status badge -->
+                <a href="{{ url_for('admin.tasks') }}" id="global-tasks-btn" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);background:var(--panel-surface);" title="Активные задачи">
+                    <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin" id="global-tasks-icon"></i>
+                    <span id="global-tasks-count">0</span>
+                </a>
                 <!-- Global search trigger -->
                 <button id="global-search-btn" onclick="openGlobalSearch()" class="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors" style="border-color:var(--panel-border);color:var(--panel-muted);background:var(--panel-surface);" title="Глобальный поиск (Ctrl+K)">
                     <i data-lucide="search" class="w-3.5 h-3.5"></i>
@@ -526,6 +522,42 @@
     (function() {
         'use strict';
 
+        // ── Page-scoped interval registry — cleared on every PJAX navigation ──
+        window._pageIntervals = window._pageIntervals || [];
+        var _origSetInterval = window.setInterval;
+        // Expose on window so page-persistent scripts (e.g. global task badge) can bypass the wrapper
+        window._origSetInterval = _origSetInterval;
+        window.setInterval = function(fn, delay) {
+            var id = _origSetInterval.apply(window, arguments);
+            window._pageIntervals.push(id);
+            return id;
+        };
+
+        function _clearPageIntervals() {
+            (window._pageIntervals || []).forEach(function(id) { clearInterval(id); });
+            window._pageIntervals = [];
+        }
+
+        // ── Chart.js instance registry — destroyed on every PJAX navigation ──
+        window._pageCharts = window._pageCharts || [];
+        if (window.Chart) {
+            var _origChartCtor = window.Chart;
+            window.Chart = function() {
+                var inst = new _origChartCtor(...arguments);
+                window._pageCharts.push(inst);
+                return inst;
+            };
+            Object.assign(window.Chart, _origChartCtor);
+            window.Chart.prototype = _origChartCtor.prototype;
+        }
+
+        function _destroyPageCharts() {
+            (window._pageCharts || []).forEach(function(c) {
+                try { c.destroy(); } catch(e) {}
+            });
+            window._pageCharts = [];
+        }
+
         function pjaxNavigate(url) {
             fetch(url, { credentials: 'same-origin' })
                 .then(function(r) {
@@ -538,6 +570,10 @@
                     if (!newMain) { window.location.href = url; return; }
                     var oldMain = document.getElementById('main-area');
                     if (!oldMain) { window.location.href = url; return; }
+
+                    // Clear page-scoped intervals and Chart.js instances from the previous page
+                    _clearPageIntervals();
+                    _destroyPageCharts();
 
                     // Update document title
                     document.title = doc.title;
@@ -1067,6 +1103,49 @@ window.cancelOpById = async function(opId) {
 
 // expose showToast globally for use in page-specific scripts
 window._showToast = window.showToast;
+</script>
+
+<script>
+// ── Global Task Status Badge ──
+// Polls /api/tasks/active every 15 s and shows a badge in the header
+// when there are running tasks. Independent of PJAX page navigation.
+(function() {
+    // Use the original (unwrapped) setInterval so PJAX cleanup doesn't clear this timer
+    var _nativeSetInterval = window._origSetInterval || window.setInterval;
+
+    function _pluralTasks(n) {
+        // Russian plural: 1 задача, 2-4 задачи, 5+ задач
+        var mod10 = n % 10, mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return n + ' задача';
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return n + ' задачи';
+        return n + ' задач';
+    }
+
+    function _pollGlobalTasks() {
+        fetch('/api/tasks/active')
+            .then(function(r) { return r.json(); })
+            .then(function(tasks) {
+                var running = (tasks || []).filter(function(t) {
+                    return t.status === 'STARTED' || t.status === 'PENDING' || t.status === 'RECEIVED';
+                });
+                var btn = document.getElementById('global-tasks-btn');
+                var cnt = document.getElementById('global-tasks-count');
+                if (!btn || !cnt) return;
+                if (running.length > 0) {
+                    cnt.textContent = _pluralTasks(running.length);
+                    btn.classList.remove('hidden');
+                    btn.classList.add('flex');
+                } else {
+                    btn.classList.add('hidden');
+                    btn.classList.remove('flex');
+                }
+            })
+            .catch(function() {});
+    }
+
+    _pollGlobalTasks();
+    _nativeSetInterval(_pollGlobalTasks, 15000);
+})();
 </script>
 
 <!-- ==========================================

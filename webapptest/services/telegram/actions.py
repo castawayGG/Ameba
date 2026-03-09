@@ -238,15 +238,20 @@ async def send_message_to_chat(account_id: str, chat_id: int, text: str, reply_t
     """Отправить сообщение в конкретный чат."""
     client = await get_telegram_client(account_id)
     try:
-        # Try resolving entity by ID; fall back to direct int peer for user IDs
+        entity = None
         try:
             entity = await client.get_entity(int(chat_id))
         except (ValueError, TypeError):
             entity = int(chat_id)
         except Exception as _ge:
-            # Last resort: send directly using the raw integer peer (e.g. FloodWait, PeerIdInvalid)
             log.debug(f"get_entity fallback for chat {chat_id}: {_ge}")
-            entity = int(chat_id)
+            # Refresh dialog cache so Telethon learns the access_hash for user entities
+            try:
+                await client.get_dialogs(limit=100)
+                entity = await client.get_entity(int(chat_id))
+            except Exception as _de:
+                log.debug(f"get_dialogs fallback failed for chat {chat_id}: {_de}")
+                entity = int(chat_id)
         msg = await client.send_message(entity, text, reply_to=reply_to)
         return {'success': True, 'message_id': msg.id}
     except Exception as e:
