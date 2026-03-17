@@ -27,6 +27,9 @@ backups/
 # Sessions
 sessions/
 
+# Media uploads
+media/
+
 # Instance folder (Flask)
 instance/
 

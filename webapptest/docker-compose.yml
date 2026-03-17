@@ -127,11 +127,12 @@ services:
   nginx:
     image: nginx:alpine
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Uses HTTP-only config by default (local dev / no SSL).
+      # For production with TLS, replace dev.conf with default.conf and
+      # add:  - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf
     ports:
       - "80:80"
-      - "443:443"
     depends_on:
       web:
         condition: service_healthy
