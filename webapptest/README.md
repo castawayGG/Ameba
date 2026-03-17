@@ -7,8 +7,12 @@
 ### 1. Copy and configure environment
 
 ```bash
-cp SYKA/.env.example SYKA/.env
-# Edit SYKA/.env and set all required values
+# Clone the repository and enter the application directory:
+git clone https://github.com/castawayGG/Ameba.git
+cd Ameba/webapptest
+
+cp .env.example .env
+# Edit .env and set all required values
 ```
 
 **Required variables in `.env`:**
@@ -37,29 +41,51 @@ python -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt())
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-### 2. Build and run
+### 2. Build and run (one command)
 
 ```bash
-cd SYKA
-docker compose up --build
+# (inside Ameba/webapptest — already there from step 1)
+./start.sh          # build images and start all services
 ```
 
-Services:
-- **web** – Flask/Gunicorn app on port 8000 (behind Nginx)
-- **nginx** – Reverse proxy on ports 80/443
+Or with Make:
+
+```bash
+make start
+```
+
+Other commands:
+
+```bash
+./start.sh stop     # stop all services
+./start.sh restart  # rebuild and restart
+./start.sh logs     # follow logs
+./start.sh status   # show container status
+```
+
+> **Note:** By default the setup uses HTTP (port 80) for local development.
+> For production with HTTPS, replace `nginx/dev.conf` with `nginx/default.conf`
+> in `docker-compose.yml`, set your domain name and point `/etc/letsencrypt`
+> to your Let's Encrypt certificates.
+
+Services started:
+- **web** – Flask/Gunicorn app (port 8000, behind Nginx)
+- **nginx** – Reverse proxy (port 80; HTTP by default)
 - **postgres** – PostgreSQL database
 - **redis** – Redis (Celery broker + rate limiter backend)
 - **celery_worker** – Celery worker for background tasks
 - **celery_beat** – Celery beat scheduler
+- **flower** – Celery monitoring UI (port 5555)
+- **prometheus** / **loki** / **grafana** – Observability stack
 
 ### 3. Access the admin panel
 
-Navigate to `https://yourdomain.com/admin` (or `http://localhost/admin` without SSL).
+Navigate to `http://localhost/admin`.
 
-## Local Development
+## Local Development (without Docker)
 
 ```bash
-cd SYKA
+# (inside Ameba/webapptest)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -74,7 +100,7 @@ python run.py
 ## Running Tests
 
 ```bash
-cd SYKA
+# (inside Ameba/webapptest)
 pip install pytest
 python -m pytest tests/ -v
 ```
@@ -82,7 +108,7 @@ python -m pytest tests/ -v
 ## Database Migrations
 
 ```bash
-# Inside the SYKA directory with DATABASE_URL set:
+# Inside the webapptest directory with DATABASE_URL set:
 alembic upgrade head
 
 # Auto-generate a new migration after model changes:
@@ -92,7 +118,7 @@ alembic revision --autogenerate -m "describe change"
 ## Architecture
 
 ```
-SYKA/
+webapptest/
 ├── web/               # Flask app
 │   ├── app.py         # Application factory (create_app)
 │   ├── extensions.py  # SQLAlchemy, LoginManager, Limiter, Migrate

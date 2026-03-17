@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
 COPY . .
 
 # Создание необходимых папок для хранения данных
-RUN mkdir -p sessions logs backups
+RUN mkdir -p sessions logs backups media
 
 # Создание непривилегированного пользователя
 RUN adduser --disabled-password --gecos '' appuser \
@@ -26,4 +26,4 @@ USER appuser
 ENV PYTHONPATH=/app
 
 # Entrypoint: run alembic migrations then start gunicorn
-CMD ["sh", "-c", "alembic upgrade head || echo 'Migration failed, continuing with db.create_all() fallback...' && gunicorn -w 4 --worker-class=gthread --threads=4 -b 0.0.0.0:8000 --forwarded-allow-ips='*' web.app:app"]
+CMD ["sh", "-c", "alembic upgrade head && gunicorn -w 4 --worker-class=gthread --threads=4 -b 0.0.0.0:8000 --forwarded-allow-ips='*' web.app:app"]
