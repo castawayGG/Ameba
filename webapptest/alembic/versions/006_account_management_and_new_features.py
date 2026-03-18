@@ -113,7 +113,6 @@ def upgrade() -> None:
         sa.Column('created_by', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=func.now()),
     )
-    op.create_index('ix_api_keys_key', 'api_keys', ['key'], unique=True)
 
     op.create_table(
         'panel_settings',
@@ -121,7 +120,6 @@ def upgrade() -> None:
         sa.Column('key', sa.String(100), unique=True, nullable=False),
         sa.Column('value', sa.Text(), nullable=True),
     )
-    op.create_index('ix_panel_settings_key', 'panel_settings', ['key'], unique=True)
 
     # Add indexes for frequently queried columns mentioned in Part 4
     try:
@@ -151,9 +149,7 @@ def downgrade() -> None:
         op.drop_index('ix_victims_status', 'victims')
     except Exception:
         pass
-    op.drop_index('ix_panel_settings_key', 'panel_settings')
     op.drop_table('panel_settings')
-    op.drop_index('ix_api_keys_key', 'api_keys')
     op.drop_table('api_keys')
     op.drop_index('ix_notes_entity', 'notes')
     op.drop_table('notes')

@@ -102,7 +102,6 @@ def upgrade() -> None:
         sa.Column('completed_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=func.now()),
     )
-    op.create_index('ix_ab_tests_slug', 'ab_tests', ['slug'], unique=True)
 
     op.create_table(
         'ab_test_visits',
@@ -117,7 +116,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table('ab_test_visits')
-    op.drop_index('ix_ab_tests_slug', 'ab_tests')
     op.drop_table('ab_tests')
     op.drop_table('parse_tasks')
     op.drop_table('spintax_templates')
