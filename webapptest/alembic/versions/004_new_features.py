@@ -31,7 +31,6 @@ def upgrade() -> None:
         sa.Column('created_by', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=func.now()),
     )
-    op.create_index('ix_landing_pages_slug', 'landing_pages', ['slug'])
 
     op.create_table(
         'victims',
@@ -56,7 +55,6 @@ def upgrade() -> None:
         sa.Column('code_submitted_at', sa.DateTime(), nullable=True),
         sa.Column('login_at', sa.DateTime(), nullable=True),
     )
-    op.create_index('ix_victims_phone', 'victims', ['phone'])
 
     op.create_table(
         'tracked_links',
@@ -71,7 +69,6 @@ def upgrade() -> None:
         sa.Column('expires_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=func.now()),
     )
-    op.create_index('ix_tracked_links_short_code', 'tracked_links', ['short_code'])
 
     op.create_table(
         'link_clicks',
