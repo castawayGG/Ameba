@@ -230,45 +230,66 @@
     <div class="fixed inset-0 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md modal-panel border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i data-lucide="cloud-download" class="w-4 h-4 mr-2 text-blue-400"></i>Автозагрузка прокси</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><i data-lucide="cloud-download" class="w-4 h-4 mr-2 text-blue-400"></i>Авто-Загрузка прокси</h3>
                 <button onclick="closeModal('autoLoadModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <form method="POST" action="{{ url_for('admin.proxies_auto_load') }}" class="px-6 py-5 space-y-4">
-                <p class="text-sm text-gray-500 dark:text-gray-400">Загрузить бесплатные прокси из публичных источников. Можно отфильтровать по типу и стране.</p>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">Загрузить заданное количество бесплатных прокси из публичных источников для выбранного региона.</p>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тип прокси</label>
-                    <select name="proxy_type" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Все типы</option>
-                        <option value="socks5">SOCKS5</option>
-                        <option value="socks4">SOCKS4</option>
-                        <option value="http">HTTP</option>
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Количество <span class="text-red-500">*</span></label>
+                    <input type="number" id="auto-upload-count" min="1" max="1000" value="10" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1–1000">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Страна (ISO код)</label>
-                    <select name="country" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Все страны</option>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Регион <span class="text-red-500">*</span></label>
+                    <select id="auto-upload-region" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="US">🇺🇸 США (US)</option>
                         <option value="DE">🇩🇪 Германия (DE)</option>
                         <option value="NL">🇳🇱 Нидерланды (NL)</option>
                         <option value="GB">🇬🇧 Великобритания (GB)</option>
                         <option value="FR">🇫🇷 Франция (FR)</option>
-                        <option value="RU">🇷🇺 Россия (RU)</option>
+                        <option value="RU" selected>🇷🇺 Россия (RU)</option>
                         <option value="UA">🇺🇦 Украина (UA)</option>
                         <option value="CA">🇨🇦 Канада (CA)</option>
                         <option value="JP">🇯🇵 Япония (JP)</option>
                         <option value="SG">🇸🇬 Сингапур (SG)</option>
                         <option value="BR">🇧🇷 Бразилия (BR)</option>
                         <option value="IN">🇮🇳 Индия (IN)</option>
+                        <option value="TR">🇹🇷 Турция (TR)</option>
+                        <option value="CN">🇨🇳 Китай (CN)</option>
+                        <option value="KR">🇰🇷 Южная Корея (KR)</option>
+                        <option value="PL">🇵🇱 Польша (PL)</option>
+                        <option value="ES">🇪🇸 Испания (ES)</option>
+                        <option value="IT">🇮🇹 Италия (IT)</option>
+                        <option value="VN">🇻🇳 Вьетнам (VN)</option>
+                        <option value="ID">🇮🇩 Индонезия (ID)</option>
+                        <option value="TH">🇹🇭 Таиланд (TH)</option>
                     </select>
                 </div>
-                <div class="flex justify-end gap-3 pt-2">
-                    <button type="button" onclick="closeModal('autoLoadModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Отмена</button>
-                    <button type="submit" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"><i data-lucide="cloud-download" class="w-4 h-4 mr-1"></i>Загрузить</button>
+                <!-- Progress indicator -->
+                <div id="auto-upload-progress" class="hidden">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Загрузка и определение региона прокси…</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div class="bg-blue-500 h-1.5 rounded-full animate-pulse" style="width:60%"></div>
+                    </div>
                 </div>
-            </form>
+                <!-- Result -->
+                <div id="auto-upload-result" class="hidden rounded-lg p-3 text-sm"></div>
+                <!-- Download button -->
+                <div id="auto-upload-download" class="hidden">
+                    <button onclick="downloadAutoUploadProxies()" class="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                        <i data-lucide="download" class="w-4 h-4"></i>Скачать список добавленных прокси
+                    </button>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('autoLoadModal')" class="text-sm px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors">Закрыть</button>
+                    <button id="auto-upload-btn" onclick="startAutoUpload()" class="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"><i data-lucide="cloud-download" class="w-4 h-4 mr-1 inline"></i>Авто-Загрузка</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -483,6 +504,95 @@ async function rotateProxy(id, btn) {
         btn.disabled = false;
         btn.style.opacity = '';
     }
+}
+
+// --- Auto-Upload ---
+let _autoUploadProxies = [];
+
+async function startAutoUpload() {
+    const countInput = document.getElementById('auto-upload-count');
+    const regionSelect = document.getElementById('auto-upload-region');
+    const progressEl = document.getElementById('auto-upload-progress');
+    const resultEl = document.getElementById('auto-upload-result');
+    const downloadEl = document.getElementById('auto-upload-download');
+    const btn = document.getElementById('auto-upload-btn');
+
+    const count = parseInt(countInput.value, 10);
+    const region = regionSelect.value;
+
+    if (!count || count < 1 || count > 1000) {
+        showToast('Укажите количество от 1 до 1000', 'warning');
+        return;
+    }
+    if (!region) {
+        showToast('Выберите регион', 'warning');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Загрузка…';
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    downloadEl.classList.add('hidden');
+    _autoUploadProxies = [];
+
+    try {
+        const res = await fetch('/admin/proxies/auto-upload', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({region, count})
+        });
+        const data = await res.json();
+
+        progressEl.classList.add('hidden');
+
+        if (res.status === 201) {
+            _autoUploadProxies = data.proxies || [];
+            const isPartialSuccess = data.created < data.requested;
+            resultEl.className = `rounded-lg p-3 text-sm ${isPartialSuccess ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700' : 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700'}`;
+            let html = `<div class="font-medium mb-1">Создано ${data.created} из ${data.requested} прокси (регион: ${region})</div>`;
+            if (data.errors && data.errors.length) {
+                html += `<div class="mt-1 text-xs opacity-80">Ошибки/причины:<ul class="list-disc list-inside mt-0.5 space-y-0.5">`;
+                data.errors.forEach(e => { html += `<li>${e}</li>`; });
+                html += `</ul></div>`;
+            }
+            resultEl.innerHTML = html;
+            resultEl.classList.remove('hidden');
+            if (_autoUploadProxies.length > 0) {
+                downloadEl.classList.remove('hidden');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            showToast(`Авто-загрузка завершена: создано ${data.created} прокси`, isPartialSuccess ? 'warning' : 'success');
+            if (data.created > 0) setTimeout(() => location.reload(), 2500);
+        } else {
+            resultEl.className = 'rounded-lg p-3 text-sm bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700';
+            resultEl.textContent = 'Ошибка: ' + (data.error || 'Unknown');
+            resultEl.classList.remove('hidden');
+            showToast('Ошибка авто-загрузки', 'error');
+        }
+    } catch(e) {
+        progressEl.classList.add('hidden');
+        resultEl.className = 'rounded-lg p-3 text-sm bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700';
+        resultEl.textContent = 'Ошибка запроса: ' + e.message;
+        resultEl.classList.remove('hidden');
+        showToast('Ошибка запроса', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="cloud-download" class="w-4 h-4 mr-1 inline"></i>Авто-Загрузка';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+function downloadAutoUploadProxies() {
+    if (!_autoUploadProxies.length) return;
+    const lines = _autoUploadProxies.map(p => `${p.type}://${p.host}:${p.port}`);
+    const blob = new Blob([lines.join('\n')], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `proxies_auto_upload_${document.getElementById('auto-upload-region').value}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 </script>
 {% endblock %}

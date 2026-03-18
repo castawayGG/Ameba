@@ -1522,6 +1522,80 @@ def proxies_auto_load():
     return redirect(url_for('admin.proxies'))
 
 
+# Valid ISO 3166-1 alpha-2 region codes supported for auto-upload
+_VALID_REGIONS = {
+    'AF', 'AL', 'DZ', 'AD', 'AO', 'AG', 'AR', 'AM', 'AU', 'AT', 'AZ', 'BS', 'BH',
+    'BD', 'BB', 'BY', 'BE', 'BZ', 'BJ', 'BT', 'BO', 'BA', 'BW', 'BR', 'BN', 'BG',
+    'BF', 'BI', 'CV', 'KH', 'CM', 'CA', 'CF', 'TD', 'CL', 'CN', 'CO', 'KM', 'CG',
+    'CD', 'CR', 'HR', 'CU', 'CY', 'CZ', 'DK', 'DJ', 'DM', 'DO', 'EC', 'EG', 'SV',
+    'GQ', 'ER', 'EE', 'SZ', 'ET', 'FJ', 'FI', 'FR', 'GA', 'GM', 'GE', 'DE', 'GH',
+    'GR', 'GD', 'GT', 'GN', 'GW', 'GY', 'HT', 'HN', 'HU', 'IS', 'IN', 'ID', 'IR',
+    'IQ', 'IE', 'IL', 'IT', 'JM', 'JP', 'JO', 'KZ', 'KE', 'KI', 'KP', 'KR', 'KW',
+    'KG', 'LA', 'LV', 'LB', 'LS', 'LR', 'LY', 'LI', 'LT', 'LU', 'MG', 'MW', 'MY',
+    'MV', 'ML', 'MT', 'MH', 'MR', 'MU', 'MX', 'FM', 'MD', 'MC', 'MN', 'ME', 'MA',
+    'MZ', 'MM', 'NA', 'NR', 'NP', 'NL', 'NZ', 'NI', 'NE', 'NG', 'NO', 'OM', 'PK',
+    'PW', 'PA', 'PG', 'PY', 'PE', 'PH', 'PL', 'PT', 'QA', 'RO', 'RU', 'RW', 'KN',
+    'LC', 'VC', 'WS', 'SM', 'ST', 'SA', 'SN', 'RS', 'SC', 'SL', 'SG', 'SK', 'SI',
+    'SB', 'SO', 'ZA', 'SS', 'ES', 'LK', 'SD', 'SR', 'SE', 'CH', 'SY', 'TW', 'TJ',
+    'TZ', 'TH', 'TL', 'TG', 'TO', 'TT', 'TN', 'TR', 'TM', 'TV', 'UG', 'UA', 'AE',
+    'GB', 'US', 'UY', 'UZ', 'VU', 'VE', 'VN', 'YE', 'ZM', 'ZW',
+}
+
+
+@admin_bp.route('/proxies/auto-upload', methods=['POST'])
+@login_required
+@admin_required
+def proxies_auto_upload():
+    """
+    POST /admin/proxies/auto-upload
+    Тело: { "region": "RU", "count": 10 }
+    Ответ 201: { "created": 10, "requested": 10, "errors": [] }
+    """
+    from core.config import Config
+    data = request.get_json(silent=True) or {}
+
+    # --- Валидация count ---
+    raw_count = data.get('count')
+    if raw_count is None:
+        return jsonify({'error': 'Поле "count" обязательно'}), 400
+    try:
+        count = int(raw_count)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Поле "count" должно быть целым числом'}), 400
+    max_count = getattr(Config, 'PROXY_AUTO_UPLOAD_MAX', 1000)
+    if count < 1:
+        return jsonify({'error': 'Поле "count" должно быть не менее 1'}), 400
+    if count > max_count:
+        return jsonify({'error': f'Поле "count" не может превышать {max_count}'}), 400
+
+    # --- Валидация region ---
+    region = (data.get('region') or '').strip().upper()
+    if not region:
+        return jsonify({'error': 'Поле "region" обязательно'}), 400
+    if region not in _VALID_REGIONS:
+        return jsonify({'error': f'Недопустимый код региона: {region}'}), 400
+
+    # --- Выполнение ---
+    try:
+        from tasks.proxy_autoloader import auto_upload_proxies
+        result = auto_upload_proxies(region=region, count=count)
+    except Exception as e:
+        log.exception(f"proxies_auto_upload: {e}")
+        return jsonify({'error': f'Внутренняя ошибка: {e}'}), 500
+
+    log_action(
+        'proxies_auto_upload',
+        f'region={region}, count={count}, created={result["created"]}, errors={len(result["errors"])}'
+    )
+
+    return jsonify({
+        'created': result['created'],
+        'requested': result['requested'],
+        'errors': result['errors'],
+        'proxies': result.get('proxies', []),
+    }), 201
+
+
 # --- STATS API ---
 @admin_bp.route('/api/stats')
 @login_required

@@ -60,6 +60,7 @@ class Config:
 
     # Auto proxy loading: interval in hours for scheduled refresh
     PROXY_REFRESH_HOURS = int(os.getenv('PROXY_REFRESH_HOURS', 6))
+    PROXY_AUTO_UPLOAD_MAX = int(os.getenv('PROXY_AUTO_UPLOAD_MAX', 1000))
 
     # Cloudflare Turnstile (captcha on landings)
     TURNSTILE_SITE_KEY = os.getenv('TURNSTILE_SITE_KEY', '')
