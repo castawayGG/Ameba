@@ -100,6 +100,10 @@ def _partition_account_logs():
     # Шаг 1: переименовываем существующую таблицу
     conn.execute(sa.text('ALTER TABLE account_logs RENAME TO account_logs_legacy'))
 
+    # Rename old indexes so they don't conflict with new ones
+    conn.execute(sa.text('ALTER INDEX IF EXISTS ix_account_logs_account_id RENAME TO ix_account_logs_legacy_account_id'))
+    conn.execute(sa.text('ALTER INDEX IF EXISTS ix_account_logs_created_at RENAME TO ix_account_logs_legacy_created_at'))
+
     # Шаг 2: создаём новую секционированную таблицу
     conn.execute(sa.text("""
         CREATE TABLE account_logs (
