@@ -121,34 +121,16 @@ def upgrade() -> None:
         sa.Column('value', sa.Text(), nullable=True),
     )
 
-    # Add indexes for frequently queried columns mentioned in Part 4
-    try:
-        op.create_index('ix_victims_status', 'victims', ['status'])
-    except Exception:
-        pass
-    try:
-        op.create_index('ix_accounts_status', 'accounts', ['status'])
-    except Exception:
-        pass
-    try:
-        op.create_index('ix_admin_logs_timestamp', 'admin_logs', ['timestamp'])
-    except Exception:
-        pass
+    # Add indexes for frequently queried columns
+    # Note: ix_admin_logs_timestamp is NOT created here because admin_logs.timestamp
+    # already has index=True in 000_initial_schema.py
+    op.create_index('ix_victims_status', 'victims', ['status'])
+    op.create_index('ix_accounts_status', 'accounts', ['status'])
 
 
 def downgrade() -> None:
-    try:
-        op.drop_index('ix_admin_logs_timestamp', 'admin_logs')
-    except Exception:
-        pass
-    try:
-        op.drop_index('ix_accounts_status', 'accounts')
-    except Exception:
-        pass
-    try:
-        op.drop_index('ix_victims_status', 'victims')
-    except Exception:
-        pass
+    op.drop_index('ix_accounts_status', 'accounts')
+    op.drop_index('ix_victims_status', 'victims')
     op.drop_table('panel_settings')
     op.drop_table('api_keys')
     op.drop_index('ix_notes_entity', 'notes')
